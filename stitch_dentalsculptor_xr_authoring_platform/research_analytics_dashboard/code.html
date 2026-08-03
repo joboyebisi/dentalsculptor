@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>DentalSculptor - Research Analytics Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "secondary-container": "#6df5e1",
+                        "on-error": "#ffffff",
+                        "surface-bright": "#f7f9fb",
+                        "secondary-fixed-dim": "#4fdbc8",
+                        "outline-variant": "#c4c6d3",
+                        "text-main": "#0F172A",
+                        "inverse-surface": "#2d3133",
+                        "tertiary-container": "#752a00",
+                        "on-surface": "#191c1e",
+                        "inverse-primary": "#b2c5ff",
+                        "surface-container-high": "#e6e8ea",
+                        "surface-container-lowest": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "on-primary": "#ffffff",
+                        "error": "#ba1a1a",
+                        "surface": "#f7f9fb",
+                        "surface-container": "#eceef0",
+                        "tertiary-fixed-dim": "#ffb596",
+                        "surface-dim": "#d8dadc",
+                        "on-primary-container": "#8eadff",
+                        "primary-fixed-dim": "#b2c5ff",
+                        "on-tertiary-fixed": "#360f00",
+                        "research-indigo": "#4F46E5",
+                        "border-subtle": "#E2E8F0",
+                        "secondary-fixed": "#71f8e4",
+                        "outline": "#747783",
+                        "tertiary-fixed": "#ffdbcd",
+                        "ai-purple": "#7C3AED",
+                        "surface-container-highest": "#e0e3e5",
+                        "tertiary": "#511b00",
+                        "on-tertiary-container": "#fe9261",
+                        "panel-bg": "#FFFFFF",
+                        "on-secondary-fixed": "#00201c",
+                        "on-surface-variant": "#434652",
+                        "primary-container": "#0f3d91",
+                        "surface-tint": "#365aaf",
+                        "surface-container-low": "#f2f4f6",
+                        "on-tertiary-fixed-variant": "#7b2f04",
+                        "on-primary-fixed": "#001848",
+                        "background": "#f7f9fb",
+                        "inverse-on-surface": "#eff1f3",
+                        "on-secondary-container": "#006f64",
+                        "secondary": "#006b5f",
+                        "on-secondary-fixed-variant": "#005048",
+                        "surface-variant": "#e0e3e5",
+                        "error-container": "#ffdad6",
+                        "on-primary-fixed-variant": "#174296",
+                        "on-background": "#191c1e",
+                        "on-tertiary": "#ffffff",
+                        "primary-fixed": "#dae2ff",
+                        "primary": "#00286a",
+                        "on-secondary": "#ffffff"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    spacing: {
+                        "margin-page": "24px",
+                        "unit-xs": "4px",
+                        "unit-sm": "8px",
+                        "sidebar-width": "240px",
+                        "gutter": "12px",
+                        "unit-md": "16px",
+                        "property-panel-width": "300px"
+                    },
+                    fontFamily: {
+                        "label-caps": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "label-mono": ["JetBrains Mono"],
+                        "headline-md": ["Inter"],
+                        "body-md": ["Inter"],
+                        "display-lg": ["Inter"]
+                    },
+                    fontSize: {
+                        "label-caps": ["11px", { lineHeight: "12px", letterSpacing: "0.08em", fontWeight: "700" }],
+                        "body-sm": ["13px", { lineHeight: "18px", fontWeight: "400" }],
+                        "label-mono": ["12px", { lineHeight: "16px", letterSpacing: "0.05em", fontWeight: "500" }],
+                        "headline-md": ["20px", { lineHeight: "28px", fontWeight: "600" }],
+                        "body-md": ["14px", { lineHeight: "20px", fontWeight: "400" }],
+                        "display-lg": ["32px", { lineHeight: "40px", letterSpacing: "-0.02em", fontWeight: "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md antialiased h-screen overflow-hidden flex">
+<!-- SideNavBar -->
+<nav class="bg-panel-bg text-primary font-body-md docked left-0 h-full w-[240px] border-r border-border-subtle flat no shadows fixed top-0 z-40 flex flex-col hidden md:flex">
+<div class="p-6">
+<h1 class="font-headline-md text-headline-md font-bold text-primary">DentalSculptor</h1>
+<p class="text-body-sm text-on-surface-variant mt-1">Precision Platform</p>
+</div>
+<div class="flex flex-col flex-1 mt-4 px-3 space-y-1">
+<a class="flex items-center space-x-3 px-3 py-2.5 rounded-DEFAULT text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>
+<span class="font-body-md">Dashboard</span>
+</a>
+<a class="flex items-center space-x-3 px-3 py-2.5 rounded-DEFAULT text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">view_in_ar</span>
+<span class="font-body-md">Projects</span>
+</a>
+<a class="flex items-center space-x-3 px-3 py-2.5 rounded-DEFAULT text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">groups</span>
+<span class="font-body-md">Community</span>
+</a>
+<a class="flex items-center space-x-3 px-3 py-2.5 rounded-DEFAULT text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">school</span>
+<span class="font-body-md">Students</span>
+</a>
+<a class="flex items-center space-x-3 px-3 py-2.5 rounded-DEFAULT text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">analytics</span>
+<span class="font-body-md">Analytics</span>
+</a>
+<!-- Active State: Research -->
+<a class="flex items-center space-x-3 px-3 py-2.5 rounded-DEFAULT text-primary border-l-4 border-primary font-bold bg-surface-container-lowest shadow-[inset_2px_0_0_0_rgba(15,61,145,0.05)] scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">biotech</span>
+<span class="font-body-md">Research</span>
+</a>
+<a class="flex items-center space-x-3 px-3 py-2.5 rounded-DEFAULT text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors mt-auto mb-4" href="#">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+<span class="font-body-md">Settings</span>
+</a>
+</div>
+</nav>
+<!-- TopNavBar -->
+<header class="bg-panel-bg/70 backdrop-blur-xl text-primary font-body-sm docked top-0 right-0 w-full md:w-[calc(100%-240px)] border-b border-border-subtle flat no shadows fixed z-30 flex justify-between items-center px-margin-page h-16 ml-0 md:ml-sidebar-width">
+<div class="flex items-center">
+<!-- Mobile Menu Toggle (Visible only on small screens) -->
+<button class="md:hidden mr-4 text-on-surface-variant">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<div class="relative hidden sm:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 transform -translate-y-1/2 text-outline text-[18px]">search</span>
+<input class="pl-9 pr-4 py-1.5 bg-surface-container-low border-none rounded-DEFAULT text-body-sm text-on-surface focus:ring-1 focus:ring-primary w-64 outline-none" placeholder="Search analytics..." type="text"/>
+</div>
+</div>
+<div class="flex items-center space-x-6">
+<nav class="hidden lg:flex space-x-6">
+<a class="text-on-surface-variant hover:text-primary transition-opacity font-body-sm" href="#">Models</a>
+<a class="text-on-surface-variant hover:text-primary transition-opacity font-body-sm" href="#">Simulations</a>
+<!-- Active Sub-Nav Context -->
+<a class="text-primary border-b-2 border-primary pb-1 opacity-80 transition-all duration-200 font-body-sm font-semibold" href="#">Export</a>
+</nav>
+<div class="flex items-center space-x-4 border-l border-border-subtle pl-6 ml-2">
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]">help</span>
+</button>
+<button class="px-3 py-1.5 text-body-sm font-semibold text-primary border border-border-subtle rounded-DEFAULT hover:bg-surface-container-low transition-colors hidden sm:block">Collaborate</button>
+<button class="px-3 py-1.5 text-body-sm font-semibold text-on-primary bg-primary-container rounded-DEFAULT hover:opacity-90 transition-opacity flex items-center space-x-1">
+<span class="material-symbols-outlined text-[16px]">magic_button</span>
+<span>AI Generate</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-variant overflow-hidden ml-2 border border-border-subtle">
+<img alt="User Surgeon Profile" class="w-full h-full object-cover" data-alt="A clean, highly detailed, well-lit professional headshot of a dental surgeon in scrubs, set against a pristine white clinical background, embodying trust and precision, suited for a light-mode SaaS application avatar." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB8lDM2zk_qRVjmLFWhApR77PLnjlNKBa6xLQQ3aPhL5khGdNx-UUBu05ZAOATNuMNtqFJuYXe6Dpz67YEBkfqcWK4B36D7OhhHOxvo4IrrOQRyxsd59jI4WTpgL8jyBz0hAmJ9nWINb2cojzQCDx2FYriBdlEimRDAAvSR-LJiPbpnjbGzATbLYWqXAI8CR01j_200jKuEjeNpG50txc1P_uz2BygnDPV50yNGLI30tc9md-EhQSYQzA"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="flex-1 ml-0 md:ml-sidebar-width mt-16 p-margin-page overflow-y-auto bg-background flex gap-gutter">
+<!-- Left Column: Primary Analytics Canvas -->
+<div class="flex-1 flex flex-col gap-gutter min-w-[600px]">
+<!-- Header -->
+<div class="mb-2">
+<h2 class="font-headline-md text-headline-md text-text-main">Pedagogical Ownership Analytics</h2>
+<p class="font-body-md text-outline mt-1">Doctoral Research View: Tracking student agency and control during virtual sculpting sessions.</p>
+</div>
+<!-- Bento Grid Structure -->
+<div class="grid grid-cols-2 gap-gutter">
+<!-- Section A: Pedagogical Ownership Metrics -->
+<div class="col-span-2 bg-panel-bg rounded-lg border border-border-subtle p-6 shadow-sm">
+<div class="flex justify-between items-center mb-6">
+<h3 class="font-label-caps text-label-caps text-on-surface-variant">Aggregate Ownership Metrics</h3>
+<span class="px-2 py-1 bg-surface-container-low text-research-indigo font-label-mono text-label-mono rounded-DEFAULT border border-border-subtle">Cohort: D3-2024</span>
+</div>
+<div class="grid grid-cols-4 gap-4">
+<!-- Metric Card 1 -->
+<div class="flex flex-col">
+<span class="font-body-sm text-outline mb-1">Perceived Control</span>
+<div class="flex items-baseline space-x-2">
+<span class="font-display-lg text-display-lg text-text-main">84%</span>
+<span class="font-label-mono text-label-mono text-secondary">↑ 2.1%</span>
+</div>
+<div class="w-full h-1 bg-surface-variant rounded-full mt-3 overflow-hidden">
+<div class="h-full bg-research-indigo w-[84%]"></div>
+</div>
+</div>
+<!-- Metric Card 2 -->
+<div class="flex flex-col">
+<span class="font-body-sm text-outline mb-1">Creative Agency</span>
+<div class="flex items-baseline space-x-2">
+<span class="font-display-lg text-display-lg text-text-main">76%</span>
+<span class="font-label-mono text-label-mono text-secondary">↑ 0.5%</span>
+</div>
+<div class="w-full h-1 bg-surface-variant rounded-full mt-3 overflow-hidden">
+<div class="h-full bg-research-indigo w-[76%]"></div>
+</div>
+</div>
+<!-- Metric Card 3 -->
+<div class="flex flex-col">
+<span class="font-body-sm text-outline mb-1">Technical Confidence</span>
+<div class="flex items-baseline space-x-2">
+<span class="font-display-lg text-display-lg text-text-main">91%</span>
+<span class="font-label-mono text-label-mono text-secondary">↑ 4.3%</span>
+</div>
+<div class="w-full h-1 bg-surface-variant rounded-full mt-3 overflow-hidden">
+<div class="h-full bg-research-indigo w-[91%]"></div>
+</div>
+</div>
+<!-- Metric Card 4 -->
+<div class="flex flex-col">
+<span class="font-body-sm text-outline mb-1">Personalization Index</span>
+<div class="flex items-baseline space-x-2">
+<span class="font-display-lg text-display-lg text-text-main">62%</span>
+<span class="font-label-mono text-label-mono text-error">↓ 1.2%</span>
+</div>
+<div class="w-full h-1 bg-surface-variant rounded-full mt-3 overflow-hidden">
+<div class="h-full bg-surface-tint w-[62%]"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Section B: Authoring Behavior Analytics -->
+<div class="col-span-1 bg-panel-bg rounded-lg border border-border-subtle p-5 shadow-sm flex flex-col">
+<h3 class="font-label-caps text-label-caps text-on-surface-variant mb-4 border-b border-border-subtle pb-2">Editing Session Density</h3>
+<div class="flex-1 min-h-[200px] relative rounded-DEFAULT overflow-hidden border border-border-subtle bg-surface-container-lowest">
+<!-- Placeholder for a heatmap visualization -->
+<div class="absolute inset-0 bg-gradient-to-br from-surface to-surface-container-low opacity-50"></div>
+<div class="absolute bottom-4 left-4 right-4 h-32 flex items-end justify-between px-2">
+<div class="w-[8%] bg-surface-variant h-[20%] rounded-t-sm"></div>
+<div class="w-[8%] bg-primary-fixed h-[40%] rounded-t-sm"></div>
+<div class="w-[8%] bg-on-primary-container h-[70%] rounded-t-sm"></div>
+<div class="w-[8%] bg-primary-container h-[90%] rounded-t-sm"></div>
+<div class="w-[8%] bg-on-primary-container h-[60%] rounded-t-sm"></div>
+<div class="w-[8%] bg-primary-fixed h-[30%] rounded-t-sm"></div>
+<div class="w-[8%] bg-surface-variant h-[10%] rounded-t-sm"></div>
+</div>
+<div class="absolute bottom-0 w-full flex justify-between px-4 py-1 text-[10px] text-outline font-label-mono border-t border-border-subtle bg-panel-bg/80 backdrop-blur-sm">
+<span>0 min</span>
+<span>Session Duration (Heat)</span>
+<span>120 min</span>
+</div>
+</div>
+</div>
+<!-- Section C: AI Interaction Data -->
+<div class="col-span-1 bg-panel-bg rounded-lg border border-border-subtle p-5 shadow-sm flex flex-col">
+<h3 class="font-label-caps text-label-caps text-on-surface-variant mb-4 border-b border-border-subtle pb-2 flex items-center justify-between">
+<span>AI Suggestion Uptake</span>
+<span class="material-symbols-outlined text-[16px] text-ai-purple">magic_button</span>
+</h3>
+<div class="flex-1 flex flex-col justify-center space-y-6">
+<div>
+<div class="flex justify-between text-body-sm mb-1">
+<span class="text-text-main font-semibold">Morphological Corrections (Accepted)</span>
+<span class="font-label-mono text-outline">432</span>
+</div>
+<div class="w-full h-2 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-ai-purple w-[75%] rounded-full"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-body-sm mb-1">
+<span class="text-text-main font-semibold">Margin Line Adjustments (Rejected)</span>
+<span class="font-label-mono text-outline">189</span>
+</div>
+<div class="w-full h-2 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-surface-variant w-[35%] rounded-full"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-body-sm mb-1">
+<span class="text-text-main font-semibold">Material Thickness Warnings (Ignored)</span>
+<span class="font-label-mono text-outline">67</span>
+</div>
+<div class="w-full h-2 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-surface-dim w-[15%] rounded-full"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column: Data Export & Raw Table Panel (Section D) -->
+<aside class="w-property-panel-width flex-shrink-0 bg-panel-bg border border-border-subtle rounded-lg flex flex-col h-[calc(100vh-6rem)] shadow-sm">
+<div class="p-4 border-b border-border-subtle flex justify-between items-center bg-surface-bright rounded-t-lg">
+<h3 class="font-label-caps text-label-caps text-on-surface-variant">Export &amp; Logs</h3>
+<button class="text-primary hover:text-primary-container">
+<span class="material-symbols-outlined text-[18px]">download</span>
+</button>
+</div>
+<div class="p-4 border-b border-border-subtle flex space-x-2">
+<button class="flex-1 py-1.5 px-3 bg-surface-container-low border border-border-subtle rounded-DEFAULT font-label-mono text-label-mono text-text-main hover:bg-surface-variant transition-colors text-center">CSV</button>
+<button class="flex-1 py-1.5 px-3 bg-research-indigo text-on-primary rounded-DEFAULT font-label-mono text-label-mono hover:opacity-90 transition-colors text-center shadow-[0_2px_4px_rgba(79,70,229,0.2)]">JSON</button>
+</div>
+<div class="flex-1 overflow-y-auto p-0">
+<table class="w-full text-left border-collapse">
+<thead class="sticky top-0 bg-surface-bright shadow-[0_1px_0_0_#E2E8F0]">
+<tr>
+<th class="font-label-caps text-label-caps text-outline px-4 py-2 border-r border-border-subtle w-16">ID</th>
+<th class="font-label-caps text-label-caps text-outline px-4 py-2 border-r border-border-subtle">Event Type</th>
+<th class="font-label-caps text-label-caps text-outline px-4 py-2">Val</th>
+</tr>
+</thead>
+<tbody class="font-label-mono text-label-mono text-text-main text-[11px]">
+<tr class="border-b border-border-subtle hover:bg-surface-container-lowest">
+<td class="px-4 py-3 border-r border-border-subtle text-outline">REQ-1A</td>
+<td class="px-4 py-3 border-r border-border-subtle">Mesh_Deform</td>
+<td class="px-4 py-3 text-secondary">0.94</td>
+</tr>
+<tr class="border-b border-border-subtle hover:bg-surface-container-lowest">
+<td class="px-4 py-3 border-r border-border-subtle text-outline">REQ-1B</td>
+<td class="px-4 py-3 border-r border-border-subtle">AI_Suggest_Rj</td>
+<td class="px-4 py-3 text-error">-0.12</td>
+</tr>
+<tr class="border-b border-border-subtle hover:bg-surface-container-lowest bg-surface-container-low/30">
+<td class="px-4 py-3 border-r border-border-subtle text-outline">REQ-1C</td>
+<td class="px-4 py-3 border-r border-border-subtle">Tool_Swap_B1</td>
+<td class="px-4 py-3 text-secondary">1.00</td>
+</tr>
+<tr class="border-b border-border-subtle hover:bg-surface-container-lowest">
+<td class="px-4 py-3 border-r border-border-subtle text-outline">REQ-2A</td>
+<td class="px-4 py-3 border-r border-border-subtle">Cam_Orbit</td>
+<td class="px-4 py-3 text-outline">0.00</td>
+</tr>
+<tr class="border-b border-border-subtle hover:bg-surface-container-lowest">
+<td class="px-4 py-3 border-r border-border-subtle text-outline">REQ-2B</td>
+<td class="px-4 py-3 border-r border-border-subtle">Save_State</td>
+<td class="px-4 py-3 text-secondary">1.00</td>
+</tr>
+</tbody>
+</table>
+</div>
+</aside>
+</main>
+</body></html>

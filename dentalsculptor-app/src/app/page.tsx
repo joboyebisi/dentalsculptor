@@ -1,0 +1,212 @@
+"use client";
+
+import Link from "next/link";
+import { ImagePlus, Factory, Box, Library, GraduationCap, BookOpen } from "lucide-react";
+import { PublicNav, PublicFooter } from "@/components/layout/public-nav";
+import { Button } from "@/components/ui/button";
+import { AppLogo } from "@/components/brand/app-logo";
+import { LandingModelProvider } from "@/context/landing-model-context";
+import { LandingImageUploader } from "@/components/landing/landing-image-uploader";
+import { LandingModelPanel } from "@/components/landing/landing-model-panel";
+
+const steps = [
+  {
+    icon: ImagePlus,
+    title: "Upload",
+    description: "Add a dental photograph, scan, or teaching image.",
+  },
+  {
+    icon: Factory,
+    title: "Generate",
+    description: "Create an editable 3D representation from your image.",
+  },
+  {
+    icon: Box,
+    title: "Author",
+    description:
+      "Refine anatomy with AI-aided semantic edits, label structures, and export STL files for haptic dental simulators, VR headsets, and classroom teaching.",
+  },
+];
+
+const communitySpotlights = [
+  {
+    title: "Restorative case studies",
+    category: "Restorative Dentistry",
+    description:
+      "Share occlusal caries simulations and crown-preparation scenarios that students can explore in 3D before bench practice.",
+  },
+  {
+    title: "Endodontic anatomy explorers",
+    category: "Endodontics",
+    description:
+      "Publish pulp chamber and canal anatomy models for pre-clinical revision, assessment design, and immersive lab briefings.",
+  },
+  {
+    title: "Assessment-ready modules",
+    category: "Assessment Design",
+    description:
+      "Contribute annotated models with learning objectives and prompts that colleagues can adapt for their own cohorts.",
+  },
+];
+
+export default function LandingPage() {
+  return (
+    <LandingModelProvider>
+      <div className="min-h-screen bg-background">
+        <PublicNav />
+
+        {/* Hero */}
+        <section className="border-b border-border-subtle bg-gradient-to-b from-surface-container-low to-background pt-14">
+          <div className="mx-auto max-w-3xl px-margin-page py-16 text-center md:py-20">
+            <div className="mb-6 flex justify-center">
+              <AppLogo size="lg" href={null} showWordmark={false} />
+            </div>
+            <h1 className="text-display-lg text-text-main md:text-[2.25rem] md:leading-[2.75rem]">
+              DentalSculptor
+            </h1>
+            <p className="mt-3 text-headline-md font-medium text-primary-container">
+              AI-Aided 3D authoring for dental educators
+            </p>
+            <p className="mx-auto mt-4 max-w-2xl text-body-md text-on-surface-variant md:text-base">
+              Upload dental images and generate editable 3D models for teaching,
+              assessment, and immersive learning.
+            </p>
+            <div className="mt-8 flex flex-wrap justify-center gap-3">
+              <Link href="#workbench">
+                <Button size="lg">Try it now</Button>
+              </Link>
+              <Link href="/editor/preview-project-1">
+                <Button variant="outline" size="lg">
+                  Open editor
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* Interactive workbench */}
+        <section id="workbench" className="border-b border-border-subtle py-16 md:py-20">
+          <div className="mx-auto max-w-6xl px-margin-page">
+            <div className="mb-10 text-center">
+              <h2 className="text-headline-md font-semibold text-text-main md:text-display-lg">
+                Create a model
+              </h2>
+              <p className="mx-auto mt-2 max-w-xl text-body-md text-on-surface-variant">
+                Upload an image and preview the 3D reconstruction below.
+              </p>
+            </div>
+
+            <div className="flex flex-col items-start justify-center gap-8 lg:flex-row lg:items-start">
+              <div className="w-full shrink-0 lg:w-[340px]">
+                <LandingImageUploader />
+              </div>
+              <div className="min-w-0 flex-1">
+                <LandingModelPanel />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* How it works — below workbench */}
+        <section id="how-it-works" className="border-b border-border-subtle bg-panel-bg py-16">
+          <div className="mx-auto max-w-5xl px-margin-page">
+            <h2 className="text-center text-headline-md font-semibold text-text-main md:text-display-lg">
+              How it works
+            </h2>
+            <p className="mx-auto mt-3 max-w-2xl text-center text-body-md text-on-surface-variant">
+              From a single image to deployable teaching content in three steps.
+            </p>
+            <div className="mt-10 grid gap-6 md:grid-cols-3">
+              {steps.map((step, i) => (
+                <div
+                  key={step.title}
+                  className="flex flex-col items-center rounded-xl border border-border-subtle bg-background p-6 text-center"
+                >
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary-container/10">
+                    <step.icon className="h-6 w-6 text-primary-container" strokeWidth={1.5} />
+                  </div>
+                  <p className="text-label-caps text-primary-container">Step {i + 1}</p>
+                  <h3 className="mt-2 font-semibold text-text-main">{step.title}</h3>
+                  <p className="mt-2 text-body-sm leading-relaxed text-on-surface-variant">
+                    {step.description}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Community project spotlights */}
+        <section id="community" className="border-b border-border-subtle py-16 md:py-20">
+          <div className="mx-auto max-w-5xl px-margin-page">
+            <div className="text-center">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-secondary/10">
+                <Library className="h-6 w-6 text-secondary" />
+              </div>
+              <h2 className="text-headline-md font-semibold text-text-main md:text-display-lg">
+                Community project spotlights
+              </h2>
+              <p className="mx-auto mt-3 max-w-2xl text-body-md text-on-surface-variant">
+                Educators publish and adapt 3D learning experiences across restorative dentistry,
+                endodontics, and assessment design — building a shared library for teaching teams.
+              </p>
+            </div>
+
+            <div className="mt-10 grid gap-6 md:grid-cols-3">
+              {communitySpotlights.map((spotlight) => (
+                <article
+                  key={spotlight.title}
+                  className="flex flex-col rounded-xl border border-border-subtle bg-panel-bg p-6"
+                >
+                  <span className="text-label-caps text-secondary">{spotlight.category}</span>
+                  <h3 className="mt-2 font-semibold text-text-main">{spotlight.title}</h3>
+                  <p className="mt-2 flex-1 text-body-sm leading-relaxed text-on-surface-variant">
+                    {spotlight.description}
+                  </p>
+                </article>
+              ))}
+            </div>
+
+            <div className="mt-10 text-center">
+              <Link href="/community">
+                <Button variant="outline">Browse community projects</Button>
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* Research */}
+        <section id="research" className="bg-surface-container-low py-16 md:py-20">
+          <div className="mx-auto max-w-3xl px-margin-page text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary-container/10">
+              <GraduationCap className="h-6 w-6 text-primary-container" />
+            </div>
+            <h2 className="text-headline-md font-semibold text-text-main md:text-display-lg">
+              Research context
+            </h2>
+            <p className="mt-6 text-left text-body-md leading-relaxed text-on-surface-variant md:text-center">
+              This 3D/VR content authoring tool being developed is part of ongoing research by{" "}
+              <span className="font-medium text-on-surface">Job Oyebisi</span>,{" "}
+              <span className="font-medium text-on-surface">Marie-Luce Bourguet</span>, and{" "}
+              <span className="font-medium text-on-surface">Tony Stockman</span> at{" "}
+              <span className="font-medium text-on-surface">Queen Mary University of London</span>.
+              The research is funded by EPSRC as part of The Centre for Doctoral Training (CDT) in
+              Data-Centric Engineering, and forms part of the UK Research and Innovation&apos;s
+              (UKRI) Doctoral Mobility Pilot.
+            </p>
+            <div className="mt-8 flex flex-wrap justify-center gap-3">
+              <Link href="/research">
+                <Button variant="outline" size="sm">
+                  <BookOpen className="mr-2 h-4 w-4" />
+                  Research dashboard
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <PublicFooter />
+      </div>
+    </LandingModelProvider>
+  );
+}

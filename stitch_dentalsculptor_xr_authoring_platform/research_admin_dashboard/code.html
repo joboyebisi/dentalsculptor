@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>DentiResearch Pro | Analytics Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind Configuration -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "inverse-on-surface": "#eff1f3",
+                    "outline": "#747783",
+                    "secondary-fixed-dim": "#4fdbc8",
+                    "surface-container-high": "#e6e8ea",
+                    "on-surface-variant": "#434652",
+                    "background": "#f7f9fb",
+                    "on-primary": "#ffffff",
+                    "on-tertiary-fixed": "#360f00",
+                    "on-secondary": "#ffffff",
+                    "on-primary-fixed-variant": "#174296",
+                    "tertiary-fixed-dim": "#ffb596",
+                    "border-subtle": "#E2E8F0",
+                    "secondary-fixed": "#71f8e4",
+                    "tertiary-container": "#752a00",
+                    "inverse-surface": "#2d3133",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-container-highest": "#e0e3e5",
+                    "on-tertiary-fixed-variant": "#7b2f04",
+                    "surface-variant": "#e0e3e5",
+                    "surface-tint": "#365aaf",
+                    "on-background": "#191c1e",
+                    "on-secondary-fixed": "#00201c",
+                    "on-surface": "#191c1e",
+                    "on-primary-fixed": "#001848",
+                    "primary-fixed-dim": "#b2c5ff",
+                    "surface-container": "#eceef0",
+                    "primary-container": "#0f3d91",
+                    "tertiary-fixed": "#ffdbcd",
+                    "surface-bright": "#f7f9fb",
+                    "on-secondary-container": "#006f64",
+                    "inverse-primary": "#b2c5ff",
+                    "primary-fixed": "#dae2ff",
+                    "ai-purple": "#7C3AED",
+                    "secondary-container": "#6df5e1",
+                    "research-indigo": "#4F46E5",
+                    "on-tertiary": "#ffffff",
+                    "on-secondary-fixed-variant": "#005048",
+                    "on-tertiary-container": "#fe9261",
+                    "error-container": "#ffdad6",
+                    "outline-variant": "#c4c6d3",
+                    "surface-dim": "#d8dadc",
+                    "on-error": "#ffffff",
+                    "tertiary": "#511b00",
+                    "on-primary-container": "#8eadff",
+                    "panel-bg": "#FFFFFF",
+                    "primary": "#00286a",
+                    "surface": "#f7f9fb",
+                    "text-main": "#0F172A",
+                    "secondary": "#006b5f",
+                    "on-error-container": "#93000a",
+                    "surface-container-low": "#f2f4f6",
+                    "error": "#ba1a1a"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "property-panel-width": "300px",
+                    "unit-sm": "8px",
+                    "sidebar-width": "240px",
+                    "margin-page": "24px",
+                    "unit-md": "16px",
+                    "unit-xs": "4px",
+                    "gutter": "12px"
+            },
+            "fontFamily": {
+                    "headline-md": ["Inter"],
+                    "body-md": ["Inter"],
+                    "body-sm": ["Inter"],
+                    "label-mono": ["JetBrains Mono"],
+                    "label-caps": ["Inter"],
+                    "display-lg": ["Inter"]
+            },
+            "fontSize": {
+                    "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "body-sm": ["13px", {"lineHeight": "18px", "fontWeight": "400"}],
+                    "label-mono": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                    "label-caps": ["11px", {"lineHeight": "12px", "letterSpacing": "0.08em", "fontWeight": "700"}],
+                    "display-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .glass-overlay {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #E2E8F0;
+            border-radius: 10px;
+        }
+        .heatmap-cell {
+            transition: transform 0.1s ease;
+        }
+        .heatmap-cell:hover {
+            transform: scale(1.2);
+            z-index: 10;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body-md overflow-hidden h-screen flex flex-col">
+<!-- TopNavBar -->
+<header class="bg-surface dark:bg-inverse-surface border-b border-border-subtle dark:border-outline-variant flex justify-between items-center h-14 px-margin-page w-full z-50 fixed top-0 left-0">
+<div class="flex items-center gap-unit-md">
+<span class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed-dim">DentiResearch Pro</span>
+<div class="hidden md:flex items-center gap-unit-md ml-unit-md">
+<nav class="flex gap-unit-sm">
+<a class="font-body-md text-body-md px-3 py-1 cursor-pointer transition-all active:opacity-80 hover:bg-surface-container-low dark:hover:bg-surface-container-highest transition-colors text-on-surface-variant dark:text-on-surface-variant" href="#">Live View</a>
+<a class="font-body-md text-body-md px-3 py-1 cursor-pointer transition-all active:opacity-80 text-primary dark:text-primary-fixed-dim font-bold border-b-2 border-primary" href="#">Analytics</a>
+<a class="font-body-md text-body-md px-3 py-1 cursor-pointer transition-all active:opacity-80 hover:bg-surface-container-low dark:hover:bg-surface-container-highest transition-colors text-on-surface-variant dark:text-on-surface-variant" href="#">Export</a>
+</nav>
+</div>
+</div>
+<div class="flex items-center gap-unit-md">
+<button class="bg-primary-container text-on-primary-container px-4 py-1.5 text-label-caps rounded-lg hover:brightness-110 transition-all">Deploy to Meta Quest</button>
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer p-1 hover:bg-surface-container-low rounded-full">notifications</span>
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer p-1 hover:bg-surface-container-low rounded-full">help</span>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-border-subtle">
+<img alt="Researcher Profile" data-alt="A professional dental researcher profile portrait in a clinical setting with soft natural lighting and medical environment background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD3O5NXrlNgICgccCIMPEUCUa-fxeYdHDUEh6ZOMj_pZfkl2AajbZRzFlaiGFy1EAYFDNJFDkSEv-bGP2Aiu9yRLGF25i0UPzdkc5pUhJC36ICvQuInx8Duz4Ik2MGXm9BhWYV6XS-lRwvdoFshhl1tckOYcI7eCGrbbVY_BJCqFdjNYSZw7dW4Q6lxDV0cCxEU28peaTJywlUfxue97x3P6tTOu-ifbYTeWK_5sKDK3zieCn9ZeXWRQQ"/>
+</div>
+</div>
+</header>
+<div class="flex flex-1 pt-14 h-full">
+<!-- SideNavBar -->
+<aside class="bg-background dark:bg-on-background border-r border-border-subtle dark:border-outline-variant fixed left-0 top-14 h-[calc(100vh-3.5rem)] w-sidebar-width flex flex-col py-unit-md gap-unit-xs z-40">
+<div class="px-margin-page mb-unit-md">
+<h2 class="font-headline-md text-headline-md font-black text-primary">QMUL Dental Lab</h2>
+<p class="text-label-caps text-outline uppercase tracking-wider">Clinical Research Unit</p>
+</div>
+<nav class="flex flex-col">
+<div class="flex items-center gap-3 px-margin-page py-3 cursor-pointer transition-all duration-200 ease-in-out text-outline dark:text-outline-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-lowest">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-caps text-label-caps">Dashboard</span>
+</div>
+<div class="flex items-center gap-3 px-margin-page py-3 cursor-pointer transition-all duration-200 ease-in-out text-outline dark:text-outline-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-lowest">
+<span class="material-symbols-outlined">folder_shared</span>
+<span class="font-label-caps text-label-caps">Projects</span>
+</div>
+<div class="flex items-center gap-3 px-margin-page py-3 cursor-pointer transition-all duration-200 ease-in-out text-outline dark:text-outline-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-lowest">
+<span class="material-symbols-outlined">groups</span>
+<span class="font-label-caps text-label-caps">Community</span>
+</div>
+<div class="flex items-center gap-3 px-margin-page py-3 cursor-pointer transition-all duration-200 ease-in-out text-outline dark:text-outline-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-lowest">
+<span class="material-symbols-outlined">school</span>
+<span class="font-label-caps text-label-caps">Students</span>
+</div>
+<div class="flex items-center gap-3 px-margin-page py-3 cursor-pointer transition-all duration-200 ease-in-out text-primary dark:text-primary-fixed-dim border-l-4 border-primary font-bold bg-surface-container-low dark:bg-surface-container-highest">
+<span class="material-symbols-outlined">monitoring</span>
+<span class="font-label-caps text-label-caps">Analytics</span>
+</div>
+<div class="flex items-center gap-3 px-margin-page py-3 cursor-pointer transition-all duration-200 ease-in-out text-outline dark:text-outline-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-lowest">
+<span class="material-symbols-outlined">science</span>
+<span class="font-label-caps text-label-caps">Research</span>
+</div>
+<div class="flex items-center gap-3 px-margin-page py-3 cursor-pointer transition-all duration-200 ease-in-out text-outline dark:text-outline-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-lowest">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-caps text-label-caps">Settings</span>
+</div>
+</nav>
+</aside>
+<!-- Main Workbench -->
+<main class="ml-sidebar-width mr-property-panel-width flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6 bg-surface-bright">
+<!-- Dashboard Header -->
+<div class="flex justify-between items-end mb-8">
+<div>
+<h1 class="font-display-lg text-display-lg text-primary">Doctoral Research Analytics</h1>
+<p class="text-on-surface-variant font-body-md mt-1">Study ID: <span class="font-label-mono text-label-mono bg-surface-container px-2 py-0.5 rounded">QMUL-DE-2024-X12</span> • Participant N=48</p>
+</div>
+<div class="flex gap-2">
+<div class="bg-panel-bg border border-border-subtle rounded px-3 py-1.5 flex items-center gap-2">
+<span class="material-symbols-outlined text-outline text-lg">calendar_today</span>
+<span class="text-body-sm font-medium">Last 30 Days</span>
+</div>
+</div>
+</div>
+<!-- Bento Grid Section 1: Pedagogical Ownership -->
+<section>
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-research-indigo">psychology</span>
+<h3 class="text-label-caps font-label-caps text-outline uppercase tracking-widest">Section 01: Pedagogical Ownership</h3>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-gutter">
+<!-- Control Score -->
+<div class="bg-panel-bg border border-border-subtle p-5 rounded-lg flex flex-col justify-between h-40">
+<div class="flex justify-between items-start">
+<span class="text-body-sm text-on-surface-variant">Perceived Control</span>
+<span class="text-green-600 bg-green-50 text-[10px] px-1.5 py-0.5 rounded font-bold">+12%</span>
+</div>
+<div>
+<span class="text-4xl font-bold text-primary">8.4</span>
+<span class="text-outline text-sm ml-1">/ 10</span>
+</div>
+<div class="w-full bg-surface-container h-1 rounded-full overflow-hidden">
+<div class="bg-research-indigo h-full" style="width: 84%"></div>
+</div>
+</div>
+<!-- Agency Score -->
+<div class="bg-panel-bg border border-border-subtle p-5 rounded-lg flex flex-col justify-between h-40">
+<div class="flex justify-between items-start">
+<span class="text-body-sm text-on-surface-variant">Teacher Agency</span>
+<span class="text-research-indigo bg-indigo-50 text-[10px] px-1.5 py-0.5 rounded font-bold">Stable</span>
+</div>
+<div>
+<span class="text-4xl font-bold text-primary">7.9</span>
+<span class="text-outline text-sm ml-1">/ 10</span>
+</div>
+<div class="w-full bg-surface-container h-1 rounded-full overflow-hidden">
+<div class="bg-research-indigo h-full" style="width: 79%"></div>
+</div>
+</div>
+<!-- Confidence Score -->
+<div class="bg-panel-bg border border-border-subtle p-5 rounded-lg flex flex-col justify-between h-40">
+<div class="flex justify-between items-start">
+<span class="text-body-sm text-on-surface-variant">Confidence Scores</span>
+<span class="text-error bg-error-container text-[10px] px-1.5 py-0.5 rounded font-bold">-4%</span>
+</div>
+<div>
+<span class="text-4xl font-bold text-primary">9.1</span>
+<span class="text-outline text-sm ml-1">/ 10</span>
+</div>
+<div class="w-full bg-surface-container h-1 rounded-full overflow-hidden">
+<div class="bg-research-indigo h-full" style="width: 91%"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 2: Authoring Behavior & AI Interaction -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-gutter">
+<!-- Authoring Behavior: Heatmap -->
+<section class="bg-panel-bg border border-border-subtle p-6 rounded-lg">
+<div class="flex justify-between items-center mb-6">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-research-indigo">history_edu</span>
+<h3 class="text-label-caps font-label-caps text-outline uppercase tracking-widest">Section 02: Authoring Behavior</h3>
+</div>
+<span class="text-[10px] font-label-mono text-outline uppercase">Editing Sessions / Day</span>
+</div>
+<div class="space-y-4">
+<div class="grid grid-cols-12 gap-1 h-32">
+<!-- Simulated Heatmap Grid -->
+<script>
+                                for(let i=0; i<48; i++) {
+                                    const opacity = Math.random();
+                                    document.write(`<div class="heatmap-cell bg-research-indigo rounded-sm" style="opacity: ${opacity}"></div>`);
+                                }
+                            </script>
+</div>
+<div class="flex justify-between text-[10px] text-outline font-label-mono">
+<span>00:00</span>
+<span>06:00</span>
+<span>12:00</span>
+<span>18:00</span>
+<span>23:59</span>
+</div>
+<div class="pt-4 border-t border-border-subtle">
+<p class="text-body-sm text-on-surface-variant">Mean time-spent-editing: <span class="font-bold text-primary">42.5 min</span> / session</p>
+<p class="text-body-sm text-on-surface-variant mt-1">Primary peak activity: <span class="font-bold text-primary">14:00 - 16:30</span></p>
+</div>
+</div>
+</section>
+<!-- Section 3: AI Interaction -->
+<section class="bg-panel-bg border border-border-subtle p-6 rounded-lg">
+<div class="flex justify-between items-center mb-6">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-ai-purple">auto_awesome</span>
+<h3 class="text-label-caps font-label-caps text-outline uppercase tracking-widest">Section 03: AI Interaction</h3>
+</div>
+</div>
+<div class="flex items-end justify-around h-32 gap-4">
+<!-- Bar Chart: Accepted -->
+<div class="flex flex-col items-center flex-1">
+<div class="w-full bg-ai-purple/20 rounded-t h-24 relative overflow-hidden">
+<div class="absolute bottom-0 left-0 w-full bg-ai-purple h-20 transition-all duration-1000"></div>
+</div>
+<span class="text-[10px] font-label-caps mt-2 text-on-surface-variant">Accepted (78%)</span>
+</div>
+<!-- Bar Chart: Rejected -->
+<div class="flex flex-col items-center flex-1">
+<div class="w-full bg-surface-container rounded-t h-24 relative overflow-hidden">
+<div class="absolute bottom-0 left-0 w-full bg-outline h-8 transition-all duration-1000"></div>
+</div>
+<span class="text-[10px] font-label-caps mt-2 text-on-surface-variant">Rejected (14%)</span>
+</div>
+<!-- Bar Chart: Modified -->
+<div class="flex flex-col items-center flex-1">
+<div class="w-full bg-surface-container-high rounded-t h-24 relative overflow-hidden">
+<div class="absolute bottom-0 left-0 w-full bg-research-indigo h-4 transition-all duration-1000"></div>
+</div>
+<span class="text-[10px] font-label-caps mt-2 text-on-surface-variant">Modified (8%)</span>
+</div>
+</div>
+<div class="mt-8 bg-surface-container-lowest p-3 rounded border border-border-subtle">
+<div class="flex items-center gap-2 text-body-sm text-ai-purple font-semibold">
+<span class="material-symbols-outlined text-sm">info</span>
+                            AI Trust Metric: High (0.82)
+                        </div>
+</div>
+</section>
+</div>
+<!-- Section 4: Participant Activity Log -->
+<section class="bg-panel-bg border border-border-subtle p-6 rounded-lg">
+<div class="flex justify-between items-center mb-6">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-research-indigo">list_alt</span>
+<h3 class="text-label-caps font-label-caps text-outline uppercase tracking-widest">Section 04: Participant Activity</h3>
+</div>
+<button class="text-primary text-body-sm font-semibold hover:underline">View All Logs</button>
+</div>
+<div class="overflow-hidden border border-border-subtle rounded">
+<table class="w-full text-left text-body-sm">
+<thead class="bg-surface-container text-outline font-label-caps text-[10px] uppercase">
+<tr>
+<th class="px-4 py-2 border-b border-border-subtle">Researcher ID</th>
+<th class="px-4 py-2 border-b border-border-subtle">Action</th>
+<th class="px-4 py-2 border-b border-border-subtle">Target Module</th>
+<th class="px-4 py-2 border-b border-border-subtle">Timestamp</th>
+<th class="px-4 py-2 border-b border-border-subtle text-right">Latency</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-border-subtle">
+<tr class="hover:bg-surface-container-lowest">
+<td class="px-4 py-3 font-label-mono">USER_048</td>
+<td class="px-4 py-3">Accepted AI Mesh Repair</td>
+<td class="px-4 py-3 text-outline">Anatomy Canvas</td>
+<td class="px-4 py-3 text-outline">2 mins ago</td>
+<td class="px-4 py-3 text-right font-label-mono">142ms</td>
+</tr>
+<tr class="hover:bg-surface-container-lowest">
+<td class="px-4 py-3 font-label-mono">USER_012</td>
+<td class="px-4 py-3">Manual Vertex Edit</td>
+<td class="px-4 py-3 text-outline">Upper Mandible</td>
+<td class="px-4 py-3 text-outline">15 mins ago</td>
+<td class="px-4 py-3 text-right font-label-mono">88ms</td>
+</tr>
+<tr class="hover:bg-surface-container-lowest">
+<td class="px-4 py-3 font-label-mono">USER_031</td>
+<td class="px-4 py-3">Exported Research JSON</td>
+<td class="px-4 py-3 text-outline">Export Manager</td>
+<td class="px-4 py-3 text-outline">32 mins ago</td>
+<td class="px-4 py-3 text-right font-label-mono">412ms</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</main>
+<!-- Right Property Panel (Data Export) -->
+<aside class="w-property-panel-width bg-panel-bg border-l border-border-subtle fixed right-0 top-14 h-[calc(100vh-3.5rem)] z-40 overflow-y-auto custom-scrollbar">
+<div class="p-6">
+<div class="flex items-center gap-2 mb-8">
+<span class="material-symbols-outlined text-primary">download</span>
+<h3 class="text-label-caps font-label-caps text-outline uppercase tracking-widest">Data Export Panel</h3>
+</div>
+<div class="space-y-8">
+<!-- Export Formats -->
+<div class="space-y-4">
+<label class="text-[10px] font-label-caps text-outline uppercase block">Select Format</label>
+<div class="grid grid-cols-1 gap-2">
+<button class="flex items-center justify-between p-3 border border-border-subtle rounded hover:border-primary transition-colors group">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-outline group-hover:text-primary">description</span>
+<span class="text-body-md font-medium">CSV Format</span>
+</div>
+<span class="text-outline text-xs">.csv</span>
+</button>
+<button class="flex items-center justify-between p-3 border border-primary bg-primary/5 rounded hover:border-primary transition-colors group">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">table_chart</span>
+<span class="text-body-md font-medium">Excel Spreadsheet</span>
+</div>
+<span class="text-primary text-xs">.xlsx</span>
+</button>
+<button class="flex items-center justify-between p-3 border border-border-subtle rounded hover:border-primary transition-colors group">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-outline group-hover:text-primary">code</span>
+<span class="text-body-md font-medium">Research JSON</span>
+</div>
+<span class="text-outline text-xs">.json</span>
+</button>
+</div>
+</div>
+<!-- Export Options -->
+<div class="space-y-4">
+<label class="text-[10px] font-label-caps text-outline uppercase block">Data Scope</label>
+<div class="space-y-2">
+<label class="flex items-center gap-2 cursor-pointer">
+<input checked="" class="w-4 h-4 text-primary rounded border-outline-variant" type="checkbox"/>
+<span class="text-body-sm">Include Raw Clickstream</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer">
+<input checked="" class="w-4 h-4 text-primary rounded border-outline-variant" type="checkbox"/>
+<span class="text-body-sm">Anonymize Participant IDs</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer">
+<input class="w-4 h-4 text-primary rounded border-outline-variant" type="checkbox"/>
+<span class="text-body-sm">Include Eye-Tracking Metadata</span>
+</label>
+</div>
+</div>
+<button class="w-full bg-primary text-on-primary py-3 rounded font-bold hover:brightness-110 active:scale-[0.98] transition-all shadow-sm">
+                        Generate &amp; Download
+                    </button>
+<div class="p-4 bg-surface-container rounded-lg border border-border-subtle">
+<p class="text-[11px] leading-tight text-outline">
+<span class="font-bold">Privacy Notice:</span> Ensure all ethics committee approvals are active before exporting raw student identifying data. Last audit: 2h ago.
+                        </p>
+</div>
+</div>
+</div>
+</aside>
+</div>
+<!-- Footer -->
+<footer class="bg-surface-container-lowest dark:bg-surface-dim border-t border-border-subtle dark:border-outline-variant fixed bottom-0 left-0 w-full z-50 flex flex-col md:flex-row justify-between items-center px-margin-page py-unit-md transition-opacity duration-150">
+<div class="font-label-caps text-label-caps tracking-widest text-outline">DENTIRESEARCH PRO v2.4.1</div>
+<div class="flex gap-unit-md items-center">
+<span class="font-body-sm text-body-sm text-on-surface-variant dark:text-surface-variant">© 2024 Queen Mary University of London. Funded by EPSRC Grant EP/X00123/1.</span>
+<nav class="flex gap-4">
+<a class="font-body-sm text-body-sm text-on-surface-variant dark:text-outline hover:text-primary dark:hover:text-primary-fixed-dim transition-colors" href="#">Legal Notice</a>
+<a class="font-body-sm text-body-sm text-on-surface-variant dark:text-outline hover:text-primary dark:hover:text-primary-fixed-dim transition-colors" href="#">Ethics Approval</a>
+<a class="font-body-sm text-body-sm text-on-surface-variant dark:text-outline hover:text-primary dark:hover:text-primary-fixed-dim transition-colors" href="#">Data Governance</a>
+</nav>
+</div>
+</footer>
+<!-- Glassmorphic Tooltip / FAB Replacement for context -->
+<div class="fixed bottom-20 right-80 glass-overlay p-4 rounded-xl shadow-2xl z-50 max-w-xs border border-white/50">
+<div class="flex items-center gap-3">
+<div class="p-2 bg-research-indigo rounded-lg">
+<span class="material-symbols-outlined text-white">science</span>
+</div>
+<div>
+<h4 class="font-bold text-sm text-primary">Research Status</h4>
+<p class="text-xs text-on-surface-variant">Live collection active. 4 sessions current.</p>
+</div>
+</div>
+</div>
+<script>
+        // Micro-interaction: Update heatmap values occasionally
+        setInterval(() => {
+            const cells = document.querySelectorAll('.heatmap-cell');
+            const randomIdx = Math.floor(Math.random() * cells.length);
+            cells[randomIdx].style.opacity = Math.random();
+        }, 3000);
+
+        // Simple button click effect
+        document.querySelectorAll('button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                btn.style.opacity = '0.5';
+                setTimeout(() => btn.style.opacity = '1', 100);
+            });
+        });
+    </script>
+</body></html>

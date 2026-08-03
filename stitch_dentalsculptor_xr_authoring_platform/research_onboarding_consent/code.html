@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Research Consent &amp; Onboarding - DentalSculptor</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-secondary-container": "#006f64",
+                      "on-primary-fixed-variant": "#174296",
+                      "primary": "#00286a",
+                      "secondary-container": "#6df5e1",
+                      "secondary": "#006b5f",
+                      "on-surface-variant": "#434652",
+                      "on-error": "#ffffff",
+                      "surface-tint": "#365aaf",
+                      "primary-fixed-dim": "#b2c5ff",
+                      "outline-variant": "#c4c6d3",
+                      "surface-bright": "#f7f9fb",
+                      "tertiary-container": "#752a00",
+                      "inverse-primary": "#b2c5ff",
+                      "secondary-fixed-dim": "#4fdbc8",
+                      "error-container": "#ffdad6",
+                      "research-indigo": "#4F46E5",
+                      "error": "#ba1a1a",
+                      "ai-purple": "#7C3AED",
+                      "on-primary": "#ffffff",
+                      "tertiary-fixed-dim": "#ffb596",
+                      "on-tertiary": "#ffffff",
+                      "on-secondary": "#ffffff",
+                      "surface-container-lowest": "#ffffff",
+                      "on-background": "#191c1e",
+                      "on-tertiary-fixed": "#360f00",
+                      "tertiary-fixed": "#ffdbcd",
+                      "on-tertiary-fixed-variant": "#7b2f04",
+                      "text-main": "#0F172A",
+                      "inverse-on-surface": "#eff1f3",
+                      "panel-bg": "#FFFFFF",
+                      "on-surface": "#191c1e",
+                      "surface-container-highest": "#e0e3e5",
+                      "secondary-fixed": "#71f8e4",
+                      "on-error-container": "#93000a",
+                      "on-primary-container": "#8eadff",
+                      "surface-dim": "#d8dadc",
+                      "primary-fixed": "#dae2ff",
+                      "on-tertiary-container": "#fe9261",
+                      "outline": "#747783",
+                      "on-secondary-fixed-variant": "#005048",
+                      "surface-container-high": "#e6e8ea",
+                      "border-subtle": "#E2E8F0",
+                      "on-secondary-fixed": "#00201c",
+                      "surface-container-low": "#f2f4f6",
+                      "inverse-surface": "#2d3133",
+                      "background": "#f7f9fb",
+                      "surface-variant": "#e0e3e5",
+                      "primary-container": "#0f3d91",
+                      "on-primary-fixed": "#001848",
+                      "surface": "#f7f9fb",
+                      "tertiary": "#511b00",
+                      "surface-container": "#eceef0"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "margin-page": "24px",
+                      "unit-md": "16px",
+                      "sidebar-width": "240px",
+                      "property-panel-width": "300px",
+                      "unit-xs": "4px",
+                      "unit-sm": "8px",
+                      "gutter": "12px"
+              },
+              "fontFamily": {
+                      "display-lg": [
+                              "Inter"
+                      ],
+                      "label-caps": [
+                              "Inter"
+                      ],
+                      "headline-md": [
+                              "Inter"
+                      ],
+                      "label-mono": [
+                              "JetBrains Mono"
+                      ],
+                      "body-sm": [
+                              "Inter"
+                      ],
+                      "body-md": [
+                              "Inter"
+                      ]
+              },
+              "fontSize": {
+                      "display-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "label-caps": [
+                              "11px",
+                              {
+                                      "lineHeight": "12px",
+                                      "letterSpacing": "0.08em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "headline-md": [
+                              "20px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "label-mono": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "body-sm": [
+                              "13px",
+                              {
+                                      "lineHeight": "18px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "body-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "400"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background min-h-screen flex flex-col items-center justify-center p-margin-page">
+<div class="w-full max-w-3xl bg-surface rounded-xl border border-border-subtle shadow-sm overflow-hidden flex flex-col">
+<!-- Header -->
+<header class="border-b border-border-subtle bg-surface-container-lowest p-margin-page">
+<h1 class="font-headline-md text-headline-md text-primary mb-2">Join the DentalSculptor Research Initiative</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">Contribute to the advancement of pedagogical ownership studies in digital dentistry.</p>
+</header>
+<!-- Progress Indicator -->
+<div class="bg-surface-container-lowest border-b border-border-subtle px-margin-page py-unit-md flex items-center justify-between">
+<div class="flex items-center space-x-2 w-full">
+<!-- Step 1 -->
+<div class="flex items-center space-x-2 text-primary font-bold">
+<span class="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-on-primary font-label-mono text-label-mono">1</span>
+<span class="font-label-caps text-label-caps">Identity</span>
+</div>
+<!-- Connector -->
+<div class="flex-1 h-px bg-primary mx-2"></div>
+<!-- Step 2 -->
+<div class="flex items-center space-x-2 text-primary font-bold">
+<span class="flex items-center justify-center w-6 h-6 rounded-full border-2 border-primary bg-surface text-primary font-label-mono text-label-mono">2</span>
+<span class="font-label-caps text-label-caps">Consent</span>
+</div>
+<!-- Connector -->
+<div class="flex-1 h-px bg-border-subtle mx-2"></div>
+<!-- Step 3 -->
+<div class="flex items-center space-x-2 text-outline-variant">
+<span class="flex items-center justify-center w-6 h-6 rounded-full border border-outline-variant bg-surface text-outline-variant font-label-mono text-label-mono">3</span>
+<span class="font-label-caps text-label-caps">Institution</span>
+</div>
+</div>
+</div>
+<!-- Main Content Area -->
+<div class="p-margin-page flex-1 overflow-y-auto">
+<div class="mb-8">
+<h2 class="font-headline-md text-headline-md text-on-background mb-4">Research Consent Form</h2>
+<div class="bg-surface-container-low p-unit-md rounded-lg border border-border-subtle h-64 overflow-y-auto text-on-surface-variant font-body-sm text-body-sm space-y-4">
+<p>
+                        This study investigates the development of psychological ownership and spatial reasoning skills in dental students utilizing advanced 3D modeling environments (DentalSculptor). By participating, you consent to the collection of anonymized interaction data, including but not limited to: model manipulation metrics, tool selection frequencies, and duration of focused engagement.
+                    </p>
+<p>
+<strong>Data Confidentiality:</strong> All collected data is strictly anonymized and aggregated. No personally identifiable information (PII) will be linked to your interaction metrics in any published research. Your participation is voluntary, and you reserve the right to withdraw from the data collection initiative at any time without penalty or loss of access to the core DentalSculptor platform.
+                    </p>
+<p>
+<strong>Usage of Findings:</strong> The insights derived from this study will contribute to pedagogical frameworks for digital dentistry education. Aggregated findings may be published in peer-reviewed academic journals and presented at educational conferences.
+                    </p>
+<p>
+                        By proceeding, you acknowledge that you have read and understood the terms outlined in this document and agree to participate under these conditions.
+                    </p>
+</div>
+</div>
+<!-- Form Fields -->
+<form class="space-y-6">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-unit-md">
+<div class="flex flex-col space-y-2">
+<label class="font-label-caps text-label-caps text-on-surface" for="role">Role</label>
+<div class="relative">
+<select class="w-full appearance-none bg-surface-container-lowest border-b border-outline-variant focus:border-primary focus:ring-0 px-0 py-2 font-body-md text-body-md text-on-background transition-colors cursor-pointer" id="role" name="role">
+<option disabled="" selected="" value="">Select your role...</option>
+<option value="educator">Educator</option>
+<option value="student">Student</option>
+<option value="researcher">Researcher</option>
+</select>
+<span class="material-symbols-outlined absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none text-outline">expand_more</span>
+</div>
+</div>
+<div class="flex flex-col space-y-2">
+<label class="font-label-caps text-label-caps text-on-surface" for="institution">Institution Name</label>
+<input class="w-full bg-transparent border-b border-outline-variant focus:border-primary focus:ring-0 px-0 py-2 font-body-md text-body-md text-on-background placeholder:text-outline-variant transition-colors" id="institution" name="institution" placeholder="e.g. QMUL Dental Institute" type="text"/>
+</div>
+</div>
+<!-- Consents -->
+<div class="space-y-4 pt-4 border-t border-border-subtle">
+<label class="flex items-start space-x-3 cursor-pointer group">
+<div class="flex items-center h-5">
+<input class="w-4 h-4 rounded-sm border-outline-variant text-primary focus:ring-primary focus:ring-offset-0 bg-surface-container-lowest cursor-pointer transition-colors" type="checkbox"/>
+</div>
+<div class="flex flex-col">
+<span class="font-body-md text-body-md text-on-background group-hover:text-primary transition-colors">I agree to the data collection terms</span>
+</div>
+</label>
+<label class="flex items-start space-x-3 cursor-pointer group">
+<div class="flex items-center h-5">
+<input class="w-4 h-4 rounded-sm border-outline-variant text-primary focus:ring-primary focus:ring-offset-0 bg-surface-container-lowest cursor-pointer transition-colors" type="checkbox"/>
+</div>
+<div class="flex flex-col">
+<span class="font-body-md text-body-md text-on-background group-hover:text-primary transition-colors">I am 18+ years of age</span>
+</div>
+</label>
+</div>
+</form>
+</div>
+<!-- Footer Actions -->
+<div class="bg-surface-container-lowest border-t border-border-subtle p-margin-page flex items-center justify-between">
+<button class="font-label-caps text-label-caps text-outline hover:text-on-surface transition-colors uppercase tracking-widest px-4 py-2">
+                Decline
+            </button>
+<button class="bg-primary hover:bg-primary-container text-on-primary font-label-caps text-label-caps tracking-widest uppercase px-6 py-3 rounded transition-colors flex items-center space-x-2">
+<span>Accept &amp; Continue</span>
+<span class="material-symbols-outlined" style="font-size: 16px;">arrow_forward</span>
+</button>
+</div>
+</div>
+</body></html>

@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>DentalSculptor | Authoring Workspace</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-fixed-variant": "#174296",
+                        "on-tertiary-fixed": "#360f00",
+                        "secondary-fixed": "#71f8e4",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary-fixed": "#001848",
+                        "on-secondary": "#ffffff",
+                        "on-primary-container": "#8eadff",
+                        "error-container": "#ffdad6",
+                        "on-tertiary-container": "#fe9261",
+                        "surface": "#f7f9fb",
+                        "surface-container-highest": "#e0e3e5",
+                        "on-error-container": "#93000a",
+                        "panel-bg": "#FFFFFF",
+                        "on-error": "#ffffff",
+                        "on-background": "#191c1e",
+                        "text-main": "#0F172A",
+                        "surface-container-low": "#f2f4f6",
+                        "tertiary-fixed": "#ffdbcd",
+                        "surface-tint": "#365aaf",
+                        "tertiary-container": "#752a00",
+                        "on-surface": "#191c1e",
+                        "research-indigo": "#4F46E5",
+                        "error": "#ba1a1a",
+                        "primary-fixed-dim": "#b2c5ff",
+                        "background": "#f7f9fb",
+                        "on-secondary-fixed-variant": "#005048",
+                        "surface-variant": "#e0e3e5",
+                        "primary-container": "#0f3d91",
+                        "border-subtle": "#E2E8F0",
+                        "on-surface-variant": "#434652",
+                        "tertiary": "#511b00",
+                        "on-tertiary-fixed-variant": "#7b2f04",
+                        "on-tertiary": "#ffffff",
+                        "inverse-primary": "#b2c5ff",
+                        "primary-fixed": "#dae2ff",
+                        "surface-container": "#eceef0",
+                        "surface-dim": "#d8dadc",
+                        "secondary-container": "#6df5e1",
+                        "inverse-surface": "#2d3133",
+                        "on-primary": "#ffffff",
+                        "outline": "#747783",
+                        "tertiary-fixed-dim": "#ffb596",
+                        "surface-container-high": "#e6e8ea",
+                        "secondary-fixed-dim": "#4fdbc8",
+                        "on-secondary-container": "#006f64",
+                        "on-secondary-fixed": "#00201c",
+                        "ai-purple": "#7C3AED",
+                        "inverse-on-surface": "#eff1f3",
+                        "outline-variant": "#c4c6d3",
+                        "surface-bright": "#f7f9fb",
+                        "secondary": "#006b5f",
+                        "primary": "#00286a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "unit-md": "16px",
+                        "margin-page": "24px",
+                        "sidebar-width": "240px",
+                        "unit-sm": "8px",
+                        "property-panel-width": "300px",
+                        "gutter": "12px",
+                        "unit-xs": "4px",
+                        "tool-palette-width": "64px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "label-caps": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "label-mono": ["JetBrains Mono"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "body-sm": ["13px", {"lineHeight": "18px", "fontWeight": "400"}],
+                        "label-caps": ["11px", {"lineHeight": "12px", "letterSpacing": "0.08em", "fontWeight": "700"}],
+                        "display-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "label-mono": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+        }
+        .workbench-grid {
+            background-image: 
+                linear-gradient(to right, #E2E8F0 1px, transparent 1px),
+                linear-gradient(to bottom, #E2E8F0 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body-md overflow-hidden h-screen flex flex-col">
+<!-- Top Navigation Bar -->
+<header class="flex justify-between items-center px-lg h-16 w-full z-40 bg-surface border-b border-outline-variant font-title-lg text-title-lg">
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-4">
+<button class="p-2 text-on-surface hover:bg-surface-container rounded-full transition-colors">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+<h1 class="font-headline-md text-headline-md font-bold text-primary">DentalSculptor</h1>
+</div>
+<div class="h-6 w-[1px] bg-outline-variant"></div>
+<div class="flex items-center gap-4">
+<span class="font-body-sm text-on-surface-variant px-3 py-1 bg-surface-container rounded flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+                    Project: Molar_V4_Refinement.ds
+                </span>
+<nav class="flex gap-4">
+<button class="text-primary border-b-2 border-primary pb-1 font-medium transition-transform scale-95 active:scale-90">Authoring</button>
+<button class="text-on-surface-variant hover:text-primary transition-transform scale-95 active:scale-90">Version History</button>
+<button class="text-on-surface-variant hover:text-primary transition-transform scale-95 active:scale-90">Drafts</button>
+</nav>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<button class="flex items-center gap-2 px-4 py-2 text-on-surface-variant font-medium hover:bg-surface-container-high rounded transition-transform scale-95 active:scale-90">
+<span class="material-symbols-outlined" data-icon="preview">preview</span>
+                Preview
+            </button>
+<button class="flex items-center gap-2 px-4 py-2 text-on-surface-variant font-medium hover:bg-surface-container-high rounded transition-transform scale-95 active:scale-90">
+<span class="material-symbols-outlined" data-icon="ios_share">ios_share</span>
+                Export
+            </button>
+<button class="flex items-center gap-2 px-4 py-2 text-primary font-medium hover:bg-surface-container-high rounded transition-transform scale-95 active:scale-90">
+<span class="material-symbols-outlined" data-icon="share">share</span>
+                Share
+            </button>
+<button class="flex items-center gap-2 px-4 py-2 bg-primary-container text-on-primary rounded font-bold transition-transform scale-95 active:scale-90">
+<span class="material-symbols-outlined" data-icon="publish">publish</span>
+                Deploy to Quest
+            </button>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="Close-up headshot of a professional dental surgeon with clinical white lighting, minimalist grey background, and high-end medical professional aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBj1UTTuX6-4eaFSL2W9tmSa1GmnG2pkHuL2qI828v49y5-AW_W-f2HuHKnYalRh0T8ie2uI4zIARgROsoGShrNF6byJNTwsfreHooSR3LEwdRMQDVeUMGKiM_P6XeS7yZOAotg8or3t7_5fi-_dsjrVLKG--szg5Yb1BmQRn_H8QofjqmOgSfI-HVXNUg-Oj22kFT-whV8zgh850y_gzHtt6BzhRQ3RwsQK-ik1WO-qOPYx5ffn82gwQ"/>
+</div>
+</div>
+</header>
+<main class="flex-1 flex overflow-hidden">
+<!-- Left Sidebar: Tool Palette -->
+<aside class="w-[tool-palette-width] flex flex-col border-r border-outline-variant bg-surface h-full items-center py-4 gap-4">
+<button class="w-10 h-10 flex items-center justify-center rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors" title="Select">
+<span class="material-symbols-outlined" data-icon="ads_click">ads_click</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" title="Mark">
+<span class="material-symbols-outlined" data-icon="edit">edit</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" title="Direct Edit">
+<span class="material-symbols-outlined" data-icon="architecture">architecture</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" title="Pan">
+<span class="material-symbols-outlined" data-icon="pan_tool">pan_tool</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" title="Texture">
+<span class="material-symbols-outlined" data-icon="texture">texture</span>
+</button>
+</aside>
+<!-- Center Panel: 3D Viewport & Prompt -->
+<section class="flex-1 flex flex-col bg-white overflow-hidden workbench-grid relative">
+<!-- 3D Model Area -->
+<div class="flex-1 relative">
+<!-- Floating CAD Toolbar -->
+<div class="absolute top-6 left-1/2 -translate-x-1/2 flex items-center gap-1 p-1 glass-panel rounded-lg shadow-lg border border-outline-variant z-10">
+<button class="p-2 hover:bg-primary/10 hover:text-primary rounded text-on-surface-variant transition-all" title="Rotate">
+<span class="material-symbols-outlined" data-icon="3d_rotation">3d_rotation</span>
+</button>
+<button class="p-2 hover:bg-primary/10 hover:text-primary rounded text-on-surface-variant transition-all" title="Pan">
+<span class="material-symbols-outlined" data-icon="pan_tool">pan_tool</span>
+</button>
+<button class="p-2 hover:bg-primary/10 hover:text-primary rounded text-on-surface-variant transition-all" title="Zoom">
+<span class="material-symbols-outlined" data-icon="zoom_in">zoom_in</span>
+</button>
+<div class="w-[1px] h-6 bg-outline-variant mx-1"></div>
+<button class="p-2 hover:bg-primary/10 hover:text-primary rounded text-on-surface-variant transition-all" title="Cross-section">
+<span class="material-symbols-outlined" data-icon="content_cut">content_cut</span>
+</button>
+<button class="p-2 hover:bg-primary/10 hover:text-primary rounded text-on-surface-variant transition-all" title="Wireframe">
+<span class="material-symbols-outlined" data-icon="grid_4x4">grid_4x4</span>
+</button>
+<button class="p-2 hover:bg-primary/10 hover:text-primary rounded text-on-surface-variant transition-all" title="Measurement">
+<span class="material-symbols-outlined" data-icon="straighten">straighten</span>
+</button>
+<div class="w-[1px] h-6 bg-outline-variant mx-1"></div>
+<button class="p-2 hover:bg-primary/10 hover:text-primary rounded text-on-surface-variant transition-all" title="View Preset">
+<span class="material-symbols-outlined" data-icon="view_in_ar">view_in_ar</span>
+</button>
+</div>
+<!-- 3D Model Placeholder -->
+<div class="absolute inset-0 flex items-center justify-center p-12 pb-32">
+<div class="relative w-full h-full max-w-4xl max-h-[600px] flex items-center justify-center">
+<img class="w-full h-full object-contain drop-shadow-2xl" data-alt="High-precision CAD rendering of a human molar tooth in a clinical 3D viewport. The tooth is semi-transparent with a technical wireframe overlay, showing internal anatomical structures. The lighting is sterile and neutral, with subtle blue and grey tones on a clean white background, emphasizing medical accuracy and precision." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCwOjXEH3-DlfE8h18P37WAb30urO_8xkAxr5CFH0CdA9tj9NZqyaCgt4cBSMFd-JYf3-rGSfWG7CWEYf1LKdXI4jiYzR1GxzUHBr4P54Ybc9H_Vgjv8g5k5Fi_mw1RMTtN-3GdJC9G5EJn6-tWc4jJUd79JmIlkLG30kA6-FE3xaWQ0QvcKBZezjl1OfFYmclu_fL4BX8l2vJB9r8xEZjLVFclOuOlOTlCRo5X08RstFzg3SUtKLol1g"/>
+<!-- Axis Indicator -->
+<div class="absolute bottom-6 left-6 flex items-center gap-2">
+<div class="relative w-12 h-12">
+<div class="absolute w-px h-10 bg-red-500 origin-bottom transform rotate-0 left-6 bottom-0"></div>
+<div class="absolute w-10 h-px bg-green-500 origin-left transform rotate-0 left-6 bottom-0"></div>
+<div class="absolute w-px h-10 bg-blue-500 origin-bottom transform -rotate-45 left-6 bottom-0"></div>
+<span class="absolute -top-1 left-5 text-[10px] font-bold text-red-600">Y</span>
+<span class="absolute bottom-0 right-0 text-[10px] font-bold text-green-600">X</span>
+<span class="absolute top-1 left-0 text-[10px] font-bold text-blue-600">Z</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Viewport Stats -->
+<div class="absolute bottom-32 right-6 glass-panel px-4 py-2 rounded-lg border border-outline-variant flex flex-col gap-1 shadow-sm z-10">
+<div class="flex justify-between gap-8 items-center">
+<span class="font-label-caps text-[10px] text-on-surface-variant">VERTICES</span>
+<span class="font-label-mono text-xs text-on-surface">1,248,502</span>
+</div>
+<div class="flex justify-between gap-8 items-center">
+<span class="font-label-caps text-[10px] text-on-surface-variant">POLYGONS</span>
+<span class="font-label-mono text-xs text-on-surface">2,490,118</span>
+</div>
+<div class="flex justify-between gap-8 items-center">
+<span class="font-label-caps text-[10px] text-on-surface-variant">CAMERA</span>
+<span class="font-label-mono text-xs text-on-surface">Orthographic</span>
+</div>
+</div>
+</div>
+<!-- AI Prompt Area (Moved here) -->
+<div class="w-full bg-surface-container-lowest border-t border-outline-variant p-4 z-20 shadow-[0_-4px_12px_rgba(0,0,0,0.02)]">
+<div class="max-w-4xl mx-auto flex items-center gap-4">
+<div class="flex-1 relative">
+<div class="absolute left-3 top-1/2 -translate-y-1/2 text-ai-purple">
+<span class="material-symbols-outlined" data-icon="auto_awesome">auto_awesome</span>
+</div>
+<input class="w-full pl-10 pr-12 py-3 text-sm bg-surface-container-low border border-outline-variant rounded-full focus:ring-2 focus:ring-ai-purple focus:border-transparent transition-all placeholder:text-outline" placeholder="Semantic Edit: e.g. 'Deepen the distal groove by 0.5mm and smoothen...'" type="text"/>
+<div class="absolute right-3 top-1/2 -translate-y-1/2 flex gap-1">
+<span class="material-symbols-outlined text-lg text-outline cursor-pointer hover:text-ai-purple" data-icon="mic">mic</span>
+</div>
+</div>
+<div class="flex items-center gap-3 w-48">
+<span class="text-xs font-semibold text-on-surface-variant">Strength</span>
+<input class="w-full h-1 bg-surface-container-high rounded-full appearance-none cursor-pointer accent-ai-purple" type="range"/>
+</div>
+<button class="px-6 py-2 bg-ai-purple text-white rounded-full font-bold flex items-center justify-center gap-2 shadow-sm shadow-ai-purple/20 transition-all hover:brightness-110 active:scale-95 whitespace-nowrap">
+<span class="material-symbols-outlined text-sm" data-icon="bolt">bolt</span>
+                        Apply
+                    </button>
+</div>
+</div>
+</section>
+<!-- Right Panel: Info & Generation -->
+<aside class="w-[property-panel-width] flex flex-col border-l border-outline-variant bg-white h-full shadow-[-4px_0_12px_rgba(0,0,0,0.02)]">
+<!-- Panel Header -->
+<div class="p-4 border-b border-outline-variant flex items-center gap-2">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="settings">settings</span>
+<span class="font-label-caps text-on-surface font-bold">PROPERTIES</span>
+</div>
+<!-- Properties Sections -->
+<div class="flex-1 overflow-y-auto p-4">
+<!-- Image Upload Section -->
+<div class="space-y-3">
+<h3 class="font-label-caps text-xs text-on-surface font-bold">SOURCE SCAN</h3>
+<div class="w-full h-40 border-2 border-dashed border-outline-variant rounded-xl flex flex-col items-center justify-center bg-surface-container-lowest hover:bg-surface-container-low transition-colors cursor-pointer group">
+<span class="material-symbols-outlined text-4xl text-outline group-hover:text-primary transition-colors mb-2" data-icon="add_photo_alternate">add_photo_alternate</span>
+<span class="text-xs font-medium text-on-surface-variant group-hover:text-primary">Upload Dental Scan</span>
+<span class="text-[10px] text-outline mt-1">DICOM, STL, OBJ</span>
+</div>
+<button class="w-full py-2 bg-primary text-white rounded-lg font-bold flex items-center justify-center gap-2 shadow-sm transition-all hover:brightness-110 active:scale-95 mt-4">
+<span class="material-symbols-outlined text-sm" data-icon="precision_manufacturing">precision_manufacturing</span>
+                        Generate Model
+                    </button>
+</div>
+</div>
+<!-- Panel Footer Status -->
+<div class="p-4 border-t border-outline-variant bg-surface-container-lowest">
+<div class="flex items-center justify-between text-[10px] text-on-surface-variant">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px] text-green-500" data-icon="check_circle">check_circle</span>
+                        AI Engine Ready
+                    </span>
+<span class="font-label-mono">v4.2.1-stable</span>
+</div>
+</div>
+</aside>
+</main>
+<!-- Contextual Bottom Bar -->
+<footer class="h-8 bg-primary text-white flex items-center px-4 justify-between font-label-mono text-[10px]">
+<div class="flex items-center gap-6">
+<span class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px]" data-icon="mouse">mouse</span>
+                Left Click: Select | Right Click: Orbit | Alt+Click: Pan
+            </span>
+<span class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px]" data-icon="memory">memory</span>
+                GPU Usage: 24% | VRAM: 3.2GB
+            </span>
+</div>
+<div class="flex items-center gap-4">
+<span class="flex items-center gap-1 opacity-80">
+<span class="material-symbols-outlined text-[14px]" data-icon="language">language</span>
+                Cloud Sync: Active
+            </span>
+<span>2024.10.12 14:05:32 UTC</span>
+</div>
+</footer>
+<script>
+        // Simple micro-interactions for the CAD viewer
+        document.querySelectorAll('button').forEach(btn => {
+            btn.addEventListener('mouseenter', () => {
+                // Subtle scale effect already handled by tailwind classes in many places
+            });
+        });
+
+        // Toggle properties logic (UI placeholder)
+        const accordions = document.querySelectorAll('.group button');
+        accordions.forEach(acc => {
+            acc.addEventListener('click', () => {
+                const icon = acc.querySelector('.material-symbols-outlined');
+                if (icon && (icon.innerText === 'expand_more' || icon.innerText === 'expand_less')) {
+                    if (icon.innerText === 'expand_more') {
+                        icon.innerText = 'expand_less';
+                    } else {
+                        icon.innerText = 'expand_more';
+                    }
+                }
+            });
+        });
+    </script>
+</body></html>

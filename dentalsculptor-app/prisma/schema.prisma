@@ -1,0 +1,317 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  EDUCATOR
+  STUDENT
+  RESEARCHER
+  ADMINISTRATOR
+}
+
+enum ProjectStatus {
+  DRAFT
+  PROCESSING
+  READY
+  PUBLISHED
+  ARCHIVED
+}
+
+enum PublishingLevel {
+  PRIVATE
+  CLASSROOM
+  INSTITUTION
+  COMMUNITY
+  PUBLIC
+}
+
+enum AssignmentStatus {
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  SUBMITTED
+}
+
+enum ResearchEventType {
+  PROJECT_CREATED
+  IMAGE_UPLOADED
+  MODEL_GENERATED
+  MODEL_EDITED
+  ANNOTATION_CREATED
+  ANNOTATION_UPDATED
+  PROJECT_PUBLISHED
+  PROJECT_DOWNLOADED
+  XR_LAUNCHED
+  COMMUNITY_SHARED
+  PROJECT_CLONED
+  COMMENT_ADDED
+  BOOKMARK_ADDED
+  AI_PROMPT_SUBMITTED
+  AI_SUGGESTION_ACCEPTED
+  AI_SUGGESTION_REJECTED
+  AI_MANUAL_OVERRIDE
+  ASSIGNMENT_STARTED
+  ASSIGNMENT_COMPLETED
+  REFLECTION_SUBMITTED
+  ASSESSMENT_SUBMITTED
+  SURVEY_COMPLETED
+  SESSION_STARTED
+  SESSION_ENDED
+  LEARNING_OBJECTIVE_CREATED
+  EXPORT_REQUESTED
+}
+
+model User {
+  id                    String   @id @default(cuid())
+  clerkId               String   @unique
+  email                 String   @unique
+  name                  String?
+  role                  UserRole @default(EDUCATOR)
+  institution           String?
+  department            String?
+  country               String?
+  consentAccepted       Boolean  @default(false)
+  researchContactOptIn  Boolean  @default(false)
+  onboardingCompleted   Boolean  @default(false)
+  avatarUrl             String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  projects              Project[]
+  annotations           Annotation[]
+  researchEvents        ResearchEvent[]
+  surveyResponses       SurveyResponse[]
+  studentAssignments    StudentAssignment[] @relation("StudentAssignments")
+  assignedBy            StudentAssignment[] @relation("AssignedBy")
+  comments              Comment[]
+  bookmarks             Bookmark[]
+  likes                 Like[]
+}
+
+model Project {
+  id              String          @id @default(cuid())
+  ownerId         String
+  title           String
+  description     String?
+  status          ProjectStatus   @default(DRAFT)
+  publishingLevel PublishingLevel @default(PRIVATE)
+  category        String?
+  thumbnailUrl    String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  owner           User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  dentalModel     DentalModel?
+  annotations     Annotation[]
+  learningObjectives LearningObjective[]
+  assessments     Assessment[]
+  communityProject CommunityProject?
+  studentAssignments StudentAssignment[]
+  researchEvents  ResearchEvent[]
+  comments        Comment[]
+  versions        ProjectVersion[]
+  instructions    String?
+  hints           String?
+  feedback        String?
+
+  @@index([ownerId])
+  @@index([status])
+}
+
+model DentalModel {
+  id              String   @id @default(cuid())
+  projectId       String   @unique
+  sourceImageUrl  String?
+  sourceFileUrl   String?
+  generated3DUrl  String?
+  thumbnailUrl    String?
+  meshData        Json?
+  processingStage String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Annotation {
+  id        String   @id @default(cuid())
+  projectId String
+  creatorId String
+  text      String
+  position  Json
+  type      String   @default("point")
+  color     String   @default("#0F3D91")
+  region    Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  creator   User     @relation(fields: [creatorId], references: [id])
+
+  @@index([projectId])
+}
+
+model LearningObjective {
+  id          String   @id @default(cuid())
+  projectId   String
+  title       String
+  description String?
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+model Assessment {
+  id        String   @id @default(cuid())
+  projectId String
+  question  String
+  answer    String?
+  type      String   @default("short_answer")
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+model CommunityProject {
+  id              String   @id @default(cuid())
+  projectId       String   @unique
+  likes           Int      @default(0)
+  downloads       Int      @default(0)
+  studentsReached Int      @default(0)
+  published       Boolean  @default(false)
+  featured        Boolean  @default(false)
+  rating          Float    @default(0)
+  ratingCount     Int      @default(0)
+  publishedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model StudentAssignment {
+  id           String           @id @default(cuid())
+  studentId    String
+  projectId    String
+  assignedById String?
+  status       AssignmentStatus @default(ASSIGNED)
+  score        Float?
+  reflection   String?
+  feedback     String?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  student      User             @relation("StudentAssignments", fields: [studentId], references: [id])
+  project      Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignedBy   User?            @relation("AssignedBy", fields: [assignedById], references: [id])
+
+  @@unique([studentId, projectId])
+  @@index([studentId])
+  @@index([projectId])
+}
+
+model ResearchEvent {
+  id        String            @id @default(cuid())
+  userId    String
+  projectId String?
+  eventType ResearchEventType
+  metadata  Json?
+  sessionId String?
+  timestamp DateTime          @default(now())
+
+  user      User              @relation(fields: [userId], references: [id])
+  project   Project?          @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([projectId])
+  @@index([eventType])
+  @@index([timestamp])
+}
+
+model SurveyResponse {
+  id         String   @id @default(cuid())
+  userId     String
+  question   String
+  answer     String
+  scale      Int?
+  surveyType String   @default("likert")
+  sessionId  String?
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([surveyType])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  content   String
+  rating    Int?
+  createdAt DateTime @default(now())
+
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([projectId])
+}
+
+model Bookmark {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([projectId, userId])
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([projectId, userId])
+}
+
+model ProjectVersion {
+  id        String   @id @default(cuid())
+  projectId String
+  version   Int
+  snapshot  Json
+  label     String?
+  createdAt DateTime @default(now())
+
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+model PlatformMetrics {
+  id                      String   @id @default("platform")
+  projectsCreated         Int      @default(0)
+  studentsReached         Int      @default(0)
+  experiencesPublished    Int      @default(0)
+  communityContributions  Int      @default(0)
+  researchStudiesSupported Int     @default(0)
+  updatedAt               DateTime @updatedAt
+}
