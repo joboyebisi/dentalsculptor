@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { USER_ROLES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { getPendingLandingProject } from "@/lib/landing-session";
 
 const roleIcons = {
   EDUCATOR: GraduationCap,
@@ -43,6 +44,12 @@ export default function OnboardingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ role, institution, department, country }),
       });
+
+      if (getPendingLandingProject()) {
+        router.push("/auth/continue");
+        return;
+      }
+
       setStep(3);
     } finally {
       setLoading(false);

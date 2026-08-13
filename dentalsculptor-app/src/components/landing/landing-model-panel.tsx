@@ -1,24 +1,114 @@
 "use client";
 
-import Link from "next/link";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@clerk/nextjs";
 import { Loader2 } from "lucide-react";
 import { DentalViewer } from "@/components/three/dental-viewer";
 import { Button } from "@/components/ui/button";
 import { useLandingModel } from "@/context/landing-model-context";
+import {
+  fileToDataUrl,
+  savePendingLandingProject,
+} from "@/lib/landing-session";
+import { createProjectFromLandingPayload } from "@/lib/create-landing-project";
+import { GENERATION_COPY } from "@/lib/generation-copy";
 
 export function LandingModelPanel() {
-  const { meshData, isLoading, uploadedFile } = useLandingModel();
+  const router = useRouter();
+  const { isSignedIn } = useAuth();
+  const {
+    meshData,
+    modelUrl,
+    thumbnailUrl,
+    mtlUrl,
+    format,
+    isLoading,
+    uploadedFile,
+    hasModel,
+  } = useLandingModel();
+  const [opening, setOpening] = useState(false);
+  const [openError, setOpenError] = useState<string | null>(null);
+  const [elapsedSec, setElapsedSec] = useState(0);
+
+  useEffect(() => {
+    if (!isLoading) {
+      setElapsedSec(0);
+      return;
+    }
+    const start = Date.now();
+    const id = setInterval(() => setElapsedSec(Math.floor((Date.now() - start) / 1000)), 1000);
+    return () => clearInterval(id);
+  }, [isLoading]);
+
+  async function handleOpenEditor() {
+    if (!hasModel || !uploadedFile || !modelUrl) return;
+
+    setOpening(true);
+    setOpenError(null);
+
+    try {
+      const payload = {
+        imageFile: uploadedFile,
+        modelUrl,
+        thumbnailUrl: thumbnailUrl ?? undefined,
+        mtlUrl: mtlUrl ?? undefined,
+        format: format ?? undefined,
+        sourceFileName: uploadedFile.name,
+      };
+
+      if (!isSignedIn) {
+        const imageDataUrl = await fileToDataUrl(uploadedFile);
+        savePendingLandingProject({ ...payload, imageDataUrl });
+        router.push(`/sign-up?redirect_url=${encodeURIComponent("/auth/continue")}`);
+        return;
+      }
+
+      const profileRes = await fetch("/api/user/profile");
+      if (!profileRes.ok) {
+        const imageDataUrl = await fileToDataUrl(uploadedFile);
+        savePendingLandingProject({ ...payload, imageDataUrl });
+        router.push(`/sign-in?redirect_url=${encodeURIComponent("/auth/continue")}`);
+        return;
+      }
+
+      const { user } = await profileRes.json();
+
+      if (!user.consentAccepted || !user.onboardingCompleted) {
+        const imageDataUrl = await fileToDataUrl(uploadedFile);
+        savePendingLandingProject({ ...payload, imageDataUrl });
+        router.push(user.consentAccepted ? "/onboarding" : "/consent");
+        return;
+      }
+
+      const { projectId } = await createProjectFromLandingPayload(payload);
+      router.push(`/editor/${projectId}`);
+    } catch {
+      setOpenError("Could not prepare your project. Try again.");
+    } finally {
+      setOpening(false);
+    }
+  }
 
   return (
     <div className="flex w-full flex-col">
       <div className="relative h-[420px] overflow-hidden rounded-xl border border-border-subtle bg-surface-container-low md:h-[500px]">
-        {meshData ? (
-          <DentalViewer meshData={meshData} className="h-full" />
+        {hasModel ? (
+          <DentalViewer
+            meshData={meshData}
+            modelUrl={modelUrl}
+            modelFormat={format}
+            mtlUrl={mtlUrl}
+            className="h-full"
+          />
         ) : isLoading ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-on-surface-variant">
             <Loader2 className="h-8 w-8 animate-spin text-primary-container" />
-            <p className="font-medium text-text-main">Generating 3D model</p>
-            <p className="text-body-sm">Analysing image and building geometry…</p>
+            <p className="font-medium text-text-main">{GENERATION_COPY.inProgressTitle}</p>
+            <p className="text-body-sm">{GENERATION_COPY.inProgressDetail}</p>
+            {elapsedSec > 0 && (
+              <p className="text-body-sm text-on-surface-variant/80">Elapsed: {elapsedSec}s</p>
+            )}
           </div>
         ) : (
           <div className="flex h-full flex-col items-center justify-center px-6 text-center text-on-surface-variant">
@@ -34,14 +124,22 @@ export function LandingModelPanel() {
         )}
       </div>
 
-      {meshData && (
+      {hasModel && (
         <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
-          <Link href="/editor/preview-project-1">
-            <Button>Open in editor</Button>
-          </Link>
+          <Button onClick={handleOpenEditor} disabled={opening || !modelUrl}>
+            {opening ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Opening…
+              </>
+            ) : (
+              "Open in editor"
+            )}
+          </Button>
           <p className="text-body-sm text-on-surface-variant">
-            Annotate, add learning objectives, and prepare for teaching.
+            Your image and 3D model carry over into the editor.
           </p>
+          {openError && <p className="w-full text-center text-body-sm text-error">{openError}</p>}
         </div>
       )}
     </div>

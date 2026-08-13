@@ -17,6 +17,10 @@
 |----------|---------|
 | [**Project Walkthrough**](./docs/PROJECT_WALKTHROUGH.md) | Full context of work completed, architecture, file map, current state vs gaps |
 | [**Implementation Plan**](./docs/IMPLEMENTATION_PLAN.md) | Future roadmap: Pascal polish, ML pipeline, research flows, infra |
+| [**Deployment Guide**](./docs/DEPLOYMENT.md) | Vercel vs GitHub Pages, env vars, Clerk, Supabase, fal.ai |
+| [**Supabase Setup**](./docs/SUPABASE_SETUP.md) | Database + Storage bucket configuration |
+| [**Environment Variables**](./docs/ENV.md) | `.env` vs `.env.example`, full variable list |
+| [**Progress Tracker**](./docs/PROGRESS.md) | What's done, Phase A status, next steps |
 | [**Design System**](./DESIGN.md) | Clinical Precision design tokens |
 | [App README](./dentalsculptor-app/README.md) | Setup, env vars, deployment |
 | [Architecture](./dentalsculptor-app/ARCHITECTURE.md) | Database, auth, API overview |

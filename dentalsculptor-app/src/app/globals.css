@@ -19,7 +19,7 @@
   --color-on-error: #ffffff;
   --color-surface: #f7f9fb;
   --color-surface-container: #eceef0;
-  --color-surface-container-low: #f2f4f6;
+  --color-surface-container-low: #f3f4f6;
   --color-surface-container-high: #e6e8ea;
   --color-panel-bg: #ffffff;
   --color-border-subtle: #e2e8f0;
@@ -151,10 +151,10 @@ body {
 }
 
 .cad-viewport-grid {
-  background-color: #e8ecf0;
+  background-color: #f3f4f6;
   background-image:
-    linear-gradient(to right, rgba(148, 163, 184, 0.35) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(148, 163, 184, 0.35) 1px, transparent 1px);
+    linear-gradient(to right, rgba(148, 163, 184, 0.28) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(148, 163, 184, 0.28) 1px, transparent 1px);
   background-size: 20px 20px;
 }
 
@@ -168,3 +168,52 @@ body {
 .editor-scrollbar::-webkit-scrollbar { width: 4px; }
 .editor-scrollbar::-webkit-scrollbar-track { background: transparent; }
 .editor-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+/* Editor workspace — light grey surface with white panels */
+.editor-chrome {
+  background: #f3f4f6;
+  color: #191c1e;
+}
+
+.editor-chrome-panel {
+  background: #ffffff;
+  border-color: #e5e7eb;
+  color: #191c1e;
+}
+
+.editor-chrome-panel .text-on-surface {
+  color: #191c1e;
+}
+
+.editor-chrome-panel .text-on-surface-variant {
+  color: #64748b;
+}
+
+.editor-chrome-panel .border-outline-variant,
+.editor-chrome-panel .border-border-subtle {
+  border-color: #e5e7eb;
+}
+
+.editor-chrome-panel .bg-surface-container-lowest {
+  background: #f9fafb;
+}
+
+.editor-chrome-panel .bg-surface-container-low,
+.editor-chrome-panel .bg-surface-container {
+  background: #f3f4f6;
+}
+
+.editor-chrome .glass-panel {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: #e5e7eb;
+  color: #191c1e;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+.editor-chrome .glass-panel .text-on-surface-variant {
+  color: #64748b;
+}
+
+.editor-chrome .glass-panel button:hover {
+  background: #f3f4f6;
+}

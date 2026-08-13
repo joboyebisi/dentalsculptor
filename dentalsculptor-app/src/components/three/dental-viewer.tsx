@@ -1,10 +1,12 @@
 "use client";
 
 import { Suspense, useRef, useMemo, useState, useCallback } from "react";
-import { Canvas, useThree, ThreeEvent } from "@react-three/fiber";
-import { OrbitControls, PerspectiveCamera, Html, Grid } from "@react-three/drei";
+import { Canvas, ThreeEvent } from "@react-three/fiber";
+import { OrbitControls, PerspectiveCamera, Html, Grid, Environment } from "@react-three/drei";
 import * as THREE from "three";
 import type { GeneratedMesh } from "@/lib/model-generator";
+import { RemoteModelMesh } from "@/components/three/remote-model-mesh";
+import type { RemoteModelFormat } from "@/lib/model-format";
 
 export interface AnnotationMarker {
   id: string;
@@ -15,6 +17,9 @@ export interface AnnotationMarker {
 
 interface DentalModelProps {
   meshData?: GeneratedMesh | null;
+  modelUrl?: string | null;
+  modelFormat?: RemoteModelFormat | string | null;
+  mtlUrl?: string | null;
   wireframe?: boolean;
   transparency?: number;
   onSurfaceClick?: (point: THREE.Vector3) => void;
@@ -27,7 +32,7 @@ function DentalMesh({
   wireframe,
   transparency = 1,
   onSurfaceClick,
-}: Omit<DentalModelProps, "annotations" | "selectedAnnotationId">) {
+}: Omit<DentalModelProps, "annotations" | "selectedAnnotationId" | "modelUrl">) {
   const geometry = useMemo(() => {
     if (meshData?.vertices?.length) {
       const geo = new THREE.BufferGeometry();
@@ -72,6 +77,26 @@ function DentalMesh({
   );
 }
 
+function GltfModelWrapper(props: {
+  url: string;
+  format?: RemoteModelFormat | string | null;
+  mtlUrl?: string | null;
+  wireframe?: boolean;
+  transparency?: number;
+  onSurfaceClick?: (point: THREE.Vector3) => void;
+}) {
+  return (
+    <RemoteModelMesh
+      url={props.url}
+      format={props.format}
+      mtlUrl={props.mtlUrl}
+      wireframe={props.wireframe}
+      transparency={props.transparency}
+      onSurfaceClick={props.onSurfaceClick}
+    />
+  );
+}
+
 function AnnotationPoints({
   annotations,
   selectedId,
@@ -108,9 +133,11 @@ function SceneContent(props: DentalModelProps) {
   return (
     <>
       <PerspectiveCamera makeDefault position={[2.5, 1.5, 2.5]} fov={45} />
-      <ambientLight intensity={0.6} />
-      <directionalLight position={[5, 8, 5]} intensity={1.2} castShadow />
-      <directionalLight position={[-3, 4, -2]} intensity={0.4} />
+      <Environment preset="studio" environmentIntensity={0.55} />
+      <ambientLight intensity={0.65} />
+      <hemisphereLight args={["#ffffff", "#d1d5db", 0.55]} />
+      <directionalLight position={[5, 8, 5]} intensity={1.1} castShadow />
+      <directionalLight position={[-3, 4, -2]} intensity={0.45} />
       <Grid
         args={[10, 10]}
         cellSize={0.5}
@@ -122,12 +149,23 @@ function SceneContent(props: DentalModelProps) {
         fadeDistance={12}
         position={[0, -1.2, 0]}
       />
-      <DentalMesh
-        meshData={props.meshData}
-        wireframe={props.wireframe}
-        transparency={props.transparency}
-        onSurfaceClick={props.onSurfaceClick}
-      />
+      {props.modelUrl ? (
+        <GltfModelWrapper
+          url={props.modelUrl}
+          format={props.modelFormat}
+          mtlUrl={props.mtlUrl}
+          wireframe={props.wireframe}
+          transparency={props.transparency}
+          onSurfaceClick={props.onSurfaceClick}
+        />
+      ) : (
+        <DentalMesh
+          meshData={props.meshData}
+          wireframe={props.wireframe}
+          transparency={props.transparency}
+          onSurfaceClick={props.onSurfaceClick}
+        />
+      )}
       {props.annotations && (
         <AnnotationPoints
           annotations={props.annotations}
@@ -157,7 +195,15 @@ export function DentalViewer({
 }: DentalViewerProps) {
   return (
     <div className={`relative bg-surface-container-low ${className}`}>
-      <Canvas shadows gl={{ antialias: true, alpha: true }}>
+      <Canvas
+        shadows
+        gl={{ antialias: true, alpha: true }}
+        onCreated={({ gl }) => {
+          gl.outputColorSpace = THREE.SRGBColorSpace;
+          gl.toneMapping = THREE.ACESFilmicToneMapping;
+          gl.toneMappingExposure = 1.05;
+        }}
+      >
         <Suspense fallback={null}>
           <SceneContent {...props} />
         </Suspense>

@@ -8,6 +8,11 @@ import { APP_NAME, APP_TAGLINE } from "@/lib/constants";
 import { isUiPreviewMode } from "@/lib/preview-mode";
 import "./globals.css";
 
+function hasClerkKeys(): boolean {
+  const key = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+  return Boolean(key && key.startsWith("pk_"));
+}
+
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
@@ -53,13 +58,16 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  if (isUiPreviewMode()) {
-    return <AppBody>{children}</AppBody>;
+  const body = <AppBody>{children}</AppBody>;
+
+  // Clerk required for sign-in even when UI_PREVIEW_MODE bypasses auth middleware
+  if (hasClerkKeys()) {
+    return <ClerkProvider>{body}</ClerkProvider>;
   }
 
-  return (
-    <ClerkProvider>
-      <AppBody>{children}</AppBody>
-    </ClerkProvider>
-  );
+  if (isUiPreviewMode()) {
+    return body;
+  }
+
+  return <ClerkProvider>{body}</ClerkProvider>;
 }

@@ -26,7 +26,7 @@ export function EditorAiBar({ value, onChange, onApply, loading, canApply }: Edi
   };
 
   return (
-    <div className="z-20 shrink-0 border-t border-outline-variant bg-panel-bg px-3 py-3">
+    <div className="editor-chrome-panel z-20 shrink-0 border-t border-outline-variant px-3 py-3">
       <div className="relative w-full">
         <div className="mb-1.5 flex items-center gap-1.5 px-0.5">
           <Wand2 className="h-3.5 w-3.5 text-primary-container" />

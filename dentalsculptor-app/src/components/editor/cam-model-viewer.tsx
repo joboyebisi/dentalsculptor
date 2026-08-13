@@ -1,17 +1,22 @@
 "use client";
 
 import { useRef, useMemo, useCallback, useEffect, useState, forwardRef, useImperativeHandle } from "react";
+import { Loader2 } from "lucide-react";
 import { Canvas, useThree } from "@react-three/fiber";
-import { OrbitControls, Line } from "@react-three/drei";
+import { OrbitControls, Line, Grid, Environment } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
 import type { GeneratedMesh } from "@/lib/model-generator";
+import type { SegmentPart } from "@/lib/editor-segmentation";
+import { VIEWPORT_THEME, EDITOR_SURFACE } from "@/lib/constants";
 import {
   CAMERA,
   computeDefaultCameraPosition,
   computeDefaultPerspectiveCameraFrustum,
   type Coordinate,
 } from "@/lib/camera-utils";
+import { RemoteModelMesh } from "@/components/three/remote-model-mesh";
+import type { RemoteModelFormat } from "@/lib/model-format";
 
 export interface RectMark {
   id: string;
@@ -29,8 +34,13 @@ export interface CamViewerHandle {
   raycastAt: (clientX: number, clientY: number) => THREE.Vector3 | null;
 }
 
+export type ModelLoadStatus = "none" | "loading" | "ready" | "error";
+
 interface CamModelViewerProps {
   meshData?: GeneratedMesh | null;
+  modelUrl?: string | null;
+  modelFormat?: RemoteModelFormat | string | null;
+  mtlUrl?: string | null;
   sourcePreview?: string | null;
   wireframe?: boolean;
   rectMarks?: RectMark[];
@@ -38,7 +48,69 @@ interface CamModelViewerProps {
   selectMode?: boolean;
   onMeshSelect?: () => void;
   onRectMarkComplete?: (mark: Omit<RectMark, "id" | "text">) => void;
+  segmentParts?: SegmentPart[];
+  activePartId?: string | null;
+  modelSelected?: boolean;
   className?: string;
+  onModelStatusChange?: (status: ModelLoadStatus, detail?: string) => void;
+}
+
+function computeRemoteModelVisuals(
+  segmentParts: SegmentPart[],
+  activePartId: string | null | undefined,
+  modelSelected: boolean
+) {
+  const allHidden = segmentParts.length > 0 && segmentParts.every((p) => !p.visible);
+  const active = segmentParts.find((p) => p.id === activePartId);
+  const highlighted = Boolean(active || modelSelected);
+  return {
+    opacity: allHidden ? 0.2 : 1,
+    emissiveHex: active?.color ?? VIEWPORT_THEME.selectEmissive,
+    emissiveIntensity: highlighted ? 0.28 : 0,
+    highlighted,
+  };
+}
+
+function computeSelectionVisuals(
+  segmentParts: SegmentPart[],
+  activePartId: string | null | undefined,
+  modelSelected: boolean
+) {
+  const visible = segmentParts.filter((p) => p.visible);
+  const total = Math.max(segmentParts.length, 1);
+  const ratio = visible.length / total;
+  const opacity =
+    segmentParts.length > 0 && visible.length === 0 ? 0.12 : 0.45 + 0.55 * ratio;
+  const active = segmentParts.find((p) => p.id === activePartId);
+  const highlighted = Boolean(active || modelSelected);
+  return {
+    opacity,
+    emissiveHex: active?.color ?? VIEWPORT_THEME.selectEmissive,
+    emissiveIntensity: highlighted ? 0.32 : 0,
+    highlighted,
+  };
+}
+
+function applyMeshSelection(
+  root: THREE.Object3D,
+  visuals: ReturnType<typeof computeSelectionVisuals>,
+  wireframe?: boolean
+) {
+  root.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) return;
+    const mats = Array.isArray(child.material) ? child.material : [child.material];
+    mats.forEach((mat) => {
+      if (mat instanceof THREE.MeshPhongMaterial || mat instanceof THREE.MeshStandardMaterial || mat instanceof THREE.MeshLambertMaterial) {
+        mat.transparent = visuals.opacity < 1;
+        mat.opacity = visuals.opacity;
+        if ("emissive" in mat) {
+          mat.emissive = new THREE.Color(visuals.emissiveHex);
+          mat.emissiveIntensity = visuals.emissiveIntensity;
+        }
+        if ("wireframe" in mat) mat.wireframe = Boolean(wireframe);
+      }
+    });
+  });
 }
 
 function buildGeometry(meshData?: GeneratedMesh | null) {
@@ -56,20 +128,103 @@ function buildGeometry(meshData?: GeneratedMesh | null) {
   return new THREE.CylinderGeometry(0.5, 0.35, 1.8, 32, 8, false);
 }
 
+function RemoteModelGroup({
+  url,
+  modelFormat,
+  mtlUrl,
+  wireframe,
+  meshGroupRef,
+  selectMode,
+  onMeshSelect,
+  segmentParts,
+  activePartId,
+  modelSelected,
+  onModelLoaded,
+  onModelError,
+}: {
+  url: string;
+  modelFormat?: RemoteModelFormat | string | null;
+  mtlUrl?: string | null;
+  wireframe?: boolean;
+  meshGroupRef: React.RefObject<THREE.Group | null>;
+  selectMode?: boolean;
+  onMeshSelect?: () => void;
+  segmentParts: SegmentPart[];
+  activePartId?: string | null;
+  modelSelected?: boolean;
+  onModelLoaded?: (info: { meshCount: number }) => void;
+  onModelError?: (message: string) => void;
+}) {
+  const modelRootRef = useRef<THREE.Object3D | null>(null);
+  const visuals = useMemo(
+    () => computeRemoteModelVisuals(segmentParts, activePartId, Boolean(modelSelected)),
+    [segmentParts, activePartId, modelSelected]
+  );
+
+  const handleClone = useCallback((root: THREE.Object3D) => {
+    modelRootRef.current = root;
+  }, []);
+
+  const handleLoaded = useCallback(
+    (info: { meshCount: number }) => {
+      onModelLoaded?.(info);
+    },
+    [onModelLoaded]
+  );
+
+  useEffect(() => {
+    if (modelRootRef.current) {
+      applyMeshSelection(modelRootRef.current, visuals, wireframe);
+    }
+  }, [visuals, wireframe]);
+
+  return (
+    <group
+      ref={meshGroupRef}
+      onClick={(e) => {
+        if (selectMode) {
+          e.stopPropagation();
+          onMeshSelect?.();
+        }
+      }}
+    >
+      <RemoteModelMesh
+        url={url}
+        format={modelFormat}
+        mtlUrl={mtlUrl}
+        wireframe={wireframe}
+        onClone={handleClone}
+        onLoaded={handleLoaded}
+        onError={onModelError}
+      />
+    </group>
+  );
+}
+
 function MeshGroup({
   meshData,
   wireframe,
   meshGroupRef,
   selectMode,
   onMeshSelect,
+  segmentParts,
+  activePartId,
+  modelSelected,
 }: {
   meshData?: GeneratedMesh | null;
   wireframe?: boolean;
   meshGroupRef: React.RefObject<THREE.Group | null>;
   selectMode?: boolean;
   onMeshSelect?: () => void;
+  segmentParts: SegmentPart[];
+  activePartId?: string | null;
+  modelSelected?: boolean;
 }) {
   const geometry = useMemo(() => buildGeometry(meshData), [meshData]);
+  const visuals = useMemo(
+    () => computeSelectionVisuals(segmentParts, activePartId, Boolean(modelSelected)),
+    [segmentParts, activePartId, modelSelected]
+  );
 
   return (
     <group ref={meshGroupRef}>
@@ -85,11 +240,15 @@ function MeshGroup({
         }}
       >
         <meshPhongMaterial
-          color="#e8dcc8"
+          color={VIEWPORT_THEME.meshDefault}
           specular="#ffffff"
           shininess={24}
           wireframe={wireframe}
           side={THREE.DoubleSide}
+          transparent={visuals.opacity < 1}
+          opacity={visuals.opacity}
+          emissive={visuals.emissiveHex}
+          emissiveIntensity={visuals.emissiveIntensity}
         />
       </mesh>
     </group>
@@ -107,10 +266,12 @@ function CameraRig({
   meshGroupRef,
   controlsRef,
   onReady,
+  fitGeneration = 0,
 }: {
   meshGroupRef: React.RefObject<THREE.Group | null>;
   controlsRef: React.RefObject<OrbitControlsImpl | null>;
   onReady: (home: { position: Coordinate; target: Coordinate }) => void;
+  fitGeneration?: number;
 }) {
   const { camera, size } = useThree();
 
@@ -150,9 +311,9 @@ function CameraRig({
   }, [camera, size, meshGroupRef, controlsRef, onReady]);
 
   useEffect(() => {
-    const t = setTimeout(fitCamera, 50);
+    const t = setTimeout(fitCamera, fitGeneration > 0 ? 0 : 50);
     return () => clearTimeout(t);
-  }, [fitCamera]);
+  }, [fitCamera, fitGeneration]);
 
   useEffect(() => {
     if (camera instanceof THREE.PerspectiveCamera) {
@@ -166,6 +327,9 @@ function CameraRig({
 
 function SceneContent({
   meshData,
+  modelUrl,
+  modelFormat,
+  mtlUrl,
   wireframe,
   rectMarks,
   meshGroupRef,
@@ -174,8 +338,17 @@ function SceneContent({
   selectMode,
   onMeshSelect,
   onHomeReady,
+  segmentParts,
+  activePartId,
+  modelSelected,
+  fitGeneration,
+  onModelLoaded,
+  onModelError,
 }: {
   meshData?: GeneratedMesh | null;
+  modelUrl?: string | null;
+  modelFormat?: RemoteModelFormat | string | null;
+  mtlUrl?: string | null;
   wireframe?: boolean;
   rectMarks?: RectMark[];
   meshGroupRef: React.RefObject<THREE.Group | null>;
@@ -184,21 +357,60 @@ function SceneContent({
   selectMode?: boolean;
   onMeshSelect?: () => void;
   onHomeReady: (home: { position: Coordinate; target: Coordinate }) => void;
+  segmentParts: SegmentPart[];
+  activePartId?: string | null;
+  modelSelected?: boolean;
+  fitGeneration?: number;
+  onModelLoaded?: (info: { meshCount: number }) => void;
+  onModelError?: (message: string) => void;
 }) {
   return (
     <>
-      <color attach="background" args={["#e8ecf0"]} />
-      <ambientLight intensity={0.9} />
-      <directionalLight position={[8, 10, 6]} intensity={1.4} castShadow />
-      <directionalLight position={[-5, 3, -4]} intensity={0.35} />
-
-      <MeshGroup
-        meshData={meshData}
-        wireframe={wireframe}
-        meshGroupRef={meshGroupRef}
-        selectMode={selectMode}
-        onMeshSelect={onMeshSelect}
+      <color attach="background" args={[VIEWPORT_THEME.background]} />
+      <Environment preset="studio" environmentIntensity={0.55} />
+      <ambientLight intensity={0.65} />
+      <hemisphereLight args={["#ffffff", "#d1d5db", 0.55]} />
+      <directionalLight position={[8, 10, 6]} intensity={1.2} castShadow />
+      <directionalLight position={[-5, 3, -4]} intensity={0.5} />
+      <Grid
+        args={[10, 10]}
+        cellSize={0.5}
+        cellThickness={0.5}
+        cellColor="#D1D5DB"
+        sectionSize={2}
+        sectionThickness={1}
+        sectionColor="#9CA3AF"
+        fadeDistance={14}
+        position={[0, -0.01, 0]}
       />
+
+      {modelUrl ? (
+          <RemoteModelGroup
+            url={modelUrl}
+            modelFormat={modelFormat}
+            mtlUrl={mtlUrl}
+            wireframe={wireframe}
+            meshGroupRef={meshGroupRef}
+            selectMode={selectMode}
+            onMeshSelect={onMeshSelect}
+            segmentParts={segmentParts}
+            activePartId={activePartId}
+            modelSelected={modelSelected}
+            onModelLoaded={onModelLoaded}
+            onModelError={onModelError}
+          />
+      ) : (
+        <MeshGroup
+          meshData={meshData}
+          wireframe={wireframe}
+          meshGroupRef={meshGroupRef}
+          selectMode={selectMode}
+          onMeshSelect={onMeshSelect}
+          segmentParts={segmentParts}
+          activePartId={activePartId}
+          modelSelected={modelSelected}
+        />
+      )}
 
       {rectMarks?.map((m) => (
         <RectMark3D key={m.id} mark={m} />
@@ -215,7 +427,12 @@ function SceneContent({
         maxDistance={50}
       />
 
-      <CameraRig meshGroupRef={meshGroupRef} controlsRef={controlsRef} onReady={onHomeReady} />
+      <CameraRig
+        meshGroupRef={meshGroupRef}
+        controlsRef={controlsRef}
+        onReady={onHomeReady}
+        fitGeneration={fitGeneration}
+      />
     </>
   );
 }
@@ -246,6 +463,9 @@ function RaycastBridge({
 export const CamModelViewer = forwardRef<CamViewerHandle, CamModelViewerProps>(function CamModelViewer(
   {
     meshData,
+    modelUrl,
+    modelFormat,
+    mtlUrl,
     sourcePreview,
     wireframe,
     rectMarks,
@@ -253,7 +473,11 @@ export const CamModelViewer = forwardRef<CamViewerHandle, CamModelViewerProps>(f
     selectMode,
     onMeshSelect,
     onRectMarkComplete,
+    segmentParts = [],
+    activePartId = null,
+    modelSelected = false,
     className = "h-full w-full",
+    onModelStatusChange,
   },
   ref
 ) {
@@ -263,8 +487,76 @@ export const CamModelViewer = forwardRef<CamViewerHandle, CamModelViewerProps>(f
   const homeRef = useRef<{ position: Coordinate; target: Coordinate } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [drawing, setDrawing] = useState<{ startX: number; startY: number; curX: number; curY: number } | null>(null);
+  const [fitGeneration, setFitGeneration] = useState(0);
+  const [modelLoadStatus, setModelLoadStatus] = useState<ModelLoadStatus>(
+    modelUrl || meshData?.vertices?.length ? "loading" : "none"
+  );
+  const [modelLoadDetail, setModelLoadDetail] = useState<string | undefined>();
+  const statusCallbackRef = useRef(onModelStatusChange);
+  statusCallbackRef.current = onModelStatusChange;
+  const modelSourceKeyRef = useRef<string | null>(null);
 
-  const hasMesh = Boolean(meshData?.vertices?.length);
+  const hasMesh = Boolean(meshData?.vertices?.length) || Boolean(modelUrl);
+
+  useEffect(() => {
+    const sourceKey = modelUrl ?? (meshData?.vertices?.length ? "__meshData__" : null);
+    if (!sourceKey) {
+      modelSourceKeyRef.current = null;
+      setModelLoadStatus("none");
+      statusCallbackRef.current?.("none");
+      return;
+    }
+    if (modelSourceKeyRef.current !== sourceKey) {
+      modelSourceKeyRef.current = sourceKey;
+      setModelLoadStatus("loading");
+      statusCallbackRef.current?.("loading");
+    }
+  }, [modelUrl, meshData]);
+
+  useEffect(() => {
+    if (modelLoadStatus !== "loading" || !hasMesh) return;
+    const timeout = setTimeout(() => {
+      const msg = "Load timed out — try Generate Model again";
+      setModelLoadStatus("error");
+      setModelLoadDetail(msg);
+      statusCallbackRef.current?.("error", msg);
+    }, 60_000);
+    return () => clearTimeout(timeout);
+  }, [modelLoadStatus, hasMesh, modelUrl]);
+
+  const handleModelLoaded = useCallback(
+    (info: { meshCount: number }) => {
+      if (info.meshCount === 0) {
+        const msg = "Model file loaded but contains no geometry";
+        setModelLoadStatus("error");
+        setModelLoadDetail(msg);
+        onModelStatusChange?.("error", msg);
+        return;
+      }
+      setFitGeneration((g) => g + 1);
+      setModelLoadStatus("ready");
+      setModelLoadDetail(`${info.meshCount} mesh${info.meshCount === 1 ? "" : "es"}`);
+      onModelStatusChange?.("ready", `${info.meshCount} mesh${info.meshCount === 1 ? "" : "es"}`);
+    },
+    [onModelStatusChange]
+  );
+
+  const handleModelError = useCallback(
+    (message: string) => {
+      setModelLoadStatus("error");
+      setModelLoadDetail(message);
+      onModelStatusChange?.("error", message);
+    },
+    [onModelStatusChange]
+  );
+
+  useEffect(() => {
+    if (meshData?.vertices?.length && !modelUrl) {
+      setFitGeneration((g) => g + 1);
+      setModelLoadStatus("ready");
+      onModelStatusChange?.("ready", "procedural mesh");
+    }
+  }, [meshData, modelUrl, onModelStatusChange]);
 
   useImperativeHandle(ref, () => ({
     resetHome: () => {
@@ -336,7 +628,7 @@ export const CamModelViewer = forwardRef<CamViewerHandle, CamModelViewerProps>(f
   return (
     <div
       ref={containerRef}
-      className={`cad-viewport-grid relative ${className}`}
+      className={`cad-viewport-grid relative h-full w-full min-h-0 ${className}`}
       style={{ cursor: markMode ? "crosshair" : selectMode ? "pointer" : "default" }}
     >
       {markMode && (
@@ -349,9 +641,40 @@ export const CamModelViewer = forwardRef<CamViewerHandle, CamModelViewerProps>(f
       )}
 
       {!hasMesh && sourcePreview && (
-        <div className="absolute inset-0 flex items-center justify-center p-6">
+        <div
+          className="absolute inset-0 flex items-center justify-center p-6"
+          style={{ backgroundColor: EDITOR_SURFACE }}
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={sourcePreview} alt="Source" className="max-h-full max-w-full object-contain shadow-sm" />
+        </div>
+      )}
+
+      {modelLoadStatus === "loading" && hasMesh && (
+        <div
+          className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center"
+          style={{ backgroundColor: `${EDITOR_SURFACE}e6` }}
+        >
+          <div className="flex flex-col items-center gap-3 rounded-xl border border-border-subtle bg-panel-bg px-8 py-5 shadow-md">
+            <Loader2 className="h-7 w-7 animate-spin text-primary-container" />
+            <p className="text-body-sm font-medium text-on-surface">Loading 3D model…</p>
+          </div>
+        </div>
+      )}
+
+      {modelLoadStatus === "error" && (
+        <div
+          className="absolute inset-0 z-30 flex items-center justify-center p-8 text-center"
+          style={{ backgroundColor: EDITOR_SURFACE }}
+        >
+          <div className="max-w-md rounded-xl border border-error/30 bg-panel-bg px-6 py-5 shadow-md">
+            <p className="text-body-sm font-medium text-error">
+              Could not display the 3D model.
+            </p>
+            <p className="mt-2 text-body-sm text-on-surface-variant">
+              {modelLoadDetail ?? "Try Generate Model again from the Source panel."}
+            </p>
+          </div>
         </div>
       )}
 
@@ -361,9 +684,17 @@ export const CamModelViewer = forwardRef<CamViewerHandle, CamModelViewerProps>(f
           gl={{ antialias: true }}
           className="!absolute inset-0"
           camera={{ fov: CAMERA.PHI_FOV, position: [3, 2.5, 4], near: 0.01, far: 500 }}
+          onCreated={({ gl }) => {
+            gl.outputColorSpace = THREE.SRGBColorSpace;
+            gl.toneMapping = THREE.ACESFilmicToneMapping;
+            gl.toneMappingExposure = 1.05;
+          }}
         >
           <SceneContent
             meshData={meshData}
+            modelUrl={modelUrl}
+            modelFormat={modelFormat}
+            mtlUrl={mtlUrl}
             wireframe={wireframe}
             rectMarks={rectMarks}
             meshGroupRef={meshGroupRef}
@@ -372,6 +703,12 @@ export const CamModelViewer = forwardRef<CamViewerHandle, CamModelViewerProps>(f
             selectMode={selectMode}
             onMeshSelect={onMeshSelect}
             onHomeReady={handleHomeReady}
+            segmentParts={segmentParts}
+            activePartId={activePartId}
+            modelSelected={modelSelected}
+            fitGeneration={fitGeneration}
+            onModelLoaded={handleModelLoaded}
+            onModelError={handleModelError}
           />
           <RaycastBridge meshGroupRef={meshGroupRef} raycastRef={raycastRef} />
         </Canvas>

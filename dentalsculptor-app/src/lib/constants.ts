@@ -16,6 +16,27 @@ export const COLORS = {
   textSecondary: "#64748B",
 } as const;
 
+/** Light grey viewport — matches editor workspace surface. */
+export const VIEWPORT_THEME = {
+  background: "#f3f4f6",
+  meshDefault: "#c4b5a0",
+  meshHighlight: "#f5e6d3",
+  grid: "#CBD5E1",
+  selectEmissive: "#0F3D91",
+} as const;
+
+/** Shared editor workspace surface (viewport + chrome). */
+export const EDITOR_SURFACE = "#f3f4f6" as const;
+
+/** Dark editor chrome — tools, panels, AI bar. */
+export const CHROME_THEME = {
+  surface: "#0a0a0a",
+  panel: "#111827",
+  panelBorder: "#1f2937",
+  text: "#f3f4f6",
+  textMuted: "#9ca3af",
+} as const;
+
 export const USER_ROLES = [
   { value: "EDUCATOR", label: "Educator", description: "Create and publish dental learning experiences" },
   { value: "STUDENT", label: "Student", description: "Access simulations and complete assignments" },

@@ -14,6 +14,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useLandingModel } from "@/context/landing-model-context";
+import {
+  GenerationNotifyOption,
+} from "@/components/generation/generation-notify-option";
 
 export function LandingImageUploader() {
   const { previewUrl, uploadedFile, isLoading, error, setUploadedFile, generateModel, clearAll } =
@@ -68,6 +71,8 @@ export function LandingImageUploader() {
         </div>
 
         {error && <p className="text-body-sm text-error">{error}</p>}
+
+        <GenerationNotifyOption disabled={isLoading} />
       </CardContent>
       <CardFooter>
         <Button

@@ -1,30 +1,54 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Upload, ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
+import { Upload, ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { DentalViewer } from "@/components/three/dental-viewer";
-import { PROCESSING_STAGES } from "@/lib/constants";
+import { autoProjectTitle } from "@/lib/auto-project-title";
+import { prepareGenerationImage } from "@/lib/prepare-generation-image";
+import { GENERATION_COPY } from "@/lib/generation-copy";
+import { GenerationNotifyOption } from "@/components/generation/generation-notify-option";
+import {
+  notifyGenerationComplete,
+  prepareGenerationNotification,
+} from "@/lib/generation-notifications";
 import type { GeneratedMesh } from "@/lib/model-generator";
 
 export default function NewProjectPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
-  const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
-  const [processingStage, setProcessingStage] = useState(0);
   const [progress, setProgress] = useState(0);
+  const [elapsedSec, setElapsedSec] = useState(0);
   const [meshData, setMeshData] = useState<GeneratedMesh | null>(null);
+  const [modelUrl, setModelUrl] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!processing) {
+      setElapsedSec(0);
+      return;
+    }
+    const start = Date.now();
+    const id = setInterval(() => setElapsedSec(Math.floor((Date.now() - start) / 1000)), 1000);
+    return () => clearInterval(id);
+  }, [processing]);
+
+  useEffect(() => {
+    if (!processing) return;
+    const id = setInterval(() => {
+      setProgress((p) => (p >= 90 ? p : p + 2));
+    }, 2000);
+    return () => clearInterval(id);
+  }, [processing]);
 
   const handleFileDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -44,29 +68,29 @@ export default function NewProjectPage() {
   }, []);
 
   async function startProcessing() {
-    if (!imageFile || !title) return;
-    setStep(3);
+    if (!imageFile) return;
+    setStep(2);
     setProcessing(true);
-
-    const formData = new FormData();
-    formData.append("title", title);
-    formData.append("description", description);
-    formData.append("image", imageFile);
-
-    for (let i = 0; i < PROCESSING_STAGES.length; i++) {
-      setProcessingStage(i);
-      setProgress(((i + 1) / PROCESSING_STAGES.length) * 80);
-      await new Promise((r) => setTimeout(r, 1200));
-    }
+    setProgress(5);
 
     try {
+      await prepareGenerationNotification();
+      const prepared = await prepareGenerationImage(imageFile);
+      const formData = new FormData();
+      formData.append("title", autoProjectTitle(imageFile.name));
+      formData.append("description", description);
+      formData.append("image", prepared);
+
       const res = await fetch("/api/projects", { method: "POST", body: formData });
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
       setProjectId(data.project.id);
-      setMeshData(data.meshData);
+      setMeshData(data.meshData ?? data.project?.dentalModel?.meshData ?? null);
+      setModelUrl(data.project?.dentalModel?.generated3DUrl ?? null);
       setProgress(100);
-      await new Promise((r) => setTimeout(r, 500));
-      setStep(4);
+      notifyGenerationComplete();
+      setStep(3);
     } catch (err) {
       console.error(err);
     } finally {
@@ -83,7 +107,7 @@ export default function NewProjectPage() {
         </Button>
 
         <div className="mb-8 flex gap-2">
-          {[1, 2, 3, 4].map((s) => (
+          {[1, 2, 3].map((s) => (
             <div
               key={s}
               className={`h-1 flex-1 rounded-full ${s <= step ? "bg-primary-container" : "bg-surface-container"}`}
@@ -95,43 +119,19 @@ export default function NewProjectPage() {
           <div>
             <h1 className="text-display-lg">New Project</h1>
             <p className="mt-1 text-body-md text-on-surface-variant">
-              Step 1 — Project details
+              Upload a dental image — your project will be named automatically. You can rename it
+              in the editor header.
             </p>
-            <div className="mt-6 space-y-4">
-              <div>
-                <Label htmlFor="title">Project Title</Label>
-                <Input
-                  id="title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Molar Caries Simulation"
-                  className="mt-1.5"
-                />
-              </div>
-              <div>
-                <Label htmlFor="description">Project Description</Label>
-                <Textarea
-                  id="description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Describe the learning experience..."
-                  className="mt-1.5"
-                />
-              </div>
+            <div className="mt-4">
+              <Label htmlFor="description">Description (optional)</Label>
+              <Textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Describe the learning experience..."
+                className="mt-1.5"
+              />
             </div>
-            <Button className="mt-8" disabled={!title} onClick={() => setStep(2)}>
-              Continue
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </div>
-        )}
-
-        {step === 2 && (
-          <div>
-            <h1 className="text-display-lg">Upload Image</h1>
-            <p className="mt-1 text-body-md text-on-surface-variant">
-              Step 2 — Upload a dental image (PNG, JPG, JPEG)
-            </p>
             <Card
               className="mt-6 cursor-pointer border-dashed"
               onDragOver={(e) => e.preventDefault()}
@@ -158,34 +158,37 @@ export default function NewProjectPage() {
                 </label>
               </CardContent>
             </Card>
-            <div className="mt-8 flex gap-3">
-              <Button variant="outline" onClick={() => setStep(1)}>Back</Button>
-              <Button disabled={!imageFile} onClick={startProcessing}>
-                Generate 3D Model
-              </Button>
-            </div>
+            <Button className="mt-8" disabled={!imageFile} onClick={startProcessing}>
+              Generate 3D Model
+            </Button>
+            <GenerationNotifyOption className="mt-4" />
           </div>
         )}
 
-        {step === 3 && (
+        {step === 2 && (
           <div className="text-center">
             <Loader2 className="mx-auto mb-4 h-10 w-10 animate-spin text-primary-container" />
-            <h1 className="text-display-lg">Generating 3D Model</h1>
-            <p className="mt-2 text-body-md text-on-surface-variant animate-pulse-slow">
-              {PROCESSING_STAGES[processingStage]}
+            <h1 className="text-display-lg">{GENERATION_COPY.inProgressTitle}</h1>
+            <p className="mt-2 text-body-md text-on-surface-variant">
+              {GENERATION_COPY.inProgressDetail}
             </p>
+            {elapsedSec > 0 && (
+              <p className="mt-1 text-body-sm text-on-surface-variant/80">
+                Elapsed: {elapsedSec}s
+              </p>
+            )}
             <Progress value={progress} className="mt-6" />
           </div>
         )}
 
-        {step === 4 && (
+        {step === 3 && (
           <div>
             <h1 className="text-display-lg">3D Preview Ready</h1>
             <p className="mt-1 text-body-md text-on-surface-variant">
               Your model has been generated. Open the editor to annotate and author content.
             </p>
             <div className="mt-6 h-80 overflow-hidden rounded-xl border border-border-subtle">
-              <DentalViewer meshData={meshData} className="h-full" />
+              <DentalViewer meshData={meshData} modelUrl={modelUrl} className="h-full" />
             </div>
             <div className="mt-8 flex gap-3">
               <Button

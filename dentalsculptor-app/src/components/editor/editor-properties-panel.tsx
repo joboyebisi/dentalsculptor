@@ -10,6 +10,8 @@ interface EditorPropertiesPanelProps {
   hasModel: boolean;
   segmentParts: SegmentPart[];
   onTogglePart: (id: string) => void;
+  onPartActivate?: (id: string) => void;
+  activePartId?: string | null;
   onSelectAll: () => void;
   onDeselectAll: () => void;
   segmenting?: boolean;
@@ -21,6 +23,8 @@ export function EditorPropertiesPanel({
   hasModel,
   segmentParts,
   onTogglePart,
+  onPartActivate,
+  activePartId,
   onSelectAll,
   onDeselectAll,
   segmenting,
@@ -30,7 +34,7 @@ export function EditorPropertiesPanel({
   return (
     <aside
       className={cn(
-        "editor-scrollbar flex h-full shrink-0 flex-col overflow-hidden border-l border-outline-variant bg-panel-bg transition-all duration-200",
+        "editor-chrome-panel editor-scrollbar flex h-full shrink-0 flex-col overflow-hidden border-l border-outline-variant transition-all duration-200",
         open ? "w-[220px]" : "w-10"
       )}
     >
@@ -95,10 +99,13 @@ export function EditorPropertiesPanel({
                       <label
                         className={cn(
                           "flex cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-2 transition-colors",
-                          part.visible
-                            ? "border-border-subtle bg-surface-container-lowest hover:bg-surface-container-low"
-                            : "border-transparent bg-surface-container/40 opacity-55 hover:opacity-75"
+                          activePartId === part.id
+                            ? "border-primary-container bg-primary-container/20 ring-1 ring-primary-container/50"
+                            : part.visible
+                              ? "border-border-subtle bg-surface-container-lowest hover:bg-surface-container-low"
+                              : "border-transparent bg-surface-container/40 opacity-55 hover:opacity-75"
                         )}
+                        onClick={() => onPartActivate?.(part.id)}
                       >
                         <input
                           type="checkbox"

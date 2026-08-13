@@ -1,10 +1,10 @@
 "use client";
 
 import { useRef } from "react";
-import Image from "next/image";
 import { ImagePlus, Factory, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { GenerationNotifyOption } from "@/components/generation/generation-notify-option";
 
 interface EditorSourcePanelProps {
   open: boolean;
@@ -28,7 +28,7 @@ export function EditorSourcePanel({
   return (
     <aside
       className={cn(
-        "editor-scrollbar flex h-full shrink-0 flex-col overflow-hidden border-r border-outline-variant bg-panel-bg transition-all duration-200",
+        "editor-chrome-panel editor-scrollbar flex h-full shrink-0 flex-col overflow-hidden border-r border-outline-variant transition-all duration-200",
         open ? "w-[260px]" : "w-10"
       )}
     >
@@ -66,8 +66,13 @@ export function EditorSourcePanel({
               className="group flex min-h-[180px] flex-1 flex-col items-center justify-center rounded-lg border-2 border-dashed border-outline-variant bg-surface-container-lowest transition-colors hover:border-primary-container/30 hover:bg-surface-container-low"
             >
               {sourcePreview ? (
-                <div className="relative h-full min-h-[160px] w-full p-2">
-                  <Image src={sourcePreview} alt="Source scan" fill className="rounded object-contain" />
+                <div className="relative flex h-full min-h-[160px] w-full items-center justify-center p-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={sourcePreview}
+                    alt="Source scan"
+                    className="max-h-full max-w-full rounded object-contain"
+                  />
                 </div>
               ) : (
                 <>
@@ -88,6 +93,8 @@ export function EditorSourcePanel({
               <Factory className="mr-2 h-4 w-4" />
               {generating ? "Generating…" : "Generate Model"}
             </Button>
+
+            <GenerationNotifyOption disabled={generating} className="border-outline-variant bg-surface-container-lowest" />
           </div>
         </>
       ) : (

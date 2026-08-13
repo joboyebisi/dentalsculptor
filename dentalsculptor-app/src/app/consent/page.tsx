@@ -6,9 +6,9 @@ import { FileText, CheckCircle2 } from "lucide-react";
 import { AppLogo } from "@/components/brand/app-logo";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RESEARCH_INFO_SHEET_URL } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 
 const collectedData = [
   "Editing behaviour",
@@ -71,28 +71,47 @@ export default function ConsentPage() {
             </ul>
           </div>
 
-          <div className="space-y-4 rounded-xl border border-border-subtle bg-surface-container-low p-4">
-            <div className="flex items-start gap-3">
+          <div className="space-y-3 rounded-xl border border-outline-variant bg-surface-container p-4">
+            <label
+              htmlFor="consent"
+              className={cn(
+                "flex cursor-pointer items-start gap-3 rounded-lg border p-3.5 transition-colors",
+                consent
+                  ? "border-primary-container/40 bg-background shadow-sm"
+                  : "border-border-subtle bg-background hover:border-outline-variant"
+              )}
+            >
               <Checkbox
                 id="consent"
                 checked={consent}
                 onCheckedChange={(v) => setConsent(v === true)}
+                className="mt-0.5 h-5 w-5 shrink-0 border-2 border-on-surface-variant/50 bg-background data-[state=checked]:border-primary-container data-[state=checked]:bg-primary-container"
               />
-              <Label htmlFor="consent" className="cursor-pointer leading-relaxed">
+              <span className="cursor-pointer text-body-sm leading-relaxed text-on-surface">
                 I consent to anonymised interaction data being collected and analysed.{" "}
                 <span className="text-error">*</span>
-              </Label>
-            </div>
-            <div className="flex items-start gap-3">
+              </span>
+            </label>
+
+            <label
+              htmlFor="research-opt-in"
+              className={cn(
+                "flex cursor-pointer items-start gap-3 rounded-lg border p-3.5 transition-colors",
+                researchOptIn
+                  ? "border-secondary/40 bg-background shadow-sm"
+                  : "border-border-subtle bg-background hover:border-outline-variant"
+              )}
+            >
               <Checkbox
                 id="research-opt-in"
                 checked={researchOptIn}
                 onCheckedChange={(v) => setResearchOptIn(v === true)}
+                className="mt-0.5 h-5 w-5 shrink-0 border-2 border-on-surface-variant/50 bg-background data-[state=checked]:border-secondary data-[state=checked]:bg-secondary"
               />
-              <Label htmlFor="research-opt-in" className="cursor-pointer leading-relaxed">
+              <span className="cursor-pointer text-body-sm leading-relaxed text-on-surface">
                 I agree to be contacted regarding future research studies. (Optional)
-              </Label>
-            </div>
+              </span>
+            </label>
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row">

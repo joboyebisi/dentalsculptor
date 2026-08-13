@@ -37,7 +37,7 @@ AI-Aided educational authoring platform for dental educators to create, edit, de
 | Frontend | Next.js 15, TypeScript, TailwindCSS, Shadcn/UI, Framer Motion |
 | Auth | Clerk (Google, Microsoft, Email OAuth) |
 | Database | Supabase PostgreSQL, Prisma ORM 7 |
-| Storage | AWS S3, CloudFront CDN |
+| Storage | Supabase Storage (images, GLB) — AWS S3 optional later |
 | Analytics | PostHog + custom research event tracking |
 | 3D | Three.js, React Three Fiber, Drei |
 | XR | WebXR, Meta Quest Browser support |
@@ -82,15 +82,15 @@ NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
 NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/consent
 NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/consent
 
-# Supabase PostgreSQL
-DATABASE_URL=postgresql://postgres:PASSWORD@db.PROJECT.supabase.co:5432/postgres
+# Supabase PostgreSQL + Storage
+NEXT_PUBLIC_SUPABASE_URL=https://[PROJECT_REF].supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+SUPABASE_SERVICE_ROLE_KEY=eyJ...
+SUPABASE_STORAGE_BUCKET=dentalsculptor-assets
+DATABASE_URL=postgresql://postgres:PASSWORD@db.[PROJECT].supabase.co:5432/postgres
 
-# AWS (optional locally — uses local:// paths without credentials)
-AWS_ACCESS_KEY_ID=
-AWS_SECRET_ACCESS_KEY=
-AWS_REGION=eu-west-1
-AWS_S3_BUCKET=dentalsculptor-assets
-AWS_CLOUDFRONT_URL=
+# fal.ai (3D generation)
+FAL_KEY=
 
 # PostHog (optional)
 NEXT_PUBLIC_POSTHOG_KEY=
@@ -98,6 +98,8 @@ NEXT_PUBLIC_POSTHOG_HOST=https://app.posthog.com
 
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
+
+See [../docs/SUPABASE_SETUP.md](../docs/SUPABASE_SETUP.md) for bucket creation.
 
 ### Database Setup
 
@@ -169,12 +171,9 @@ API: `GET /api/research/export?format=CSV|JSON|XLSX`
 3. Use **Transaction** pooler URL for serverless (Vercel)
 4. Set as `DATABASE_URL`
 
-## AWS S3 Setup
+## AWS S3 Setup (optional — deferred)
 
-1. Create S3 bucket with private access
-2. Configure CORS for your domain
-3. Create IAM user with `s3:PutObject`, `s3:GetObject`
-4. Optional: CloudFront distribution for CDN
+Supabase Storage is used by default. When ready for AWS, configure S3 and update `src/lib/storage.ts`.
 
 ## Vercel Deployment
 

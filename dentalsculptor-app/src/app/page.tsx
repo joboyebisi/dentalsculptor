@@ -71,16 +71,6 @@ export default function LandingPage() {
               Upload dental images and generate editable 3D models for teaching,
               assessment, and immersive learning.
             </p>
-            <div className="mt-8 flex flex-wrap justify-center gap-3">
-              <Link href="#workbench">
-                <Button size="lg">Try it now</Button>
-              </Link>
-              <Link href="/editor/preview-project-1">
-                <Button variant="outline" size="lg">
-                  Open editor
-                </Button>
-              </Link>
-            </div>
           </div>
         </section>
 

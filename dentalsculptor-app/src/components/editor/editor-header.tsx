@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState, useRef, useEffect } from "react";
 import { Menu, Eye, Share2, Download, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AppLogoMark } from "@/components/brand/app-logo";
@@ -22,6 +23,7 @@ interface EditorHeaderProps {
   onToggleSidebar: () => void;
   onSave?: () => void;
   onExport?: () => void;
+  onTitleChange?: (title: string) => void;
 }
 
 const TABS: { id: EditorTab; label: string }[] = [
@@ -43,8 +45,27 @@ export function EditorHeader({
   onToggleSidebar,
   onSave,
   onExport,
+  onTitleChange,
 }: EditorHeaderProps) {
   const fileName = projectFileName(projectTitle);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [draftTitle, setDraftTitle] = useState(projectTitle);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setDraftTitle(projectTitle);
+  }, [projectTitle]);
+
+  useEffect(() => {
+    if (editingTitle) titleInputRef.current?.focus();
+  }, [editingTitle]);
+
+  function commitTitle() {
+    const trimmed = draftTitle.trim() || projectTitle;
+    setDraftTitle(trimmed);
+    if (trimmed !== projectTitle) onTitleChange?.(trimmed);
+    setEditingTitle(false);
+  }
 
   return (
     <header className="z-40 flex h-14 shrink-0 items-center justify-between border-b border-outline-variant bg-panel-bg px-4 md:px-5">
@@ -69,9 +90,32 @@ export function EditorHeader({
         <div className="flex min-w-0 flex-1 items-center gap-3 md:gap-5">
           <div className="flex min-w-0 items-center gap-2 rounded-md border border-outline-variant bg-surface-container-low px-2.5 py-1.5">
             <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-secondary" />
-            <span className="truncate font-mono text-body-sm font-medium text-on-surface" title={fileName}>
-              {fileName}
-            </span>
+            {editingTitle ? (
+              <input
+                ref={titleInputRef}
+                value={draftTitle}
+                onChange={(e) => setDraftTitle(e.target.value)}
+                onBlur={commitTitle}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") commitTitle();
+                  if (e.key === "Escape") {
+                    setDraftTitle(projectTitle);
+                    setEditingTitle(false);
+                  }
+                }}
+                className="min-w-0 flex-1 truncate bg-transparent font-mono text-body-sm font-medium text-on-surface outline-none"
+                aria-label="Project title"
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => onTitleChange && setEditingTitle(true)}
+                className="min-w-0 truncate font-mono text-body-sm font-medium text-on-surface hover:text-primary-container"
+                title={onTitleChange ? "Click to rename" : fileName}
+              >
+                {fileName}
+              </button>
+            )}
             <span className="hidden shrink-0 rounded bg-surface-container px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant md:inline">
               {projectStatus}
             </span>
