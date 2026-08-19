@@ -1,17 +1,20 @@
 import { clerkMiddleware } from "@clerk/nextjs/server";
+import { resolveClerkProxyUrl } from "@/lib/clerk-proxy";
 
 /**
- * Next.js 16: use proxy.ts (not middleware.ts).
- *
- * Dev Clerk keys (pk_test_) on *.vercel.app do NOT get auto-proxy — without
- * frontendApiProxy the __clerk_handshake redirect 500s ("handshake without redirect").
- * Set NEXT_PUBLIC_CLERK_PROXY_URL=https://YOUR_APP.vercel.app/__clerk on Vercel.
+ * pk_test_ on *.vercel.app needs FAPI proxy — auto-derived from VERCEL_PROJECT_PRODUCTION_URL.
+ * Override with NEXT_PUBLIC_CLERK_PROXY_URL=https://your-app.vercel.app/__clerk
  */
-export default clerkMiddleware({
-  frontendApiProxy: {
-    enabled: true,
-  },
-});
+const proxyUrl = resolveClerkProxyUrl();
+
+export default clerkMiddleware(
+  proxyUrl
+    ? {
+        proxyUrl,
+        frontendApiProxy: { enabled: true },
+      }
+    : {}
+);
 
 export const config = {
   matcher: [

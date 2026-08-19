@@ -1,19 +1,17 @@
 import { NextResponse } from "next/server";
+import { clerkKeyDiagnostics } from "@/lib/clerk-proxy";
 
 /** Lightweight deploy diagnostics — safe to expose (no secrets). */
 export async function GET() {
-  const pk = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
+  const clerk = clerkKeyDiagnostics();
+
   return NextResponse.json({
     ok: true,
     timestamp: new Date().toISOString(),
-    clerk: {
-      hasPublishableKey: pk.startsWith("pk_"),
-      keyType: pk.startsWith("pk_live_") ? "production" : pk.startsWith("pk_test_") ? "development" : "missing",
-      proxyUrl: process.env.NEXT_PUBLIC_CLERK_PROXY_URL ?? null,
-      signInUrl: process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL ?? null,
-    },
+    clerk,
     app: {
       url: process.env.NEXT_PUBLIC_APP_URL ?? null,
+      vercelHost: process.env.VERCEL_PROJECT_PRODUCTION_URL ?? process.env.VERCEL_URL ?? null,
       previewMode: process.env.UI_PREVIEW_MODE === "true",
     },
     database: {
@@ -24,5 +22,13 @@ export async function GET() {
       asyncS3: process.env.MODAL_ASYNC_S3_ENABLED === "true",
       hasGenerateUrl: Boolean(process.env.MODAL_GENERATE_ASYNC_URL),
     },
+    hints: [
+      !clerk.keyPairMatch
+        ? "CLERK_SECRET_KEY and NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY must be from the same Clerk app (both test or both live)."
+        : null,
+      clerk.keyType === "development" && !clerk.proxyUrl
+        ? "Dev keys on Vercel need NEXT_PUBLIC_CLERK_PROXY_URL or a *.vercel.app host."
+        : null,
+    ].filter(Boolean),
   });
 }
