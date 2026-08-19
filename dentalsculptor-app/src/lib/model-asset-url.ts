@@ -6,6 +6,7 @@ export const ALLOWED_MODEL_ASSET_HOSTS = [
   "fal.ai",
   "fal.run",
   "supabase.co",
+  "amazonaws.com",
 ] as const;
 
 export function isAllowedModelAssetUrl(url: string): boolean {
@@ -39,8 +40,27 @@ export function resolveModelFetchUrl(url: string): string {
 
 export function guessModelContentType(url: string, format?: string | null): string {
   const lower = url.split("?")[0]?.toLowerCase() ?? "";
-  if (lower.endsWith(".obj") || format === "obj") return "model/obj";
-  if (lower.endsWith(".mtl")) return "model/mtl";
+  if (lower.endsWith(".obj") || format === "obj") return "application/octet-stream";
+  if (lower.endsWith(".mtl")) return "text/plain";
   if (lower.endsWith(".glb") || format === "glb") return "model/gltf-binary";
+  if (lower.endsWith(".stl") || format === "stl") return "model/stl";
+  return "application/octet-stream";
+}
+
+/** Map upstream MIME to Supabase bucket allowlist (see supabase/setup.sql). */
+export function normalizeStorageContentType(contentType: string): string {
+  const allowed = new Set([
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "model/gltf-binary",
+    "model/stl",
+    "application/octet-stream",
+    "text/plain",
+  ]);
+  const base = contentType.split(";")[0]?.trim().toLowerCase() ?? "application/octet-stream";
+  if (allowed.has(base)) return base;
+  if (base.startsWith("image/")) return base;
+  if (base.startsWith("model/")) return "application/octet-stream";
   return "application/octet-stream";
 }

@@ -2,6 +2,18 @@
 
 export type Coordinate = { x: number; y: number; z: number };
 
+export interface SerializedCameraState {
+  projection: "perspective" | "orthographic";
+  projectionMatrix: number[];
+  viewMatrix: number[];
+  worldMatrix: number[];
+  position: [number, number, number];
+  quaternion: [number, number, number, number];
+  target: [number, number, number];
+  width: number;
+  height: number;
+}
+
 export const CAMERA = {
   HOME_AZIMUTH: 45,
   HOME_ELEVATION: 35.264,

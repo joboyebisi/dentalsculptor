@@ -14,6 +14,7 @@ import {
   computeDefaultCameraPosition,
   computeDefaultPerspectiveCameraFrustum,
   type Coordinate,
+  type SerializedCameraState,
 } from "@/lib/camera-utils";
 import { RemoteModelMesh } from "@/components/three/remote-model-mesh";
 import type { RemoteModelFormat } from "@/lib/model-format";
@@ -32,6 +33,12 @@ export interface RectMark {
 export interface CamViewerHandle {
   resetHome: () => void;
   raycastAt: (clientX: number, clientY: number) => THREE.Vector3 | null;
+  captureView: () => Promise<ViewerCapture | null>;
+}
+
+export interface ViewerCapture {
+  image: Blob;
+  camera: SerializedCameraState;
 }
 
 export type ModelLoadStatus = "none" | "loading" | "ready" | "error";
@@ -460,6 +467,57 @@ function RaycastBridge({
   return null;
 }
 
+function CaptureBridge({
+  controlsRef,
+  captureRef,
+}: {
+  controlsRef: React.RefObject<OrbitControlsImpl | null>;
+  captureRef: React.MutableRefObject<() => Promise<ViewerCapture | null>>;
+}) {
+  const { camera, gl, scene } = useThree();
+  captureRef.current = () =>
+    new Promise((resolve) => {
+      camera.updateMatrixWorld();
+      camera.updateProjectionMatrix();
+      gl.render(scene, camera);
+
+      const rect = gl.domElement.getBoundingClientRect();
+      const width = Math.max(1, Math.floor(rect.width));
+      const height = Math.max(1, Math.floor(rect.height));
+      const output = document.createElement("canvas");
+      output.width = width;
+      output.height = height;
+      const context = output.getContext("2d");
+      if (!context) {
+        resolve(null);
+        return;
+      }
+      context.drawImage(gl.domElement, 0, 0, width, height);
+      output.toBlob((image) => {
+        if (!image) {
+          resolve(null);
+          return;
+        }
+        const target = controlsRef.current?.target ?? new THREE.Vector3();
+        resolve({
+          image,
+          camera: {
+            projection: camera instanceof THREE.OrthographicCamera ? "orthographic" : "perspective",
+            projectionMatrix: camera.projectionMatrix.toArray(),
+            viewMatrix: camera.matrixWorldInverse.toArray(),
+            worldMatrix: camera.matrixWorld.toArray(),
+            position: camera.position.toArray(),
+            quaternion: camera.quaternion.toArray(),
+            target: target.toArray(),
+            width,
+            height,
+          },
+        });
+      }, "image/png");
+    });
+  return null;
+}
+
 export const CamModelViewer = forwardRef<CamViewerHandle, CamModelViewerProps>(function CamModelViewer(
   {
     meshData,
@@ -484,6 +542,7 @@ export const CamModelViewer = forwardRef<CamViewerHandle, CamModelViewerProps>(f
   const meshGroupRef = useRef<THREE.Group | null>(null);
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
   const raycastRef = useRef<(x: number, y: number) => THREE.Vector3 | null>(() => null);
+  const captureRef = useRef<() => Promise<ViewerCapture | null>>(async () => null);
   const homeRef = useRef<{ position: Coordinate; target: Coordinate } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [drawing, setDrawing] = useState<{ startX: number; startY: number; curX: number; curY: number } | null>(null);
@@ -568,6 +627,7 @@ export const CamModelViewer = forwardRef<CamViewerHandle, CamModelViewerProps>(f
       controlsRef.current.update();
     },
     raycastAt: (clientX, clientY) => raycastRef.current(clientX, clientY),
+    captureView: () => captureRef.current(),
   }));
 
   const handleHomeReady = useCallback((home: { position: Coordinate; target: Coordinate }) => {
@@ -681,7 +741,7 @@ export const CamModelViewer = forwardRef<CamViewerHandle, CamModelViewerProps>(f
       {(hasMesh || !sourcePreview) && (
         <Canvas
           shadows
-          gl={{ antialias: true }}
+          gl={{ antialias: true, preserveDrawingBuffer: true }}
           className="!absolute inset-0"
           camera={{ fov: CAMERA.PHI_FOV, position: [3, 2.5, 4], near: 0.01, far: 500 }}
           onCreated={({ gl }) => {
@@ -711,6 +771,7 @@ export const CamModelViewer = forwardRef<CamViewerHandle, CamModelViewerProps>(f
             onModelError={handleModelError}
           />
           <RaycastBridge meshGroupRef={meshGroupRef} raycastRef={raycastRef} />
+          <CaptureBridge controlsRef={controlsRef} captureRef={captureRef} />
         </Canvas>
       )}
 

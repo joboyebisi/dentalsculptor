@@ -12,9 +12,10 @@ interface EditorAiBarProps {
   onApply: () => void;
   loading?: boolean;
   canApply: boolean;
+  maskMode?: boolean;
 }
 
-export function EditorAiBar({ value, onChange, onApply, loading, canApply }: EditorAiBarProps) {
+export function EditorAiBar({ value, onChange, onApply, loading, canApply, maskMode }: EditorAiBarProps) {
   const remaining = MAX_PROMPT_CHARS - value.length;
   const ready = canApply && value.trim().length > 0 && !loading;
 
@@ -31,7 +32,7 @@ export function EditorAiBar({ value, onChange, onApply, loading, canApply }: Edi
         <div className="mb-1.5 flex items-center gap-1.5 px-0.5">
           <Wand2 className="h-3.5 w-3.5 text-primary-container" />
           <span className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">
-            Semantic edit
+            {maskMode ? "Instruction for masked edit" : "Semantic edit"}
           </span>
         </div>
 
@@ -43,7 +44,11 @@ export function EditorAiBar({ value, onChange, onApply, loading, canApply }: Edi
             }}
             onKeyDown={handleKeyDown}
             rows={3}
-            placeholder="Describe the edit you want — select the model or parts above first…"
+            placeholder={
+              maskMode
+                ? "e.g. remove decay from the painted occlusal fossa…"
+                : "Describe the edit you want — select the model or parts above first…"
+            }
             className="editor-scrollbar min-h-[80px] w-full resize-none border-0 bg-transparent py-3 pl-3 pr-14 text-body-sm leading-relaxed shadow-none focus-visible:ring-0"
           />
 

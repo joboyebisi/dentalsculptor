@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
   const description = (formData.get("description") as string) || "";
   const image = formData.get("image") as File;
   const existingModelUrl = (formData.get("modelUrl") as string) || null;
+  const existingModelKey = (formData.get("modelKey") as string) || null;
   const existingThumbnailUrl = (formData.get("thumbnailUrl") as string) || null;
   const existingMtlUrl = (formData.get("mtlUrl") as string) || null;
   const existingFormat = (formData.get("format") as string) || null;
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
   let imageUrl: string;
 
   async function mirrorGeneratedAssets() {
-    if (!generated3DUrl || !isSupabaseStorageConfigured()) return;
+    if (existingModelKey || !generated3DUrl || !isSupabaseStorageConfigured()) return;
     try {
       const ext = format === "obj" ? "model.obj" : "model.glb";
       generated3DUrl = await mirrorRemoteAssetToStorage(
@@ -99,6 +100,7 @@ export async function POST(req: NextRequest) {
         create: {
           sourceImageUrl: imageUrl,
           generated3DUrl,
+          generated3DKey: existingModelKey,
           thumbnailUrl,
           meshData: meshData ?? undefined,
           processingStage: serializeModelProcessingStage({ mtlUrl, format }),

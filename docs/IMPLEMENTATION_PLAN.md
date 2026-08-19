@@ -26,6 +26,32 @@
 
 ## 1. Overview & priorities
 
+### Active milestone: E0–E2 (single tooth → sim export)
+
+**Primary doc:** [MILESTONE_E0_E2.md](./MILESTONE_E0_E2.md)  
+**E2E tests:** [E2E_TEST_PLAN_E0_E2.md](./E2E_TEST_PLAN_E0_E2.md)  
+**Later work:** [MILESTONE_E3_PLUS.md](./MILESTONE_E3_PLUS.md)  
+**Multilayer anatomy:** [MULTILAYER_TOOTH_STRATEGY.md](./MULTILAYER_TOOTH_STRATEGY.md)
+
+| Phase | Deliverable | Weeks |
+|-------|-------------|-------|
+| **E0** | Modal TRELLIS generate + Nano3D edit; mask + text UI | 2–3 |
+| **E1** | Export wizard (Simodont, SimtoCARE, Virteasy, Quest presets; watertight check) | 1 |
+| **E2** | Placement Studio (template jaw + transform + merge) | 2 |
+
+**User journey:** PNG/JPG single tooth → preprocess → case template → Modal generate → mask/prompt edit → optional jaw placement → export STL/GLB.
+
+**ML host:** Modal (`dentalsculptor-ml/`). fal.ai remains fallback until Modal deploys.  
+**Storage:** Supabase Postgres + **Amazon S3** for GLB/STL; Supabase bucket for thumbnails only.
+
+### Critical research problems
+
+These three workstreams are release gates and must be measured independently:
+
+1. **Generation:** reduce time-to-first-preview and accepted GLB latency by up to 10× without losing the 1024-cascade anatomical quality. Split SLat generation from GLB extraction, persist job state, profile fixed seeds, test warm containers and GPU variants, and prevent duplicate paid jobs.
+2. **Editing:** replace the current placeholder with captured-view masked 2D approval, a real Nano3D Case 3 worker, protected-region metrics, before/after review, and immutable accepted revisions.
+3. **Multilayer anatomy:** represent enamel, dentin and pulp as separate watertight, non-overlapping tissue regions with explicit material IDs. A single photograph cannot reveal patient-specific internal anatomy; photo-generated teeth may use validated tooth-type templates, while anatomically measured layers require CBCT/micro-CT segmentation. Standard STL/PLY imports generally remain uniform-haptic, so native multi-tissue haptics require a simulator-specific material/voxel contract or TrueTeethLab integration.
+
 ### Architecture target
 
 ```mermaid
@@ -68,6 +94,9 @@ flowchart TB
 
 | Priority | Theme | Why |
 |----------|-------|-----|
+| P0 | Generation latency and reliability | Current multi-minute wait blocks recruitment and repeats can waste GPU spend |
+| P0 | Real masked editing + revisions | Core research promise; placeholder output is not clinically auditable |
+| P0 | Multilayer anatomy contract | Enamel/dentin/pulp geometry and simulator material compatibility |
 | P0 | Role-gate research dashboard | Ethics / UX — participants must not see supervisor tools |
 | P0 | Selection ↔ 3D sync | Core editor promise |
 | P1 | STL export | Already promised on landing page |
@@ -214,6 +243,17 @@ Wire rect marks from `editor-workspace.tsx` → `POST /api/projects/[id]/annotat
 
 **Duration:** 2–4 weeks (interim); ongoing for custom model
 
+### D0. Route by clinical source and authoring intent
+
+Do not send every upload through image-to-3D. The new project flow first chooses
+`single tooth`, `tooth in jaw`, `partial/full arch`, or `CT/CBCT anatomy`, then
+detects photo, IOS/surface, CT/CBCT, X-ray, or existing case input. See
+[`CLINICAL_AUTHORING_WORKFLOWS.md`](./CLINICAL_AUTHORING_WORKFLOWS.md).
+
+TRELLIS/Nano3D on Modal becomes the preferred experimental generation/editing
+provider after it passes the dental benchmark. Keep FAL Hunyuan as a server-side
+fallback; educators do not choose infrastructure providers.
+
 ### D1. Wire Bloom pattern into main app
 
 Reference: `bloom-v0/src/app/api/generate/route.ts`
@@ -262,6 +302,22 @@ ML_SERVICE_URL=        # later: your FastAPI endpoint
 ## 6. Phase E — Segmentation (Slicer → FastAPI)
 
 **Duration:** 4–6 weeks
+
+Phase E also introduces the confirmed anatomy contract used by placement,
+editing, case authoring and export. IOS, CT/CBCT, µCT and generated meshes route
+to different pipelines; there is no universal dental segmenter.
+
+### E0. Localised generative editing bridge
+
+Before anatomical segmentation is wired into the editor, run the Nano3D/Modal
+spike described in [`3D_EDITING_RESEARCH.md`](./3D_EDITING_RESEARCH.md). Editing
+and segmentation remain separate jobs, but share selected part IDs and a common
+editable-region mask. The first editing UI is: captured model view + painted 2D
+mask + text instruction + add/remove/replace operation + preview approval.
+
+All accepted edits create a new immutable model revision. The original mesh,
+mask, camera, prompt, seed, provider/checkpoint version, and validation metrics
+must be retained for undo, research audit, and future custom-model training.
 
 ### Tool comparison
 
@@ -425,7 +481,7 @@ Add `public/research-information-sheet.pdf` (referenced in consent page).
 | Hosting | Vercel | Vercel ✓ |
 | Auth | Better Auth + Supabase | Clerk ✓ |
 | DB | Supabase Postgres | Supabase Postgres ✓ |
-| Assets | Cloudflare R2 CDN | S3 now → R2 recommended |
+| Assets | Amazon S3 (+ CloudFront optional) | S3 ✓ (AWS credits) |
 | ML | None | FastAPI GPU worker |
 | Analytics | — | PostHog ✓ |
 

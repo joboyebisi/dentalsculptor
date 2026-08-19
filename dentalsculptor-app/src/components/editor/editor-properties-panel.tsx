@@ -1,6 +1,6 @@
 "use client";
 
-import { Settings, CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Settings, CheckCircle2, ChevronLeft, ChevronRight, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SegmentPart } from "@/lib/editor-segmentation";
 
@@ -15,6 +15,8 @@ interface EditorPropertiesPanelProps {
   onSelectAll: () => void;
   onDeselectAll: () => void;
   segmenting?: boolean;
+  /** When true, panel is read-only — segmentation coming in a later milestone. */
+  disabled?: boolean;
 }
 
 export function EditorPropertiesPanel({
@@ -28,6 +30,7 @@ export function EditorPropertiesPanel({
   onSelectAll,
   onDeselectAll,
   segmenting,
+  disabled = false,
 }: EditorPropertiesPanelProps) {
   const selectedCount = segmentParts.filter((p) => p.visible).length;
 
@@ -35,7 +38,8 @@ export function EditorPropertiesPanel({
     <aside
       className={cn(
         "editor-chrome-panel editor-scrollbar flex h-full shrink-0 flex-col overflow-hidden border-l border-outline-variant transition-all duration-200",
-        open ? "w-[220px]" : "w-10"
+        open ? "w-[220px]" : "w-10",
+        disabled && "opacity-60"
       )}
     >
       {open ? (
@@ -55,13 +59,23 @@ export function EditorPropertiesPanel({
             </button>
           </div>
 
-          <div className="editor-scrollbar flex-1 overflow-y-auto p-3">
+          <div className="relative editor-scrollbar flex-1 overflow-y-auto p-3">
+            {disabled && (
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-surface-container-lowest/80 px-4 text-center backdrop-blur-[1px]">
+                <Lock className="mb-2 h-6 w-6 text-on-surface-variant" />
+                <p className="text-body-sm font-medium text-on-surface">Coming soon</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-on-surface-variant">
+                  Anatomical part selection and IOS/CBCT segmentation arrive in a later release.
+                </p>
+              </div>
+            )}
+
             {!hasModel ? (
               <div className="rounded-lg border border-dashed border-outline-variant bg-surface-container-lowest p-4 text-center">
                 <Settings className="mx-auto mb-2 h-7 w-7 text-outline" />
                 <p className="text-body-sm font-medium text-on-surface">No model yet</p>
                 <p className="mt-1 text-[11px] leading-relaxed text-on-surface-variant">
-                  Generate a 3D model to see segmented parts here.
+                  Generate a 3D model to prepare segmented parts here.
                 </p>
               </div>
             ) : segmenting ? (
@@ -79,14 +93,16 @@ export function EditorPropertiesPanel({
                     <button
                       type="button"
                       onClick={onSelectAll}
-                      className="text-[10px] font-medium text-primary-container hover:underline"
+                      disabled={disabled}
+                      className="text-[10px] font-medium text-primary-container hover:underline disabled:pointer-events-none disabled:opacity-50"
                     >
                       All
                     </button>
                     <button
                       type="button"
                       onClick={onDeselectAll}
-                      className="text-[10px] font-medium text-on-surface-variant hover:underline"
+                      disabled={disabled}
+                      className="text-[10px] font-medium text-on-surface-variant hover:underline disabled:pointer-events-none disabled:opacity-50"
                     >
                       None
                     </button>
@@ -98,18 +114,20 @@ export function EditorPropertiesPanel({
                     <li key={part.id}>
                       <label
                         className={cn(
-                          "flex cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-2 transition-colors",
+                          "flex items-center gap-2 rounded-lg border px-2.5 py-2 transition-colors",
+                          disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer",
                           activePartId === part.id
                             ? "border-primary-container bg-primary-container/20 ring-1 ring-primary-container/50"
                             : part.visible
                               ? "border-border-subtle bg-surface-container-lowest hover:bg-surface-container-low"
                               : "border-transparent bg-surface-container/40 opacity-55 hover:opacity-75"
                         )}
-                        onClick={() => onPartActivate?.(part.id)}
+                        onClick={() => !disabled && onPartActivate?.(part.id)}
                       >
                         <input
                           type="checkbox"
                           checked={part.visible}
+                          disabled={disabled}
                           onChange={() => onTogglePart(part.id)}
                           className="h-3.5 w-3.5 rounded border-outline-variant accent-primary-container"
                         />
@@ -130,8 +148,8 @@ export function EditorPropertiesPanel({
 
           <div className="border-t border-outline-variant bg-surface-container-lowest px-3 py-2">
             <div className="flex items-center gap-1 text-[10px] text-on-surface-variant">
-              <CheckCircle2 className="h-3 w-3 text-secondary" />
-              Segmentation
+              <CheckCircle2 className="h-3 w-3 text-outline" />
+              Segmentation — upcoming
             </div>
           </div>
         </>
@@ -141,9 +159,10 @@ export function EditorPropertiesPanel({
           onClick={onToggle}
           className="flex h-full w-full flex-col items-center gap-2 py-4 text-on-surface-variant hover:bg-surface-container-low hover:text-primary-container"
           aria-label="Expand parts panel"
+          title="Model parts (coming soon)"
         >
           <ChevronLeft className="h-4 w-4" />
-          <Settings className="h-4 w-4" />
+          <Settings className="h-4 w-4 opacity-60" />
         </button>
       )}
     </aside>

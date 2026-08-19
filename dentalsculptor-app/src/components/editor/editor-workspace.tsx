@@ -10,18 +10,36 @@ import { EditorPropertiesPanel } from "@/components/editor/editor-properties-pan
 import { EditorStatusBar } from "@/components/editor/editor-status-bar";
 import { EditorSourcePanel } from "@/components/editor/editor-source-panel";
 import { EditorDashboardSidebar } from "@/components/editor/editor-dashboard-sidebar";
+import { MaskPaintOverlay, type MaskPaintOverlayHandle, type MaskBrushMode } from "@/components/editor/mask-paint-overlay";
+import { EditorMaskToolbar } from "@/components/editor/editor-mask-toolbar";
+import {
+  EditPreviewModal,
+  EditorEditActions,
+  EditorMaskContextPanel,
+} from "@/components/editor/edit-preview-modal";
+import { ExportWizardDialog } from "@/components/export/export-wizard-dialog";
+import { EditorCasePanel } from "@/components/editor/editor-case-panel";
+import { CaseWizardDialog, type CaseWizardContinuePayload } from "@/components/case-wizard/case-wizard-dialog";
+import type { CaseTemplate } from "@/lib/case-templates";
+import type { CaseRecipe } from "@/lib/clinical-case-params";
+import { parseCaseRecipeFromProject, formatInstructionsFromRecipe } from "@/lib/case-recipe-utils";
 import { useResearchTracker } from "@/hooks/use-research-tracker";
 import { generateSegmentParts, type SegmentPart } from "@/lib/editor-segmentation";
 import { triggerSFX } from "@/lib/sfx-bus";
 import { parseModelProcessingStage } from "@/lib/model-processing-stage";
 import { detectModelFormat } from "@/lib/model-format";
+import type { SerializedCameraState } from "@/lib/camera-utils";
 import { prepareGenerationImage } from "@/lib/prepare-generation-image";
 import {
   notifyGenerationComplete,
   prepareGenerationNotification,
 } from "@/lib/generation-notifications";
 import { GENERATION_COPY } from "@/lib/generation-copy";
+import { pollGenerationJob } from "@/lib/generation-jobs";
 import { EDITOR_SURFACE } from "@/lib/constants";
+import { expandDentalPrompt } from "@/lib/dental-prompt-glossary";
+import type { EditOperation } from "@/lib/edit-types";
+import { DEFAULT_EXPORT_TARGET } from "@/lib/export-presets";
 
 export interface EditorProject {
   id: string;
@@ -41,17 +59,25 @@ export interface EditorProject {
   annotations: Array<{ id: string; text: string; position: number[]; color: string }>;
   learningObjectives: Array<{ id: string; title: string }>;
   assessments: Array<{ id: string; question: string }>;
+  versions?: Array<{ label: string | null; snapshot: unknown; version: number }>;
 }
 
 interface EditorWorkspaceProps {
   project: EditorProject;
   projectId: string;
   onSave: (updates: Partial<EditorProject>) => Promise<void>;
+  initialCaseWizardOpen?: boolean;
 }
 
-export function EditorWorkspace({ project, projectId, onSave }: EditorWorkspaceProps) {
+export function EditorWorkspace({
+  project,
+  projectId,
+  onSave,
+  initialCaseWizardOpen = false,
+}: EditorWorkspaceProps) {
   const { track } = useResearchTracker();
   const viewerRef = useRef<CamViewerHandle>(null);
+  const maskOverlayRef = useRef<MaskPaintOverlayHandle>(null);
 
   const modelMeta = parseModelProcessingStage(project.dentalModel?.processingStage);
   const initialModelUrl = project.dentalModel?.generated3DUrl ?? null;
@@ -68,7 +94,14 @@ export function EditorWorkspace({ project, projectId, onSave }: EditorWorkspaceP
   const [wireframe, setWireframe] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sourceOpen, setSourceOpen] = useState(true);
-  const [partsOpen, setPartsOpen] = useState(true);
+  const [partsOpen, setPartsOpen] = useState(false);
+  const [caseWizardOpen, setCaseWizardOpen] = useState(initialCaseWizardOpen);
+  const [applyingTemplate, setApplyingTemplate] = useState(false);
+  const [selectedCase, setSelectedCase] = useState<CaseTemplate | null>(null);
+  const [caseRecipe, setCaseRecipe] = useState<CaseRecipe | null>(() =>
+    parseCaseRecipeFromProject(project)
+  );
+  const [templateError, setTemplateError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<EditorTab>("authoring");
   const [aiPrompt, setAiPrompt] = useState(
     "Deepen the distal groove by 0.5mm and smoothen the buccal cusp transitions for better occlusion."
@@ -77,7 +110,22 @@ export function EditorWorkspace({ project, projectId, onSave }: EditorWorkspaceP
   const [generating, setGenerating] = useState(false);
   const [segmenting, setSegmenting] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [exporting, setExporting] = useState(false);
+  const [exportWizardOpen, setExportWizardOpen] = useState(false);
+  const [casePanelOpen, setCasePanelOpen] = useState(true);
+  const [learningObjectives, setLearningObjectives] = useState(project.learningObjectives);
+  const [instructions, setInstructions] = useState(project.instructions);
+  const [brushMode, setBrushMode] = useState<MaskBrushMode>("paint");
+  const [brushSize, setBrushSize] = useState(32);
+  const [editOperation, setEditOperation] = useState<EditOperation>("remove");
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [editJobLoading, setEditJobLoading] = useState(false);
+  const [beforePreview, setBeforePreview] = useState<string | null>(null);
+  const [afterPreview, setAfterPreview] = useState<string | null>(null);
+  const [referenceImage, setReferenceImage] = useState<Blob | null>(null);
+  const [referenceCamera, setReferenceCamera] = useState<SerializedCameraState | null>(null);
+  const [maskCoverage, setMaskCoverage] = useState(0);
+  const [revisionVersion] = useState(1);
   const [sourcePreview, setSourcePreview] = useState<string | null>(
     project.dentalModel?.sourceImageUrl ?? null
   );
@@ -99,7 +147,8 @@ export function EditorWorkspace({ project, projectId, onSave }: EditorWorkspaceP
   );
 
   const markMode = activeTool === "mark";
-  const selectMode = activeTool === "select";
+  const maskMode = activeTool === "mask";
+  const selectMode = activeTool === "select" && !maskMode;
   const hasModel = Boolean(meshData?.vertices?.length) || Boolean(modelUrl);
   const hasPartSelection = segmentParts.some((p) => p.visible);
   const canApply = hasModel && (modelSelected || hasPartSelection);
@@ -138,18 +187,149 @@ export function EditorWorkspace({ project, projectId, onSave }: EditorWorkspaceP
     setAiLoading(false);
   };
 
-  const handleExport = async () => {
+  const handleExport = () => {
     if (!hasModel) return;
-    setExporting(true);
-    setPartsOpen(true);
-    const allSelected = segmentParts.map((p) => ({ ...p, visible: true }));
-    setSegmentParts(allSelected);
-    track("MODEL_EDITED", projectId, {
-      action: "export",
-      parts: allSelected.map((p) => p.id),
-    });
-    await new Promise((r) => setTimeout(r, 800));
-    setExporting(false);
+    setExportWizardOpen(true);
+  };
+
+  const handleCaseWizardContinue = async (payload: CaseWizardContinuePayload) => {
+    setTemplateError(null);
+    if (!payload.template) {
+      setCaseWizardOpen(false);
+      return;
+    }
+
+    setApplyingTemplate(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/apply-template`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          templateId: payload.template.id,
+          clinicalParameters: payload.clinicalParameters,
+          promptRefinement: payload.promptRefinement,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error ?? "Failed to apply case template.");
+      }
+
+      setSelectedCase(payload.template);
+      setCaseRecipe(data.recipe as CaseRecipe);
+      setTitle(data.project?.title ?? payload.template.title);
+      setInstructions(formatInstructionsFromRecipe(data.recipe as CaseRecipe, payload.template));
+      setLearningObjectives(
+        payload.template.learningObjectives.map((title, i) => ({
+          id: `lo-${i}`,
+          title,
+        }))
+      );
+      if (data.editPrompt) setAiPrompt(data.editPrompt);
+      if (payload.template.defaultOperation) setEditOperation(payload.template.defaultOperation);
+      setCaseWizardOpen(false);
+      track("LEARNING_OBJECTIVE_CREATED", projectId, {
+        caseTemplateId: payload.template.id,
+        usedTemplate: true,
+      });
+    } catch (err) {
+      setTemplateError(err instanceof Error ? err.message : "Failed to apply template.");
+    } finally {
+      setApplyingTemplate(false);
+    }
+  };
+
+  const handlePreview2d = async () => {
+    if (!hasModel) return;
+    setPreviewLoading(true);
+    setPreviewOpen(true);
+    try {
+      const capture = await viewerRef.current?.captureView();
+      if (!capture) throw new Error("Could not capture the current model view.");
+      if (beforePreview?.startsWith("blob:")) URL.revokeObjectURL(beforePreview);
+      if (afterPreview?.startsWith("blob:") && afterPreview !== beforePreview) {
+        URL.revokeObjectURL(afterPreview);
+      }
+      const previewUrl = URL.createObjectURL(capture.image);
+      setReferenceImage(capture.image);
+      setReferenceCamera(capture.camera);
+      setBeforePreview(previewUrl);
+      // The image-edit worker will replace this with the inpainted reference.
+      setAfterPreview(previewUrl);
+      const expanded = expandDentalPrompt(aiPrompt);
+      track("AI_PROMPT_SUBMITTED", projectId, {
+        stage: "2d-mask-approval",
+        prompt: expanded.original,
+      });
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handleGenerate3dEdit = async () => {
+    if (!modelUrl || !aiPrompt.trim()) return;
+    setEditJobLoading(true);
+    const maskBlob = await maskOverlayRef.current?.toMaskBlob();
+    const formData = new FormData();
+    formData.append("instruction", aiPrompt);
+    formData.append("operation", editOperation);
+    formData.append("sourceModelUrl", modelUrl);
+    if (maskBlob) formData.append("maskImage", maskBlob, "mask.png");
+    if (referenceImage) formData.append("referenceImage", referenceImage, "reference.png");
+    if (referenceCamera) formData.append("camera", JSON.stringify(referenceCamera));
+    const selectedPartIds = segmentParts.filter((part) => part.visible).map((part) => part.id);
+    if (selectedPartIds.length > 0) {
+      formData.append("selectedPartIds", JSON.stringify(selectedPartIds));
+    }
+
+    try {
+      const res = await fetch(`/api/projects/${projectId}/edit-jobs`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Edit failed");
+
+      track("AI_SUGGESTION_ACCEPTED", projectId, { jobId: data.jobId });
+
+      if (data.status === "completed" && data.modelUrl) {
+        setModelUrl(data.modelUrl);
+        setModelFormat(data.format ?? detectModelFormat(data.modelUrl));
+        setModelLoadStatus("loading");
+        maskOverlayRef.current?.clear();
+        setMaskCoverage(0);
+        triggerSFX("toggle");
+        return;
+      }
+
+      const jobId = data.jobId as string;
+      for (let attempt = 0; attempt < 90; attempt++) {
+        await new Promise((r) => setTimeout(r, 2000));
+        const statusRes = await fetch(`/api/edit-jobs/${encodeURIComponent(jobId)}`);
+        const status = await statusRes.json();
+        if (status.status === "completed" && status.modelUrl) {
+          setModelUrl(status.modelUrl);
+          setModelFormat(status.format ?? detectModelFormat(status.modelUrl));
+          setModelLoadStatus("loading");
+          maskOverlayRef.current?.clear();
+          setMaskCoverage(0);
+          triggerSFX("toggle");
+          return;
+        }
+        if (status.status === "failed") {
+          throw new Error(status.error ?? "Edit job failed.");
+        }
+      }
+      throw new Error("Edit job timed out — check back later.");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Edit job failed");
+    } finally {
+      setEditJobLoading(false);
+    }
+  };
+
+  const bumpMaskCoverage = () => {
+    setMaskCoverage(maskOverlayRef.current?.getCoveragePercent() ?? 0);
   };
 
   const handleSourceUpload = (file: File) => {
@@ -183,15 +363,22 @@ export function EditorWorkspace({ project, projectId, onSave }: EditorWorkspaceP
       const formData = new FormData();
       formData.append("image", prepared);
       formData.append("projectId", projectId);
+      formData.append("quality", "standard");
 
       const res = await fetch("/api/generate/mesh", {
         method: "POST",
         body: formData,
       });
 
-      const data = await res.json();
+      let data = await res.json();
       if (!res.ok) {
         throw new Error(data.error ?? "Generation failed");
+      }
+      if (res.status === 202 && data.jobId && data.jobToken) {
+        data = {
+          ...(await pollGenerationJob(data.jobId, data.jobToken)),
+          source: "modal",
+        };
       }
 
       if (data.modelUrl) {
@@ -248,7 +435,7 @@ export function EditorWorkspace({ project, projectId, onSave }: EditorWorkspaceP
         onTabChange={setActiveTab}
         draftCount={1}
         saving={saving}
-        exporting={exporting}
+        exporting={false}
         exportDisabled={!hasModel}
         sidebarOpen={sidebarOpen}
         onToggleSidebar={() => setSidebarOpen((o) => !o)}
@@ -283,7 +470,7 @@ export function EditorWorkspace({ project, projectId, onSave }: EditorWorkspaceP
               sourcePreview={sourcePreview}
               wireframe={wireframe}
               rectMarks={rectMarks}
-              markMode={markMode}
+              markMode={markMode && !maskMode}
               selectMode={selectMode}
               onMeshSelect={handleMeshSelect}
               onRectMarkComplete={handleRectMarkComplete}
@@ -293,6 +480,46 @@ export function EditorWorkspace({ project, projectId, onSave }: EditorWorkspaceP
               className="absolute inset-0"
               onModelStatusChange={handleModelStatusChange}
             />
+
+            <MaskPaintOverlay
+              ref={maskOverlayRef}
+              active={maskMode && hasModel}
+              brushSize={brushSize}
+              brushMode={brushMode}
+              onStrokeEnd={bumpMaskCoverage}
+            />
+
+            <EditorMaskContextPanel
+              visible={maskMode && hasModel}
+              coveragePercent={maskCoverage}
+              revisionLabel={`v${revisionVersion}`}
+            />
+
+            <EditorEditActions
+              visible={maskMode && hasModel}
+              previewLoading={previewLoading}
+              generateLoading={editJobLoading}
+              canPreview={Boolean(aiPrompt.trim()) && maskCoverage > 0}
+              canGenerate={Boolean(afterPreview) && !previewLoading}
+              onPreview2d={handlePreview2d}
+              onGenerate3d={() => void handleGenerate3dEdit()}
+            />
+
+            {maskMode && hasModel && (
+              <EditorMaskToolbar
+                brushMode={brushMode}
+                onBrushModeChange={setBrushMode}
+                brushSize={brushSize}
+                onBrushSizeChange={setBrushSize}
+                operation={editOperation}
+                onOperationChange={setEditOperation}
+                onUndo={() => maskOverlayRef.current?.undo()}
+                onClear={() => {
+                  maskOverlayRef.current?.clear();
+                  setMaskCoverage(0);
+                }}
+              />
+            )}
 
             <EditorToolPalette
               activeTool={activeTool}
@@ -307,6 +534,7 @@ export function EditorWorkspace({ project, projectId, onSave }: EditorWorkspaceP
             onApply={handleApplyAi}
             loading={aiLoading}
             canApply={canApply}
+            maskMode={maskMode}
           />
         </section>
 
@@ -328,6 +556,16 @@ export function EditorWorkspace({ project, projectId, onSave }: EditorWorkspaceP
             setActivePartId(null);
           }}
           segmenting={segmenting}
+          disabled
+        />
+
+        <EditorCasePanel
+          open={casePanelOpen}
+          onToggle={() => setCasePanelOpen((o) => !o)}
+          caseRecipe={caseRecipe}
+          selectedCase={selectedCase}
+          instructions={instructions}
+          learningObjectives={learningObjectives}
         />
       </div>
 
@@ -336,6 +574,43 @@ export function EditorWorkspace({ project, projectId, onSave }: EditorWorkspaceP
         modelDetail={modelLoadDetail}
         hasSourceImage={Boolean(sourcePreview)}
       />
+
+      <EditPreviewModal
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        beforePreview={beforePreview}
+        afterPreview={afterPreview}
+        loading={previewLoading}
+        onRefineMask={() => setPreviewOpen(false)}
+        onApprove={() => {
+          setPreviewOpen(false);
+          void handleGenerate3dEdit();
+        }}
+      />
+
+      <ExportWizardDialog
+        open={exportWizardOpen}
+        onClose={() => setExportWizardOpen(false)}
+        projectId={projectId}
+        projectTitle={title}
+        defaultTarget={selectedCase?.exportRecommendation ?? DEFAULT_EXPORT_TARGET}
+        onExportComplete={() => {
+          triggerSFX("toggle");
+          track("EXPORT_REQUESTED", projectId, { target: selectedCase?.exportRecommendation ?? DEFAULT_EXPORT_TARGET });
+        }}
+      />
+
+      <CaseWizardDialog
+        open={caseWizardOpen}
+        onClose={() => setCaseWizardOpen(false)}
+        applying={applyingTemplate}
+        onContinue={handleCaseWizardContinue}
+      />
+      {templateError && (
+        <div className="fixed bottom-4 left-1/2 z-[95] -translate-x-1/2 rounded-lg border border-error/30 bg-error-container px-4 py-2 text-body-sm text-on-error-container shadow-lg">
+          {templateError}
+        </div>
+      )}
     </div>
   );
 }

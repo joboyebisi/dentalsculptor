@@ -1,39 +1,155 @@
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { isUiPreviewMode } from "@/lib/preview-mode";
 import { generateMeshFromImage, isFalConfigured } from "@/lib/fal-mesh-generator";
 import { generateDentalMeshFromImage } from "@/lib/model-generator";
 import { trackResearchEvent } from "@/lib/research-events";
+import {
+  createModalGenerationJob,
+  generateMeshViaModal,
+  getMlMeshProvider,
+  isModalAsyncS3Enabled,
+} from "@/lib/ml-provider";
+import { prisma } from "@/lib/prisma";
 
-export const maxDuration = 120;
+export const maxDuration = 600;
+
+function hasValidResearchAccessCode(value: FormDataEntryValue | null): boolean {
+  const expected = process.env.RESEARCH_GENERATION_ACCESS_CODE ?? "";
+  const supplied = typeof value === "string" ? value.trim() : "";
+  if (!expected || !supplied) return false;
+  const expectedBytes = Buffer.from(expected);
+  const suppliedBytes = Buffer.from(supplied);
+  return (
+    expectedBytes.length === suppliedBytes.length &&
+    timingSafeEqual(expectedBytes, suppliedBytes)
+  );
+}
 
 export async function POST(req: NextRequest) {
-  // Auth optional — landing workbench and editor both call this route.
-  // FAL_KEY stays server-side; anonymous users can try generation before sign-up.
   const user = await getAuthUser();
-
   const formData = await req.formData();
+  if (
+    !user &&
+    !isUiPreviewMode() &&
+    !hasValidResearchAccessCode(formData.get("accessCode"))
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          "Open your educator invite link (it includes ?invite=...) or sign in to generate.",
+      },
+      { status: 403 }
+    );
+  }
+
   const image = formData.get("image") as File | null;
   const projectId = (formData.get("projectId") as string) || undefined;
+  const qualityRaw = (formData.get("quality") as string) || "";
+  const quality =
+    qualityRaw === "preview" || qualityRaw === "final" || qualityRaw === "standard"
+      ? qualityRaw
+      : isModalAsyncS3Enabled()
+        ? "preview"
+        : "standard";
+  const seedValue = formData.get("seed");
+  const seed =
+    typeof seedValue === "string" && /^\d+$/.test(seedValue)
+      ? Number(seedValue)
+      : undefined;
 
   if (!image?.size) {
     return NextResponse.json({ error: "Image file is required." }, { status: 400 });
   }
 
-  if (!isFalConfigured()) {
+  const provider = getMlMeshProvider();
+  const traceId = randomUUID();
+  console.info(`[generate/mesh] start trace=${traceId} provider=${provider} size=${image.size}`);
+
+  if (provider === "mock") {
     const meshData = generateDentalMeshFromImage(800, 600);
     return NextResponse.json({
       source: "mock",
       meshData,
-      message: "FAL_KEY not set — returning procedural mock mesh. Add FAL_KEY for Hunyuan 3D.",
+      message: "Set FAL_KEY or deploy Modal (ML_MESH_PROVIDER=modal) for real generation.",
     });
   }
 
   try {
     const t0 = Date.now();
-    const result = await generateMeshFromImage(image);
+    if (provider === "modal" && isModalAsyncS3Enabled()) {
+      if (projectId && !user) {
+        return NextResponse.json(
+          { error: "Sign in is required to attach generation to a project." },
+          { status: 401 }
+        );
+      }
+      if (projectId && user) {
+        const ownsProject = await prisma.project.count({
+          where: { id: projectId, ownerId: user.id },
+        });
+        if (!ownsProject) {
+          return NextResponse.json({ error: "Project not found." }, { status: 404 });
+        }
+      }
 
-    console.info(`[generate/mesh] completed in ${Date.now() - t0}ms format=${result.format}`);
+      const jobId = randomUUID();
+      const jobToken = randomBytes(32).toString("base64url");
+      const jobTokenHash = createHash("sha256").update(jobToken).digest("hex");
+      await prisma.generationJob.create({
+        data: {
+          id: jobId,
+          ownerId: user?.id,
+          projectId,
+          quality,
+          jobTokenHash,
+        },
+      });
+      try {
+        await createModalGenerationJob(image, jobId, { quality, seed, traceId });
+      } catch (error) {
+        await prisma.generationJob.update({
+          where: { id: jobId },
+          data: {
+            status: "FAILED",
+            stage: "failed",
+            progress: 100,
+            error: error instanceof Error ? error.message : "Modal submission failed.",
+            completedAt: new Date(),
+          },
+        });
+        throw error;
+      }
+      console.info(
+        `[generate/mesh] accepted trace=${traceId} job=${jobId} duration=${Date.now() - t0}ms`
+      );
+      return NextResponse.json(
+        {
+          source: "modal",
+          requestId: jobId,
+          jobId,
+          jobToken,
+          status: "queued",
+          stage: "queued",
+          progress: 0,
+        },
+        { status: 202 }
+      );
+    }
+
+    const result =
+      provider === "modal"
+        ? await generateMeshViaModal(image, user?.id ?? "anonymous", {
+            quality,
+            seed,
+            traceId,
+          })
+        : await generateMeshFromImage(image);
+
+    console.info(
+      `[generate/mesh] complete trace=${traceId} provider=${provider} duration=${Date.now() - t0}ms format=${result.format}`
+    );
 
     if (user && projectId && !isUiPreviewMode()) {
       await trackResearchEvent({
@@ -41,8 +157,7 @@ export async function POST(req: NextRequest) {
         projectId,
         eventType: "MODEL_GENERATED",
         metadata: {
-          provider: "fal",
-          model: "hunyuan-3d-v3.1-rapid",
+          provider,
           format: result.format,
           requestId: result.requestId,
         },
@@ -50,7 +165,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({
-      source: "fal",
+      source: provider,
       modelUrl: result.modelUrl,
       thumbnailUrl: result.thumbnailUrl,
       textureUrl: result.textureUrl,
@@ -59,8 +174,28 @@ export async function POST(req: NextRequest) {
       requestId: result.requestId,
     });
   } catch (error) {
-    console.error("[generate/mesh]", error);
-    const message = error instanceof Error ? error.message : "Mesh generation failed.";
+    console.error(`[generate/mesh] failed trace=${traceId}`, error);
+
+    const allowFallback =
+      process.env.ML_ALLOW_FAL_FALLBACK === "true" && isFalConfigured();
+    if (provider === "modal" && allowFallback) {
+      console.warn("[generate/mesh] primary generation failed — trying configured fallback");
+      try {
+        const result = await generateMeshFromImage(image);
+        return NextResponse.json({ source: "fal", ...result, fallback: true });
+      } catch (falErr) {
+        console.error("[generate/mesh] fal fallback failed", falErr);
+      }
+    }
+
+    const message =
+      provider === "modal"
+        ? error instanceof Error && error.message.startsWith("The tooth could not be isolated")
+          ? error.message
+          : "The 3D reconstruction service could not complete this request. Please try again."
+        : error instanceof Error
+          ? error.message
+          : "Mesh generation failed.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

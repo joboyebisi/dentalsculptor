@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { EditorWorkspace, type EditorProject } from "@/components/editor/editor-workspace";
 import { PREVIEW_EDITOR_PROJECT } from "@/lib/preview-data";
 
@@ -9,7 +9,9 @@ const isPreview = process.env.NEXT_PUBLIC_UI_PREVIEW_MODE === "true";
 
 export default function EditorPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const projectId = params.id as string;
+  const openCaseWizard = searchParams.get("caseWizard") === "1";
   const [project, setProject] = useState<EditorProject | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -65,6 +67,7 @@ export default function EditorPage() {
       project={project}
       projectId={projectId}
       onSave={handleSave}
+      initialCaseWizardOpen={openCaseWizard}
     />
   );
 }

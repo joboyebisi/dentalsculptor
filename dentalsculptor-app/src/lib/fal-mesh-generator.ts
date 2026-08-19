@@ -13,6 +13,9 @@ export interface FalMeshResult {
   requestId?: string;
 }
 
+/** Alias used by ml-provider and API routes. */
+export type MeshGenerationResult = FalMeshResult;
+
 interface FalFileRef {
   url: string;
   content_type?: string;
@@ -102,6 +105,7 @@ export async function generateMeshFromImage(
   fal.config({ credentials: process.env.FAL_KEY });
   const falOptions = getFalGenerationOptions();
   const t0 = Date.now();
+  let lastQueueLogAt = 0;
 
   const imageUrl = options?.inputImageUrl ?? (await fal.storage.upload(file));
   const uploadMs = Date.now() - t0;
@@ -115,7 +119,16 @@ export async function generateMeshFromImage(
     },
     logs: true,
     onQueueUpdate: (update) => {
+      const now = Date.now();
+      if (update.status === "IN_QUEUE") {
+        if (now - lastQueueLogAt > 30_000) {
+          console.info("[fal] still queued — waiting for an available GPU (fal.ai queue)");
+          lastQueueLogAt = now;
+        }
+        return;
+      }
       if (update.status === "IN_PROGRESS") {
+        console.info("[fal] inference started");
         update.logs?.map((log) => log.message).forEach((msg) => console.log("[fal]", msg));
       }
     },

@@ -17,6 +17,8 @@
 |----------|---------|
 | [**Project Walkthrough**](./docs/PROJECT_WALKTHROUGH.md) | Full context of work completed, architecture, file map, current state vs gaps |
 | [**Implementation Plan**](./docs/IMPLEMENTATION_PLAN.md) | Future roadmap: Pascal polish, ML pipeline, research flows, infra |
+| [**Clinical Authoring Workflows**](./docs/CLINICAL_AUTHORING_WORKFLOWS.md) | Recommended tooth, jaw, volume, segmentation, case-authoring and export UX |
+| [**3D Editing Research**](./docs/3D_EDITING_RESEARCH.md) | Nano3D/TRELLIS evaluation, masked editing contract and Modal rollout |
 | [**Deployment Guide**](./docs/DEPLOYMENT.md) | Vercel vs GitHub Pages, env vars, Clerk, Supabase, fal.ai |
 | [**Supabase Setup**](./docs/SUPABASE_SETUP.md) | Database + Storage bucket configuration |
 | [**Environment Variables**](./docs/ENV.md) | `.env` vs `.env.example`, full variable list |

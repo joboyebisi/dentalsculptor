@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 export type EditorTool =
   | "select"
   | "mark"
+  | "mask"
   | "edit"
   | "pan"
   | "texture"
@@ -28,9 +29,9 @@ export type EditorTool =
 const tools: { id: EditorTool; icon: typeof MousePointerClick; label: string; dividerAfter?: boolean }[] = [
   { id: "select", icon: MousePointerClick, label: "Select" },
   { id: "mark", icon: BoxSelect, label: "Region mark" },
-  { id: "edit", icon: PencilLine, label: "Direct edit" },
-  { id: "pan", icon: Hand, label: "Pan" },
-  { id: "texture", icon: Paintbrush, label: "Texture", dividerAfter: true },
+  { id: "mask", icon: Paintbrush, label: "Mask paint" },
+  { id: "edit", icon: PencilLine, label: "Wireframe" },
+  { id: "pan", icon: Hand, label: "Pan", dividerAfter: true },
   { id: "zoom-in", icon: ZoomIn, label: "Zoom in" },
   { id: "zoom-out", icon: ZoomOut, label: "Zoom out" },
   { id: "undo", icon: Undo2, label: "Undo" },

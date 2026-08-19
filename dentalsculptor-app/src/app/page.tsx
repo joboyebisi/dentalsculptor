@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { Suspense } from "react";
 import { ImagePlus, Factory, Box, Library, GraduationCap, BookOpen } from "lucide-react";
 import { PublicNav, PublicFooter } from "@/components/layout/public-nav";
 import { Button } from "@/components/ui/button";
 import { AppLogo } from "@/components/brand/app-logo";
 import { LandingModelProvider } from "@/context/landing-model-context";
-import { LandingImageUploader } from "@/components/landing/landing-image-uploader";
-import { LandingModelPanel } from "@/components/landing/landing-model-panel";
+import { LandingWorkbench } from "@/components/landing/landing-workbench";
 
 const steps = [
   {
@@ -51,8 +51,23 @@ const communitySpotlights = [
 
 export default function LandingPage() {
   return (
-    <LandingModelProvider>
-      <div className="min-h-screen bg-background">
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-background">
+          <PublicNav />
+        </div>
+      }
+    >
+      <LandingModelProvider>
+        <LandingPageContent />
+      </LandingModelProvider>
+    </Suspense>
+  );
+}
+
+function LandingPageContent() {
+  return (
+    <div className="min-h-screen bg-background">
         <PublicNav />
 
         {/* Hero */}
@@ -86,14 +101,7 @@ export default function LandingPage() {
               </p>
             </div>
 
-            <div className="flex flex-col items-start justify-center gap-8 lg:flex-row lg:items-start">
-              <div className="w-full shrink-0 lg:w-[340px]">
-                <LandingImageUploader />
-              </div>
-              <div className="min-w-0 flex-1">
-                <LandingModelPanel />
-              </div>
-            </div>
+            <LandingWorkbench />
           </div>
         </section>
 
@@ -197,6 +205,5 @@ export default function LandingPage() {
 
         <PublicFooter />
       </div>
-    </LandingModelProvider>
   );
 }

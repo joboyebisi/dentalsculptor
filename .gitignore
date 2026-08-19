@@ -45,3 +45,9 @@ bloom-v0/node_modules/
 
 # Keep design specs but ignore large binary exports if any
 *.blend1
+
+# Local research media and conversion tools (downloaded/generated, not source)
+.tools/
+research/trueteethlab-workflows/videos/
+research/trueteethlab-workflows/audio/
+research/trueteethlab-workflows/frames/

@@ -32,7 +32,11 @@ export default function AuthContinuePage() {
       try {
         const { projectId } = await createProjectFromLandingPayload(pendingToPayload(pending));
         clearPendingLandingProject();
-        router.replace(`/editor/${projectId}`);
+        if (pending.nextStep === "case-wizard") {
+          router.replace(`/editor/${projectId}?caseWizard=1`);
+        } else {
+          router.replace(`/editor/${projectId}`);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not resume your session.");
       }

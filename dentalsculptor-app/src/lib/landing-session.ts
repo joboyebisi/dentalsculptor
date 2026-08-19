@@ -1,13 +1,19 @@
 const SESSION_KEY = "ds_pending_landing_project";
 
+export type PendingNextStep = "editor" | "case-wizard";
+
 export interface PendingLandingProject {
   modelUrl: string;
+  modelKey?: string;
   thumbnailUrl?: string;
   mtlUrl?: string;
   format?: string;
   sourceFileName: string;
   imageDataUrl: string;
   createdAt: number;
+  /** After auth: open editor directly or case template wizard first. */
+  nextStep?: PendingNextStep;
+  caseTemplateId?: string;
 }
 
 export async function fileToDataUrl(file: File): Promise<string> {

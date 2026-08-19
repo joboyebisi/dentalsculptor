@@ -3,16 +3,18 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
-import { Loader2 } from "lucide-react";
+import { Download, Loader2, BookOpen, Pencil } from "lucide-react";
 import { DentalViewer } from "@/components/three/dental-viewer";
 import { Button } from "@/components/ui/button";
 import { useLandingModel } from "@/context/landing-model-context";
 import {
   fileToDataUrl,
   savePendingLandingProject,
+  type PendingNextStep,
 } from "@/lib/landing-session";
 import { createProjectFromLandingPayload } from "@/lib/create-landing-project";
-import { GENERATION_COPY } from "@/lib/generation-copy";
+import { GENERATION_COPY, GENERATION_STAGE_LABELS } from "@/lib/generation-copy";
+import { projectFileName } from "@/lib/editor-segmentation";
 
 export function LandingModelPanel() {
   const router = useRouter();
@@ -20,15 +22,23 @@ export function LandingModelPanel() {
   const {
     meshData,
     modelUrl,
+    modelKey,
     thumbnailUrl,
     mtlUrl,
     format,
     isLoading,
     uploadedFile,
     hasModel,
+    error,
+    generationQuality,
+    canEnhanceQuality,
+    generationStage,
+    generationProgress,
+    isEnhancing,
+    enhanceModelQuality,
   } = useLandingModel();
-  const [opening, setOpening] = useState(false);
-  const [openError, setOpenError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<PendingNextStep | "download" | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [elapsedSec, setElapsedSec] = useState(0);
 
   useEffect(() => {
@@ -41,16 +51,41 @@ export function LandingModelPanel() {
     return () => clearInterval(id);
   }, [isLoading]);
 
-  async function handleOpenEditor() {
+  async function handleDownload() {
+    if (!modelUrl) return;
+    setBusy("download");
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/models/proxy?url=${encodeURIComponent(modelUrl)}`);
+      if (!res.ok) throw new Error("Download failed");
+      const blob = await res.blob();
+      const ext = format === "obj" ? "obj" : "glb";
+      const name = uploadedFile
+        ? `${projectFileName(uploadedFile.name.replace(/\.[^.]+$/, ""))}.${ext}`
+        : `dental-model.${ext}`;
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch {
+      setActionError("Could not download the model. Try again after it finishes loading.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function resumeAfterAuth(nextStep: PendingNextStep) {
     if (!hasModel || !uploadedFile || !modelUrl) return;
 
-    setOpening(true);
-    setOpenError(null);
+    setBusy(nextStep);
+    setActionError(null);
 
     try {
       const payload = {
         imageFile: uploadedFile,
         modelUrl,
+        modelKey: modelKey ?? undefined,
         thumbnailUrl: thumbnailUrl ?? undefined,
         mtlUrl: mtlUrl ?? undefined,
         format: format ?? undefined,
@@ -59,7 +94,7 @@ export function LandingModelPanel() {
 
       if (!isSignedIn) {
         const imageDataUrl = await fileToDataUrl(uploadedFile);
-        savePendingLandingProject({ ...payload, imageDataUrl });
+        savePendingLandingProject({ ...payload, imageDataUrl, nextStep });
         router.push(`/sign-up?redirect_url=${encodeURIComponent("/auth/continue")}`);
         return;
       }
@@ -67,7 +102,7 @@ export function LandingModelPanel() {
       const profileRes = await fetch("/api/user/profile");
       if (!profileRes.ok) {
         const imageDataUrl = await fileToDataUrl(uploadedFile);
-        savePendingLandingProject({ ...payload, imageDataUrl });
+        savePendingLandingProject({ ...payload, imageDataUrl, nextStep });
         router.push(`/sign-in?redirect_url=${encodeURIComponent("/auth/continue")}`);
         return;
       }
@@ -76,17 +111,21 @@ export function LandingModelPanel() {
 
       if (!user.consentAccepted || !user.onboardingCompleted) {
         const imageDataUrl = await fileToDataUrl(uploadedFile);
-        savePendingLandingProject({ ...payload, imageDataUrl });
+        savePendingLandingProject({ ...payload, imageDataUrl, nextStep });
         router.push(user.consentAccepted ? "/onboarding" : "/consent");
         return;
       }
 
       const { projectId } = await createProjectFromLandingPayload(payload);
-      router.push(`/editor/${projectId}`);
+      if (nextStep === "case-wizard") {
+        router.push(`/editor/${projectId}?caseWizard=1`);
+      } else {
+        router.push(`/editor/${projectId}`);
+      }
     } catch {
-      setOpenError("Could not prepare your project. Try again.");
+      setActionError("Could not continue. Try again.");
     } finally {
-      setOpening(false);
+      setBusy(null);
     }
   }
 
@@ -101,23 +140,48 @@ export function LandingModelPanel() {
             mtlUrl={mtlUrl}
             className="h-full"
           />
-        ) : isLoading ? (
+        ) : isLoading || isEnhancing ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-on-surface-variant">
             <Loader2 className="h-8 w-8 animate-spin text-primary-container" />
-            <p className="font-medium text-text-main">{GENERATION_COPY.inProgressTitle}</p>
-            <p className="text-body-sm">{GENERATION_COPY.inProgressDetail}</p>
+            <p className="font-medium text-text-main">
+              {isEnhancing ? GENERATION_COPY.enhancingQualityLabel : GENERATION_COPY.inProgressTitle}
+            </p>
+            <p className="text-body-sm">
+              {isEnhancing ? "Extracting full-quality mesh from your preview." : GENERATION_COPY.inProgressDetail}
+            </p>
+            {generationStage && (
+              <p className="text-body-sm text-primary-container">
+                {GENERATION_STAGE_LABELS[generationStage] ?? generationStage}
+                {generationProgress > 0 ? ` · ${generationProgress}%` : ""}
+              </p>
+            )}
             {elapsedSec > 0 && (
               <p className="text-body-sm text-on-surface-variant/80">Elapsed: {elapsedSec}s</p>
             )}
+            {elapsedSec >= 30 && elapsedSec < 90 && (
+              <p className="max-w-xs text-center text-body-sm text-on-surface-variant/80">
+                {GENERATION_COPY.inProgressQueuedHint}
+              </p>
+            )}
+            {elapsedSec >= 90 && (
+              <p className="max-w-xs text-center text-body-sm text-on-surface-variant/80">
+                {GENERATION_COPY.inProgressSlowHint}
+              </p>
+            )}
+          </div>
+        ) : error ? (
+          <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
+            <p className="font-medium text-error">Generation failed</p>
+            <p className="max-w-sm text-body-sm text-on-surface-variant">{error}</p>
           </div>
         ) : (
           <div className="flex h-full flex-col items-center justify-center px-6 text-center text-on-surface-variant">
             <p className="text-body-md text-text-main">
-              {uploadedFile ? "Ready to generate" : "Your 3D model appears here"}
+              {uploadedFile ? "Ready to generate" : "Your 3D preview appears here"}
             </p>
             <p className="mt-2 max-w-sm text-body-sm">
               {uploadedFile
-                ? "Click Generate 3D model to preview the reconstruction."
+                ? "Click Generate 3D model, then preview before creating a teaching case."
                 : "Upload an image using the panel on the left."}
             </p>
           </div>
@@ -125,21 +189,73 @@ export function LandingModelPanel() {
       </div>
 
       {hasModel && (
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
-          <Button onClick={handleOpenEditor} disabled={opening || !modelUrl}>
-            {opening ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Opening…
-              </>
-            ) : (
-              "Open in editor"
+        <div className="mt-4 space-y-3">
+          {generationQuality === "preview" && (
+            <p className="text-center text-body-sm text-on-surface-variant">
+              {canEnhanceQuality
+                ? GENERATION_COPY.previewReadyHint
+                : "Preview quality model loaded."}
+            </p>
+          )}
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            {canEnhanceQuality && (
+              <Button
+                className="bg-primary-container text-on-primary"
+                onClick={() => void enhanceModelQuality()}
+                disabled={isEnhancing || busy !== null}
+              >
+                {isEnhancing ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                {isEnhancing
+                  ? GENERATION_COPY.enhancingQualityLabel
+                  : GENERATION_COPY.enhanceQualityLabel}
+              </Button>
             )}
-          </Button>
-          <p className="text-body-sm text-on-surface-variant">
-            Your image and 3D model carry over into the editor.
+            <Button
+              variant="outline"
+              onClick={handleDownload}
+              disabled={!modelUrl || busy !== null}
+            >
+              {busy === "download" ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="mr-2 h-4 w-4" />
+              )}
+              Download model
+            </Button>
+            <Button
+              className="bg-primary-container text-on-primary"
+              onClick={() => resumeAfterAuth("case-wizard")}
+              disabled={!modelUrl || busy !== null}
+            >
+              {busy === "case-wizard" ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <BookOpen className="mr-2 h-4 w-4" />
+              )}
+              Create teaching case
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => resumeAfterAuth("editor")}
+              disabled={!modelUrl || busy !== null}
+            >
+              {busy === "editor" ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Pencil className="mr-2 h-4 w-4" />
+              )}
+              Open in editor
+            </Button>
+          </div>
+          <p className="text-center text-body-sm text-on-surface-variant">
+            Preview your model above. Creating a case or opening the editor will ask you to sign in
+            if needed — then you can pick a case template, edit, place on a jaw, and export.
           </p>
-          {openError && <p className="w-full text-center text-body-sm text-error">{openError}</p>}
+          {actionError && (
+            <p className="text-center text-body-sm text-error">{actionError}</p>
+          )}
         </div>
       )}
     </div>

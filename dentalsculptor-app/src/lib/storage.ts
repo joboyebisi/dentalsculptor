@@ -4,6 +4,39 @@ import {
   getSupabaseAdmin,
   isSupabaseStorageConfigured,
 } from "@/lib/supabase-server";
+import { normalizeStorageContentType } from "@/lib/model-asset-url";
+import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+
+function isS3BackendSelected(): boolean {
+  return process.env.STORAGE_BACKEND?.toLowerCase() === "s3";
+}
+
+function getS3Config(): { client: S3Client; bucket: string } {
+  const bucket = process.env.AWS_S3_BUCKET?.trim();
+  const region = process.env.AWS_REGION?.trim() || "eu-west-1";
+  if (!bucket) throw new Error("AWS_S3_BUCKET is required for S3 storage.");
+  return { client: new S3Client({ region }), bucket };
+}
+
+export function isS3StorageConfigured(): boolean {
+  return Boolean(
+    isS3BackendSelected() &&
+      process.env.AWS_S3_BUCKET &&
+      process.env.AWS_ACCESS_KEY_ID &&
+      process.env.AWS_SECRET_ACCESS_KEY
+  );
+}
+
+export async function getS3AssetUrl(
+  key: string,
+  expiresIn = 3600
+): Promise<string> {
+  const { client, bucket } = getS3Config();
+  return getSignedUrl(client, new GetObjectCommand({ Bucket: bucket, Key: key }), {
+    expiresIn,
+  });
+}
 
 export function generateAssetKey(userId: string, filename: string): string {
   const ext = filename.split(".").pop()?.toLowerCase() ?? "bin";
@@ -20,6 +53,20 @@ export async function uploadAsset(
   body: Buffer | Uint8Array,
   contentType: string
 ): Promise<string> {
+  if (isS3BackendSelected()) {
+    const { client, bucket } = getS3Config();
+    await client.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Body: body,
+        ContentType: normalizeStorageContentType(contentType),
+        ServerSideEncryption: "AES256",
+      })
+    );
+    return getS3AssetUrl(key);
+  }
+
   if (!isSupabaseStorageConfigured()) {
     console.warn("[storage] Supabase not configured — using local:// placeholder for", key);
     return `local://${key}`;
@@ -27,9 +74,10 @@ export async function uploadAsset(
 
   const supabase = getSupabaseAdmin();
   const bucket = getStorageBucket();
+  const normalizedType = normalizeStorageContentType(contentType);
 
   const { error } = await supabase.storage.from(bucket).upload(key, body, {
-    contentType,
+    contentType: normalizedType,
     upsert: false,
   });
 
@@ -43,6 +91,10 @@ export async function uploadAsset(
 
 /** Download URL — public bucket or signed URL for private buckets. */
 export async function getAssetUrl(key: string, expiresIn = 3600): Promise<string> {
+  if (isS3BackendSelected()) {
+    return getS3AssetUrl(key, expiresIn);
+  }
+
   if (!isSupabaseStorageConfigured()) {
     return `/api/upload/local?key=${encodeURIComponent(key)}`;
   }

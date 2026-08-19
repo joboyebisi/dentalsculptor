@@ -2,7 +2,21 @@
 
 Track completed work and what is next. Updated as sprints finish.
 
-**Last updated:** 13 August 2026
+**Last updated:** 17 August 2026
+
+---
+
+## Active milestone — E0–E2
+
+See [MILESTONE_E0_E2.md](./MILESTONE_E0_E2.md) and [E2E_TEST_PLAN_E0_E2.md](./E2E_TEST_PLAN_E0_E2.md).
+
+| Phase | Status | Notes |
+|-------|--------|-------|
+| E0 Modal TRELLIS + Nano3D + edit UI | 🔲 Not started | `dentalsculptor-ml/` scaffolded |
+| E1 Export wizard | 🔲 Not started | `export-presets.ts` added |
+| E2 Placement Studio | 🔲 Not started | — |
+
+**Scaffolding added:** `case-templates.ts`, `export-presets.ts`, single-tooth upload banner, enhanced `prepare-generation-image.ts`.
 
 ---
 
@@ -70,6 +84,10 @@ Key files: `src/lib/landing-session.ts`, `src/app/(workspace)/auth/continue/page
 |-----|--------|
 | PROJECT_WALKTHROUGH.md | ✅ |
 | IMPLEMENTATION_PLAN.md | ✅ |
+| MILESTONE_E0_E2.md | ✅ |
+| MILESTONE_E3_PLUS.md | ✅ |
+| E2E_TEST_PLAN_E0_E2.md | ✅ |
+| 3D_EDITING_RESEARCH.md | ✅ |
 | DEPLOYMENT.md | ✅ |
 | ENV.md | ✅ |
 | PROGRESS.md | ✅ (this file) |

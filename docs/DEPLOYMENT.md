@@ -27,8 +27,9 @@ GitHub Pages only serves static HTML — it cannot run `/api/*`, Clerk, Prisma, 
 ```
 GitHub (code)  →  Vercel (build + host)  →  Supabase (Postgres + Storage)
                  →  Clerk (auth)
-                 →  fal.ai (3D generation, server-side)
-                 →  AWS S3 (optional — add later)
+                 →  Modal (TRELLIS generation + editing workers)
+                 →  AWS S3 (private large assets and job I/O)
+                 →  fal.ai (optional fallback only)
 ```
 
 ---
@@ -65,16 +66,28 @@ Add these under **Project → Settings → Environment Variables** for **Product
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase → Settings → API | anon public key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Settings → API | service_role — **server only** |
 | `SUPABASE_STORAGE_BUCKET` | Supabase → Storage | e.g. `dentalsculptor-assets` — see [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) |
-| `FAL_KEY` | [fal.ai Dashboard](https://fal.ai/dashboard/keys) | **Server-only** — powers Hunyuan 3D generation |
+| `ML_MESH_PROVIDER` | Set manually | `modal` |
+| `MODAL_GENERATE_URL` | Modal deployment output | TRELLIS sync endpoint (legacy/fallback) |
+| `MODAL_GENERATE_ASYNC_URL` | Modal deployment output | Async job create (`generate-job`) |
+| `MODAL_FINALIZE_ASYNC_URL` | Modal deployment output | Two-phase GLB extraction (`finalize-job`) |
+| `MODAL_ASYNC_S3_ENABLED` | Set manually | `true` when async S3 path is live |
+| `MODAL_EDIT_URL` | Modal deployment output | Nano3D endpoint |
+| `MODAL_JOB_STATUS_URL` | Modal deployment output | Async job polling |
+| `MODAL_WEBHOOK_SECRET` | Generate securely | Must match Modal `dentalsculptor-webhook` secret |
+| `MODAL_TOKEN_ID` / `MODAL_TOKEN_SECRET` | Modal account settings | Server-only deployment/config credentials |
+| `RESEARCH_GENERATION_ACCESS_CODE` | Generate securely | Educator invite code; share as `?invite=CODE` on landing |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | AWS IAM | Least-privilege S3 credentials; server-only |
+| `AWS_REGION` / `AWS_S3_BUCKET` | AWS S3 | Prefer `eu-west-1` and a private bucket |
+| `STORAGE_BACKEND` | Set manually | `s3` after the S3 backend is wired |
 | `NEXT_PUBLIC_APP_URL` | — | Your Vercel URL, e.g. `https://dentalsculptor.vercel.app` |
 
 #### Optional (can add later)
 
 | Variable | Purpose |
 |----------|---------|
-| `AWS_*` | S3/CDN — deferred; Supabase Storage is used instead |
+| `FAL_KEY` / `ML_ALLOW_FAL_FALLBACK` | Optional Hunyuan fallback |
 | `NEXT_PUBLIC_POSTHOG_KEY` / `NEXT_PUBLIC_POSTHOG_HOST` | Analytics |
-| `ML_MESH_PROVIDER` | `fal` (default) or `custom` later |
+| `NEXT_PUBLIC_ASSETS_CDN_URL` | Optional CloudFront URL in front of S3 |
 
 ### 3. Clerk production URLs
 
@@ -127,20 +140,23 @@ npm run dev
 
 ---
 
-## 3D generation (Hunyuan 3D via fal.ai)
+## 3D generation (TRELLIS.2 via Modal)
 
-Model: `fal-ai/hunyuan-3d/v3.1/rapid/image-to-3d`
+Model: `microsoft/TRELLIS.2-4B`
 
 Flow:
 1. User uploads image in editor Source panel
 2. Client POSTs image to `/api/generate/mesh`
-3. Server uploads image to fal storage, calls Hunyuan 3D
-4. Server returns GLB/OBJ URL to client
-5. Viewer loads model via `modelUrl`
+3. Vercel validates Clerk or research access and submits an authenticated Modal job
+4. Modal preprocesses, generates TRELLIS SLat/mesh and extracts the GLB
+5. Production target: Modal writes the GLB directly to private S3 and returns an object key
+6. Vercel stores job/model metadata in Supabase Postgres
+7. Browser receives a short-lived signed S3 URL for the viewer
 
-Requires `FAL_KEY` in server environment.
-
-Without `FAL_KEY`, the app falls back to procedural mock mesh (dev only).
+Do not keep the current synchronous base64 response for production: cold
+1024-cascade jobs can exceed several minutes and GLBs can exceed practical
+serverless response/memory limits. Use an asynchronous job record and direct
+Modal-to-S3 upload before public deployment.
 
 ---
 
@@ -150,7 +166,11 @@ Without `FAL_KEY`, the app falls back to procedural mock mesh (dev only).
 - [ ] `UI_PREVIEW_MODE=false`
 - [ ] Clerk keys + production domain configured
 - [ ] `DATABASE_URL` uses Supabase pooler (port 6543)
-- [ ] `FAL_KEY` set (server-only)
+- [ ] Modal URLs and matching webhook secret configured
+- [ ] Invite access code, rate limit and spend cap configured
+- [ ] Private S3 bucket, IAM policy, CORS and lifecycle rules configured
+- [ ] Modal writes large outputs directly to S3; no base64 GLB through Vercel
+- [ ] Async generation/edit job records survive browser navigation and Vercel timeouts
 - [ ] `NEXT_PUBLIC_APP_URL` matches Vercel domain
 - [ ] `prisma db push` or `migrate deploy` run against production DB
 - [ ] Test sign-in → consent → dashboard → editor → Generate Model
@@ -161,10 +181,10 @@ Without `FAL_KEY`, the app falls back to procedural mock mesh (dev only).
 
 | Service | Typical cost |
 |---------|--------------|
-| Vercel Hobby | Free |
+| Vercel | Pro recommended for the pilot until ML routes are fully asynchronous |
 | Supabase Free | Free (500 MB DB) |
 | Clerk Free | Free (~10k MAU) |
-| fal.ai Hunyuan 3D | ~$0.02–0.10 per generation |
+| Modal TRELLIS | Usage-based GPU cost; warm capacity trades idle cost for lower latency |
 | AWS S3 / R2 | Free tier or ~$1–5/mo |
 
 ---
@@ -176,7 +196,7 @@ Without `FAL_KEY`, the app falls back to procedural mock mesh (dev only).
 | Build fails on Prisma | Ensure `postinstall` runs `prisma generate`; check `DATABASE_URL` at build time if needed |
 | Clerk redirect loop | Match `NEXT_PUBLIC_APP_URL` and Clerk allowed URLs |
 | DB connection timeout on Vercel | Use Supabase **pooler** URL, not direct port 5432 |
-| Generate Model fails | Check `FAL_KEY` in Vercel env; view Vercel function logs |
+| Generate Model fails | Check Modal URLs/webhook secret, then inspect Vercel and Modal logs using the trace ID |
 | 404 on all routes | Wrong root directory — must be `dentalsculptor-app` |
 
 ---

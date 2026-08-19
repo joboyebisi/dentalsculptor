@@ -5,6 +5,7 @@ import { dataUrlToFile } from "@/lib/landing-session";
 export interface LandingProjectPayload {
   imageFile: File;
   modelUrl: string;
+  modelKey?: string;
   thumbnailUrl?: string;
   mtlUrl?: string;
   format?: string;
@@ -16,6 +17,7 @@ export function buildLandingProjectFormData(payload: LandingProjectPayload): For
   formData.append("title", autoProjectTitle(payload.sourceFileName));
   formData.append("image", payload.imageFile);
   formData.append("modelUrl", payload.modelUrl);
+  if (payload.modelKey) formData.append("modelKey", payload.modelKey);
   if (payload.thumbnailUrl) formData.append("thumbnailUrl", payload.thumbnailUrl);
   if (payload.mtlUrl) formData.append("mtlUrl", payload.mtlUrl);
   if (payload.format) formData.append("format", payload.format);
@@ -40,6 +42,7 @@ export function pendingToPayload(pending: PendingLandingProject): LandingProject
   return {
     imageFile: dataUrlToFile(pending.imageDataUrl, pending.sourceFileName),
     modelUrl: pending.modelUrl,
+    modelKey: pending.modelKey,
     thumbnailUrl: pending.thumbnailUrl,
     mtlUrl: pending.mtlUrl,
     format: pending.format,

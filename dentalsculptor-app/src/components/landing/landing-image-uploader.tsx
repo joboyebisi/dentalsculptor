@@ -2,9 +2,10 @@
 
 import { useRef } from "react";
 import Image from "next/image";
+import { useAuth } from "@clerk/nextjs";
+import { useSearchParams } from "next/navigation";
 import { X, ImagePlus, Factory } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
@@ -14,28 +15,34 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useLandingModel } from "@/context/landing-model-context";
-import {
-  GenerationNotifyOption,
-} from "@/components/generation/generation-notify-option";
+import { GenerationNotifyOption } from "@/components/generation/generation-notify-option";
+import { ResearchInviteCallout } from "@/components/landing/research-invite-callout";
+import { INVITE_QUERY_PARAM, resolveInviteCode } from "@/lib/research-invite";
 
 export function LandingImageUploader() {
+  const { isSignedIn } = useAuth();
+  const searchParams = useSearchParams();
   const { previewUrl, uploadedFile, isLoading, error, setUploadedFile, generateModel, clearAll } =
     useLandingModel();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const inviteCode = resolveInviteCode(searchParams.get(INVITE_QUERY_PARAM));
+  const hasInvite = Boolean(inviteCode);
+  const canGenerate = Boolean(uploadedFile) && !isLoading && (Boolean(isSignedIn) || hasInvite);
 
   return (
     <Card className="w-full max-w-md border-border-subtle">
       <CardHeader>
         <CardTitle className="text-headline-md">Upload dental image</CardTitle>
         <CardDescription>
-          Select a clinical photograph, scan, or teaching image to generate a 3D model.
+          Start with a clinical photograph of one tooth — we will turn it into an editable 3D model.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Input
+        <input
           ref={fileInputRef}
           type="file"
-          accept="image/png,image/jpeg,image/jpg,image/webp"
+          accept="image/png,image/jpeg,image/jpg"
           className="hidden"
           onChange={(e) => {
             const file = e.target.files?.[0] ?? null;
@@ -54,7 +61,7 @@ export function LandingImageUploader() {
             className="flex aspect-[4/3] w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-border-subtle bg-surface-container-low text-on-surface-variant transition-colors hover:border-primary-container/40 hover:bg-surface-container"
           >
             <ImagePlus className="mb-2 h-8 w-8 text-primary-container/60" />
-            <span className="text-body-sm">No image selected</span>
+            <span className="text-body-sm">PNG or JPG · single tooth</span>
           </button>
         )}
 
@@ -74,15 +81,16 @@ export function LandingImageUploader() {
 
         <GenerationNotifyOption disabled={isLoading} />
       </CardContent>
-      <CardFooter>
+      <CardFooter className="flex-col items-stretch gap-0">
         <Button
           className="w-full"
-          disabled={!uploadedFile || isLoading}
-          onClick={generateModel}
+          disabled={!canGenerate}
+          onClick={() => void generateModel()}
         >
           <Factory className="mr-2 h-4 w-4" />
           {isLoading ? "Generating model…" : "Generate 3D model"}
         </Button>
+        <ResearchInviteCallout hasInvite={hasInvite} isSignedIn={Boolean(isSignedIn)} />
       </CardFooter>
     </Card>
   );
