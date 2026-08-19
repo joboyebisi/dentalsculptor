@@ -1,12 +1,20 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
-import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server";
 
-const isPreviewMode = process.env.UI_PREVIEW_MODE === "true";
+/**
+ * Clerk + Next.js 16 on Vercel: Edge middleware can crash (MIDDLEWARE_INVOCATION_FAILED).
+ * Node.js runtime is required for reliable Clerk handshake on Hobby/production.
+ */
+export const runtime = "nodejs";
 
 const isPublicRoute = createRouteMatcher([
   "/",
   "/sign-in(.*)",
   "/sign-up(.*)",
+  "/sign-up",
+  "/sign-in",
+  "/consent",
+  "/onboarding",
+  "/auth/continue",
   "/api/webhooks(.*)",
   "/api/generate/mesh",
   "/api/generate/jobs(.*)",
@@ -15,18 +23,14 @@ const isPublicRoute = createRouteMatcher([
   "/community(.*)",
 ]);
 
-const clerkHandler = clerkMiddleware(async (auth, request) => {
+export default clerkMiddleware(async (auth, request) => {
+  if (process.env.UI_PREVIEW_MODE === "true") {
+    return;
+  }
   if (!isPublicRoute(request)) {
     await auth.protect();
   }
 });
-
-export default function middleware(req: NextRequest, event: NextFetchEvent) {
-  if (isPreviewMode) {
-    return NextResponse.next();
-  }
-  return clerkHandler(req, event);
-}
 
 export const config = {
   matcher: [
