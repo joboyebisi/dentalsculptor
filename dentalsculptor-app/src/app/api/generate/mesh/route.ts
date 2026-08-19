@@ -15,7 +15,8 @@ import { prisma } from "@/lib/prisma";
 import { generationErrorMessage, logGeneration } from "@/lib/generation-log";
 import { isModalAsyncDisabledError, modalAsyncDisabledHint } from "@/lib/generation-errors";
 
-export const maxDuration = 600;
+/** Hobby plan max is 300s. Async path returns 202 quickly; sync fallback may still timeout on long cold starts. */
+export const maxDuration = 300;
 
 function hasValidResearchAccessCode(value: FormDataEntryValue | null): boolean {
   const expected = process.env.RESEARCH_GENERATION_ACCESS_CODE ?? "";
