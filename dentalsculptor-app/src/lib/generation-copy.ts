@@ -9,7 +9,12 @@ export const GENERATION_COPY = {
     "Still processing. The first request after idle can take several minutes; keep this tab open.",
   inProgressHint: "You can keep this tab open; we'll notify you when it's ready if you opt in below.",
   previewReadyHint:
-    "Preview ready. Enhance to full quality before export or teaching-case creation.",
+    "Preview ready — inspect the shape above, then build the final model below.",
+  buildFinalModelLabel: "Build final 3D model",
+  buildFinalModelHint:
+    "Extracts full-quality anatomy from your preview (no second AI run — usually under a minute).",
+  buildingFinalModelLabel: "Building final 3D model…",
+  finalModelReadyHint: "Final model ready — download, create a teaching case, or open in the editor.",
   enhanceQualityLabel: "Enhance to full quality",
   enhancingQualityLabel: "Enhancing quality…",
   timeoutError:

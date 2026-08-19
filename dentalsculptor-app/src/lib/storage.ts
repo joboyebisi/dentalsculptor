@@ -8,15 +8,25 @@ import { normalizeStorageContentType } from "@/lib/model-asset-url";
 import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-function isS3BackendSelected(): boolean {
-  return process.env.STORAGE_BACKEND?.toLowerCase() === "s3";
-}
-
 function getS3Config(): { client: S3Client; bucket: string } {
   const bucket = process.env.AWS_S3_BUCKET?.trim();
   const region = process.env.AWS_REGION?.trim() || "eu-west-1";
+  const accessKeyId = process.env.AWS_ACCESS_KEY_ID?.trim();
+  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY?.trim();
   if (!bucket) throw new Error("AWS_S3_BUCKET is required for S3 storage.");
-  return { client: new S3Client({ region }), bucket };
+  return {
+    client: new S3Client({
+      region,
+      ...(accessKeyId && secretAccessKey
+        ? { credentials: { accessKeyId, secretAccessKey } }
+        : {}),
+    }),
+    bucket,
+  };
+}
+
+export function isS3BackendSelected(): boolean {
+  return process.env.STORAGE_BACKEND?.toLowerCase() === "s3";
 }
 
 export function isS3StorageConfigured(): boolean {
@@ -45,8 +55,8 @@ export function generateAssetKey(userId: string, filename: string): string {
 }
 
 /**
- * Upload a file to Supabase Storage (primary) or return a local placeholder when unconfigured.
- * AWS S3 can be added later as an alternate backend.
+ * Upload a file to S3 (large 3D assets) or Supabase Storage (thumbnails / legacy).
+ * Postgres metadata always lives in Supabase regardless of file backend.
  */
 export async function uploadAsset(
   key: string,

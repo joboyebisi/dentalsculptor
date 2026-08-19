@@ -59,7 +59,8 @@ export async function pollGenerationJob(
 export async function finalizeGenerationJob(
   jobId: string,
   jobToken: string,
-  quality: "standard" | "final" = "standard"
+  quality: "standard" | "final" = "standard",
+  options: GenerationJobPollOptions = {}
 ): Promise<GenerationJobResult> {
   const response = await fetch(
     `/api/generate/jobs/${encodeURIComponent(jobId)}/finalize`,
@@ -76,5 +77,5 @@ export async function finalizeGenerationJob(
   if (!response.ok) {
     throw new Error(data.error ?? "Could not start quality enhancement.");
   }
-  return pollGenerationJob(jobId, jobToken, { intervalMs: 1500 });
+  return pollGenerationJob(jobId, jobToken, { intervalMs: 1500, ...options });
 }

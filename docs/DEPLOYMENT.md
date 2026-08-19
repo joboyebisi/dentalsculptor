@@ -98,16 +98,38 @@ In Clerk Dashboard → **Configure → Paths / Domains**:
 
 ### 4. Supabase database
 
-After first deploy, run migrations from your machine (or Vercel CLI):
+**You do not need a separate “Vercel database”.** Vercel runs the same Next.js app against the same Supabase Postgres project. Copy `DATABASE_URL` into Vercel — for Production/Preview use the **Transaction pooler** URI (port **6543**, includes `?pgbouncer=true`). Keep port **5432** (session pooler or direct) for local dev and running migrations from your laptop.
+
+Migrations were already applied to your Supabase project (`GenerationJob` table exists). After deploy, no migration step is required unless the schema changes again:
 
 ```bash
 cd dentalsculptor-app
-DATABASE_URL="your-pooler-url" npx prisma db push
-# or for production migrations:
-DATABASE_URL="your-pooler-url" npx prisma migrate deploy
+npx prisma migrate deploy
 ```
 
-### 5. Deploy
+### 5. Clerk (development instance on Vercel)
+
+You do **not** need a custom Clerk domain for the research pilot. Your development instance (`aware-treefrog-86.clerk.accounts.dev`) works with any Vercel URL.
+
+In [Clerk Dashboard](https://dashboard.clerk.com) → **Configure → Domains** (or **Paths**):
+
+1. Add your Vercel deployment URL, e.g. `https://dentalsculptor.vercel.app`
+2. Add preview URLs if needed: `https://*.vercel.app` (or each preview URL Clerk accepts)
+
+Use the **same** `pk_test_…` and `sk_test_…` keys in Vercel as in local `.env`. No `pk_live_` until you switch Clerk to production.
+
+### 6. Hybrid storage (Supabase + S3)
+
+| Data | Where |
+|------|--------|
+| Users, projects, jobs, research events | Supabase Postgres (`DATABASE_URL`) |
+| Source images on project create | S3 when `STORAGE_BACKEND=s3` |
+| Generated GLB + job outputs | S3 (`jobs/…`, signed URLs) |
+| Thumbnails (optional) | Supabase Storage bucket |
+
+Set `STORAGE_BACKEND=s3` plus `AWS_*` on Vercel. Postgres stays on Supabase — they are complementary, not either/or.
+
+### 7. Deploy
 
 Push to `main` on GitHub — Vercel auto-deploys.
 

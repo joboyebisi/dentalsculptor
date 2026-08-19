@@ -6,7 +6,7 @@ import { generateDentalMeshFromImage } from "@/lib/model-generator";
 import { generateMeshFromImage, isFalConfigured } from "@/lib/fal-mesh-generator";
 import { autoProjectTitle } from "@/lib/auto-project-title";
 import { serializeModelProcessingStage } from "@/lib/model-processing-stage";
-import { generateAssetKey, uploadAsset } from "@/lib/storage";
+import { generateAssetKey, isS3BackendSelected, uploadAsset } from "@/lib/storage";
 import { mirrorRemoteAssetToStorage } from "@/lib/mirror-remote-asset";
 import { isSupabaseStorageConfigured } from "@/lib/supabase-server";
 
@@ -41,7 +41,9 @@ export async function POST(req: NextRequest) {
   let imageUrl: string;
 
   async function mirrorGeneratedAssets() {
-    if (existingModelKey || !generated3DUrl || !isSupabaseStorageConfigured()) return;
+    if (existingModelKey || !generated3DUrl) return;
+    if (isS3BackendSelected()) return;
+    if (!isSupabaseStorageConfigured()) return;
     try {
       const ext = format === "obj" ? "model.obj" : "model.glb";
       generated3DUrl = await mirrorRemoteAssetToStorage(

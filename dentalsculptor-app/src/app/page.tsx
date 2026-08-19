@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Suspense } from "react";
-import { ImagePlus, Factory, Box, Library, GraduationCap, BookOpen } from "lucide-react";
+import { ImagePlus, Zap, Sparkles, Box, Library, GraduationCap, BookOpen } from "lucide-react";
 import { PublicNav, PublicFooter } from "@/components/layout/public-nav";
 import { Button } from "@/components/ui/button";
 import { AppLogo } from "@/components/brand/app-logo";
@@ -13,18 +13,25 @@ const steps = [
   {
     icon: ImagePlus,
     title: "Upload",
-    description: "Add a dental photograph, scan, or teaching image.",
+    description: "Add a clear photograph of a single tooth — well lit, minimal background.",
   },
   {
-    icon: Factory,
-    title: "Generate",
-    description: "Create an editable 3D representation from your image.",
+    icon: Zap,
+    title: "Preview",
+    description:
+      "Generate a fast 3D preview to check silhouette and tooth class before committing GPU time.",
+  },
+  {
+    icon: Sparkles,
+    title: "Build final model",
+    description:
+      "Approve the preview and extract full-quality anatomy — reuses the same AI result, no second run.",
   },
   {
     icon: Box,
-    title: "Author",
+    title: "Author & export",
     description:
-      "Refine anatomy with AI-aided semantic edits, label structures, and export STL files for haptic dental simulators, VR headsets, and classroom teaching.",
+      "Download GLB, create a teaching case, edit in the workspace, and export for simulators.",
   },
 ];
 
@@ -112,9 +119,10 @@ function LandingPageContent() {
               How it works
             </h2>
             <p className="mx-auto mt-3 max-w-2xl text-center text-body-md text-on-surface-variant">
-              From a single image to deployable teaching content in three steps.
+              Two-phase generation: fast preview first, then full-quality extraction when you are
+              happy with the shape.
             </p>
-            <div className="mt-10 grid gap-6 md:grid-cols-3">
+            <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
               {steps.map((step, i) => (
                 <div
                   key={step.title}

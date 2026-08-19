@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
-import { Download, Loader2, BookOpen, Pencil } from "lucide-react";
+import { Download, Loader2, BookOpen, Pencil, Sparkles, CheckCircle2 } from "lucide-react";
 import { DentalViewer } from "@/components/three/dental-viewer";
 import { Button } from "@/components/ui/button";
 import { useLandingModel } from "@/context/landing-model-context";
@@ -15,6 +15,7 @@ import {
 import { createProjectFromLandingPayload } from "@/lib/create-landing-project";
 import { GENERATION_COPY, GENERATION_STAGE_LABELS } from "@/lib/generation-copy";
 import { projectFileName } from "@/lib/editor-segmentation";
+import { cn } from "@/lib/utils";
 
 export function LandingModelPanel() {
   const router = useRouter();
@@ -28,9 +29,9 @@ export function LandingModelPanel() {
     format,
     isLoading,
     uploadedFile,
-    hasModel,
+    hasPreview,
+    isFinalReady,
     error,
-    generationQuality,
     canEnhanceQuality,
     generationStage,
     generationProgress,
@@ -42,14 +43,14 @@ export function LandingModelPanel() {
   const [elapsedSec, setElapsedSec] = useState(0);
 
   useEffect(() => {
-    if (!isLoading) {
+    if (!isLoading && !isEnhancing) {
       setElapsedSec(0);
       return;
     }
     const start = Date.now();
     const id = setInterval(() => setElapsedSec(Math.floor((Date.now() - start) / 1000)), 1000);
     return () => clearInterval(id);
-  }, [isLoading]);
+  }, [isLoading, isEnhancing]);
 
   async function handleDownload() {
     if (!modelUrl) return;
@@ -76,7 +77,7 @@ export function LandingModelPanel() {
   }
 
   async function resumeAfterAuth(nextStep: PendingNextStep) {
-    if (!hasModel || !uploadedFile || !modelUrl) return;
+    if (!isFinalReady || !uploadedFile || !modelUrl) return;
 
     setBusy(nextStep);
     setActionError(null);
@@ -129,25 +130,39 @@ export function LandingModelPanel() {
     }
   }
 
+  const enhanceReady = canEnhanceQuality && hasPreview && !isEnhancing && !isLoading;
+  const enhanceDisabled = !enhanceReady || isEnhancing || isLoading || isFinalReady;
+
   return (
     <div className="flex w-full flex-col">
       <div className="relative h-[420px] overflow-hidden rounded-xl border border-border-subtle bg-surface-container-low md:h-[500px]">
-        {hasModel ? (
-          <DentalViewer
-            meshData={meshData}
-            modelUrl={modelUrl}
-            modelFormat={format}
-            mtlUrl={mtlUrl}
-            className="h-full"
-          />
+        {hasPreview ? (
+          <>
+            <DentalViewer
+              meshData={meshData}
+              modelUrl={modelUrl}
+              modelFormat={format}
+              mtlUrl={mtlUrl}
+              className="h-full"
+            />
+            {hasPreview && !isFinalReady && !isEnhancing && (
+              <div className="absolute left-3 top-3 rounded-full border border-amber-200/80 bg-amber-50/95 px-3 py-1 text-body-sm font-medium text-amber-900 shadow-sm">
+                Preview — inspect shape before building final model
+              </div>
+            )}
+          </>
         ) : isLoading || isEnhancing ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-on-surface-variant">
             <Loader2 className="h-8 w-8 animate-spin text-primary-container" />
             <p className="font-medium text-text-main">
-              {isEnhancing ? GENERATION_COPY.enhancingQualityLabel : GENERATION_COPY.inProgressTitle}
+              {isEnhancing
+                ? GENERATION_COPY.buildingFinalModelLabel
+                : GENERATION_COPY.inProgressTitle}
             </p>
             <p className="text-body-sm">
-              {isEnhancing ? "Extracting full-quality mesh from your preview." : GENERATION_COPY.inProgressDetail}
+              {isEnhancing
+                ? GENERATION_COPY.buildFinalModelHint
+                : GENERATION_COPY.inProgressDetail}
             </p>
             {generationStage && (
               <p className="text-body-sm text-primary-container">
@@ -158,12 +173,12 @@ export function LandingModelPanel() {
             {elapsedSec > 0 && (
               <p className="text-body-sm text-on-surface-variant/80">Elapsed: {elapsedSec}s</p>
             )}
-            {elapsedSec >= 30 && elapsedSec < 90 && (
+            {elapsedSec >= 30 && elapsedSec < 90 && !isEnhancing && (
               <p className="max-w-xs text-center text-body-sm text-on-surface-variant/80">
                 {GENERATION_COPY.inProgressQueuedHint}
               </p>
             )}
-            {elapsedSec >= 90 && (
+            {elapsedSec >= 90 && !isEnhancing && (
               <p className="max-w-xs text-center text-body-sm text-on-surface-variant/80">
                 {GENERATION_COPY.inProgressSlowHint}
               </p>
@@ -181,42 +196,58 @@ export function LandingModelPanel() {
             </p>
             <p className="mt-2 max-w-sm text-body-sm">
               {uploadedFile
-                ? "Click Generate 3D model, then preview before creating a teaching case."
+                ? "Click Generate 3D model for a fast preview, then build the final model below."
                 : "Upload an image using the panel on the left."}
             </p>
           </div>
         )}
       </div>
 
-      {hasModel && (
-        <div className="mt-4 space-y-3">
-          {generationQuality === "preview" && (
-            <p className="text-center text-body-sm text-on-surface-variant">
-              {canEnhanceQuality
-                ? GENERATION_COPY.previewReadyHint
-                : "Preview quality model loaded."}
-            </p>
+      {/* Step 2 — always visible once user has uploaded; primary action below viewer */}
+      <div className="mt-4 space-y-2">
+        <Button
+          size="lg"
+          className={cn(
+            "h-12 w-full text-base font-semibold transition-all",
+            enhanceReady &&
+              "bg-primary-container text-on-primary shadow-md ring-2 ring-primary-container/30 ring-offset-2 hover:bg-primary-container/90",
+            !enhanceReady && !isFinalReady && "bg-muted text-muted-foreground hover:bg-muted"
           )}
+          onClick={() => void enhanceModelQuality()}
+          disabled={enhanceDisabled}
+        >
+          {isEnhancing ? (
+            <>
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              {GENERATION_COPY.buildingFinalModelLabel}
+            </>
+          ) : isFinalReady ? (
+            <>
+              <CheckCircle2 className="mr-2 h-5 w-5" />
+              Final model ready
+            </>
+          ) : (
+            <>
+              <Sparkles className="mr-2 h-5 w-5" />
+              {GENERATION_COPY.buildFinalModelLabel}
+            </>
+          )}
+        </Button>
+        <p className="text-center text-body-sm text-on-surface-variant">
+          {isFinalReady
+            ? GENERATION_COPY.finalModelReadyHint
+            : enhanceReady
+              ? GENERATION_COPY.previewReadyHint
+              : hasPreview
+                ? GENERATION_COPY.buildFinalModelHint
+                : "Generate a preview first — this button unlocks when the preview is ready."}
+        </p>
+      </div>
+
+      {isFinalReady && (
+        <div className="mt-4 space-y-3 border-t border-border-subtle pt-4">
           <div className="flex flex-wrap items-center justify-center gap-3">
-            {canEnhanceQuality && (
-              <Button
-                className="bg-primary-container text-on-primary"
-                onClick={() => void enhanceModelQuality()}
-                disabled={isEnhancing || busy !== null}
-              >
-                {isEnhancing ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : null}
-                {isEnhancing
-                  ? GENERATION_COPY.enhancingQualityLabel
-                  : GENERATION_COPY.enhanceQualityLabel}
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              onClick={handleDownload}
-              disabled={!modelUrl || busy !== null}
-            >
+            <Button variant="outline" onClick={handleDownload} disabled={!modelUrl || busy !== null}>
               {busy === "download" ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
@@ -250,8 +281,8 @@ export function LandingModelPanel() {
             </Button>
           </div>
           <p className="text-center text-body-sm text-on-surface-variant">
-            Preview your model above. Creating a case or opening the editor will ask you to sign in
-            if needed — then you can pick a case template, edit, place on a jaw, and export.
+            Creating a case or opening the editor will ask you to sign in if needed — then you can
+            pick a case template, edit, place on a jaw, and export.
           </p>
           {actionError && (
             <p className="text-center text-body-sm text-error">{actionError}</p>

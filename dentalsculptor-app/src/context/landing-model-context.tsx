@@ -41,6 +41,8 @@ interface LandingModelContextType extends LandingModelState {
   enhanceModelQuality: () => Promise<void>;
   clearAll: () => void;
   clearError: () => void;
+  hasPreview: boolean;
+  isFinalReady: boolean;
   hasModel: boolean;
 }
 
@@ -216,14 +218,20 @@ export function LandingModelProvider({ children }: { children: React.ReactNode }
       const result = await finalizeGenerationJob(
         generationJobId,
         generationJobToken,
-        "standard"
+        "standard",
+        {
+          onUpdate: (job) => {
+            setGenerationStage(job.stage ?? null);
+            setGenerationProgress(job.progress ?? 0);
+          },
+        }
       );
       setModelUrl(result.modelUrl ?? null);
       setModelKey(result.modelKey ?? null);
       setFormat(result.format ?? "glb");
       setGenerationQuality("standard");
       setCanEnhanceQuality(false);
-      notifyGenerationComplete();
+      notifyGenerationComplete(GENERATION_COPY.finalModelReadyHint);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not enhance model quality.");
     } finally {
@@ -255,7 +263,17 @@ export function LandingModelProvider({ children }: { children: React.ReactNode }
 
   const clearError = useCallback(() => setError(null), []);
 
-  const hasModel = Boolean(modelUrl || meshData);
+  const hasPreview = Boolean(modelUrl || meshData);
+  const isFinalReady =
+    hasPreview &&
+    !canEnhanceQuality &&
+    !isLoading &&
+    !isEnhancing &&
+    (generationQuality === "standard" ||
+      generationQuality === "final" ||
+      generationSource === "mock" ||
+      generationSource === "fal");
+  const hasModel = hasPreview;
 
   return (
     <LandingModelContext.Provider
@@ -281,6 +299,8 @@ export function LandingModelProvider({ children }: { children: React.ReactNode }
         enhanceModelQuality,
         clearAll,
         clearError,
+        hasPreview,
+        isFinalReady,
         hasModel,
       }}
     >
