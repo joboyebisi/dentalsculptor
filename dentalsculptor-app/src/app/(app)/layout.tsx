@@ -11,11 +11,15 @@ export default async function AppLayout({
 }) {
   const user = await getAuthUser();
 
-  if (user && !user.consentAccepted) {
+  if (!user) {
+    redirect("/sign-in");
+  }
+
+  if (!user.consentAccepted) {
     redirect("/consent");
   }
 
-  if (user && !user.onboardingCompleted) {
+  if (!user.onboardingCompleted) {
     redirect("/onboarding");
   }
 
