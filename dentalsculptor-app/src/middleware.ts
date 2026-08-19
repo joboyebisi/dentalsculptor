@@ -1,34 +1,31 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server";
 
 const isPreviewMode = process.env.UI_PREVIEW_MODE === "true";
 
-export default async function middleware(req: NextRequest) {
+const isPublicRoute = createRouteMatcher([
+  "/",
+  "/sign-in(.*)",
+  "/sign-up(.*)",
+  "/api/webhooks(.*)",
+  "/api/generate/mesh",
+  "/api/generate/jobs(.*)",
+  "/api/ml/warm",
+  "/api/models/proxy",
+  "/community(.*)",
+]);
+
+const clerkHandler = clerkMiddleware(async (auth, request) => {
+  if (!isPublicRoute(request)) {
+    await auth.protect();
+  }
+});
+
+export default function middleware(req: NextRequest, event: NextFetchEvent) {
   if (isPreviewMode) {
     return NextResponse.next();
   }
-
-  const { clerkMiddleware, createRouteMatcher } = await import("@clerk/nextjs/server");
-
-  const isPublicRoute = createRouteMatcher([
-    "/",
-    "/sign-in(.*)",
-    "/sign-up(.*)",
-    "/api/webhooks(.*)",
-    "/api/generate/mesh",
-    "/api/generate/jobs(.*)",
-    "/api/ml/warm",
-    "/api/models/proxy",
-    "/community(.*)",
-  ]);
-
-  const handler = clerkMiddleware(async (auth, request) => {
-    if (!isPublicRoute(request)) {
-      await auth.protect();
-    }
-    return NextResponse.next();
-  });
-
-  return handler(req, {} as never);
+  return clerkHandler(req, event);
 }
 
 export const config = {
