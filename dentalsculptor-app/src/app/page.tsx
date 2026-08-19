@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Suspense } from "react";
-import { ImagePlus, Zap, Sparkles, Box, Library, GraduationCap, BookOpen } from "lucide-react";
+import { ImagePlus, Zap, Box, Library, GraduationCap, BookOpen } from "lucide-react";
 import { PublicNav, PublicFooter } from "@/components/layout/public-nav";
 import { Button } from "@/components/ui/button";
 import { AppLogo } from "@/components/brand/app-logo";
@@ -17,15 +17,9 @@ const steps = [
   },
   {
     icon: Zap,
-    title: "Preview",
+    title: "Generate",
     description:
-      "Generate a fast 3D preview to check silhouette and tooth class before committing GPU time.",
-  },
-  {
-    icon: Sparkles,
-    title: "Build final model",
-    description:
-      "Approve the preview and extract full-quality anatomy — reuses the same AI result, no second run.",
+      "AI reconstructs a full 3D tooth model from your photo. First run may take a few minutes while compute starts.",
   },
   {
     icon: Box,
@@ -104,7 +98,7 @@ function LandingPageContent() {
                 Create a model
               </h2>
               <p className="mx-auto mt-2 max-w-xl text-body-md text-on-surface-variant">
-                Upload an image and preview the 3D reconstruction below.
+                Upload an image and view the 3D reconstruction below.
               </p>
             </div>
 
@@ -119,10 +113,9 @@ function LandingPageContent() {
               How it works
             </h2>
             <p className="mx-auto mt-3 max-w-2xl text-center text-body-md text-on-surface-variant">
-              Two-phase generation: fast preview first, then full-quality extraction when you are
-              happy with the shape.
+              Upload a photo, generate a 3D model, then download or open in the editor.
             </p>
-            <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-10 grid gap-6 sm:grid-cols-3">
               {steps.map((step, i) => (
                 <div
                   key={step.title}

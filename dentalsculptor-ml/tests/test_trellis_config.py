@@ -39,6 +39,13 @@ class QualityPresetTests(unittest.TestCase):
     def test_capacity_bounds_are_valid(self) -> None:
         self.assertLessEqual(MIN_CONTAINERS, MAX_CONTAINERS)
 
+    def test_modal_runtime_env_bakes_async_s3_flag(self) -> None:
+        from modal_app.trellis_config import modal_runtime_env
+
+        env = modal_runtime_env()
+        self.assertIn("TRELLIS_ASYNC_S3_ENABLED", env)
+        self.assertIn(env["TRELLIS_ASYNC_S3_ENABLED"], {"true", "false"})
+
 
 if __name__ == "__main__":
     unittest.main()

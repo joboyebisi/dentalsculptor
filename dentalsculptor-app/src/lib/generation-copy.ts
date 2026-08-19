@@ -2,19 +2,14 @@
 export const GENERATION_COPY = {
   inProgressTitle: "Generating 3D model",
   inProgressDetail:
-    "Building a fast preview first — warm runs usually finish in under a minute.",
+    "Reconstructing 3D anatomy from your photo — usually a few minutes on first use.",
   inProgressQueuedHint:
     "Preparing compute and loading the reconstruction model.",
   inProgressSlowHint:
-    "Still processing. The first request after idle can take several minutes; keep this tab open.",
+    "First visit — loading the reconstruction model can take a few minutes. We started preparing compute when you opened this page; keep this tab open.",
   inProgressHint: "You can keep this tab open; we'll notify you when it's ready if you opt in below.",
-  previewReadyHint:
-    "Preview ready — inspect the shape above, then build the final model below.",
-  buildFinalModelLabel: "Build final 3D model",
-  buildFinalModelHint:
-    "Extracts full-quality anatomy from your preview (no second AI run — usually under a minute).",
-  buildingFinalModelLabel: "Building final 3D model…",
-  finalModelReadyHint: "Final model ready — download, create a teaching case, or open in the editor.",
+  modelReadyHint:
+    "Model ready — download, create a teaching case, or open in the editor.",
   enhanceQualityLabel: "Enhance to full quality",
   enhancingQualityLabel: "Enhancing quality…",
   timeoutError:
@@ -40,3 +35,7 @@ export const GENERATION_STAGE_LABELS: Record<string, string> = {
 
 /** Allows for a cold GPU container plus first-time model download/load. */
 export const GENERATION_FETCH_TIMEOUT_MS = 10 * 60_000;
+
+/** Client poll budget — must exceed Modal GPU timeout (900s) plus cold start. */
+export const GENERATION_POLL_INTERVAL_MS = 2500;
+export const GENERATION_POLL_MAX_ATTEMPTS = 600;

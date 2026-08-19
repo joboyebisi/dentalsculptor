@@ -3,18 +3,24 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import type { GeneratedMesh } from "@/lib/model-generator";
-import { prepareGenerationImage } from "@/lib/prepare-generation-image";
+import { prepareGenerationImageDetailed } from "@/lib/prepare-generation-image";
 import {
   notifyGenerationComplete,
   prepareGenerationNotification,
 } from "@/lib/generation-notifications";
-import { GENERATION_COPY, GENERATION_FETCH_TIMEOUT_MS } from "@/lib/generation-copy";
-import { finalizeGenerationJob, pollGenerationJob } from "@/lib/generation-jobs";
+import {
+  GENERATION_COPY,
+  GENERATION_FETCH_TIMEOUT_MS,
+  GENERATION_POLL_INTERVAL_MS,
+  GENERATION_POLL_MAX_ATTEMPTS,
+} from "@/lib/generation-copy";
+import { pollGenerationJob } from "@/lib/generation-jobs";
 import {
   INVITE_QUERY_PARAM,
   persistInviteCode,
   resolveInviteCode,
 } from "@/lib/research-invite";
+import { requestGpuWarmup } from "@/lib/gpu-warmup";
 
 interface LandingModelState {
   uploadedFile: File | null;
@@ -26,23 +32,20 @@ interface LandingModelState {
   mtlUrl: string | null;
   format: string | null;
   generationSource: "modal" | "fal" | "mock" | null;
-  generationQuality: "preview" | "standard" | "final" | null;
-  canEnhanceQuality: boolean;
   generationStage: string | null;
   generationProgress: number;
-  isEnhancing: boolean;
   isLoading: boolean;
+  isPreparingImage: boolean;
+  imagePrepLabel: string | null;
   error: string | null;
 }
 
 interface LandingModelContextType extends LandingModelState {
   setUploadedFile: (file: File | null) => void;
+  prepareAndSetUploadedFile: (file: File | null) => Promise<void>;
   generateModel: () => Promise<void>;
-  enhanceModelQuality: () => Promise<void>;
   clearAll: () => void;
   clearError: () => void;
-  hasPreview: boolean;
-  isFinalReady: boolean;
   hasModel: boolean;
 }
 
@@ -59,42 +62,74 @@ export function LandingModelProvider({ children }: { children: React.ReactNode }
   const [mtlUrl, setMtlUrl] = useState<string | null>(null);
   const [format, setFormat] = useState<string | null>(null);
   const [generationSource, setGenerationSource] = useState<"modal" | "fal" | "mock" | null>(null);
-  const [generationQuality, setGenerationQuality] = useState<"preview" | "standard" | "final" | null>(null);
-  const [canEnhanceQuality, setCanEnhanceQuality] = useState(false);
   const [generationStage, setGenerationStage] = useState<string | null>(null);
   const [generationProgress, setGenerationProgress] = useState(0);
-  const [generationJobId, setGenerationJobId] = useState<string | null>(null);
-  const [generationJobToken, setGenerationJobToken] = useState<string | null>(null);
-  const [isEnhancing, setIsEnhancing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isPreparingImage, setIsPreparingImage] = useState(false);
+  const [imagePrepLabel, setImagePrepLabel] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fromUrl = searchParams.get(INVITE_QUERY_PARAM);
     if (fromUrl) persistInviteCode(fromUrl);
+    if (resolveInviteCode(fromUrl)) {
+      requestGpuWarmup("invite");
+    }
   }, [searchParams]);
+
+  const clearUploadState = useCallback(() => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setUploadedFileState(null);
+    setPreviewUrl(null);
+    setMeshData(null);
+    setModelUrl(null);
+    setModelKey(null);
+    setThumbnailUrl(null);
+    setMtlUrl(null);
+    setFormat(null);
+    setGenerationSource(null);
+    setGenerationStage(null);
+    setGenerationProgress(0);
+    setError(null);
+  }, [previewUrl]);
+
+  const prepareAndSetUploadedFile = useCallback(
+    async (file: File | null) => {
+      clearUploadState();
+      if (!file) return;
+
+      setIsPreparingImage(true);
+      setImagePrepLabel("Preparing image for generation…");
+      try {
+        const prepared = await prepareGenerationImageDetailed(file);
+        setUploadedFileState(prepared.file);
+        setPreviewUrl(URL.createObjectURL(prepared.file));
+        if (prepared.warnings.includes("converted-to-jpeg")) {
+          setImagePrepLabel("Optimized: resized and converted for faster generation.");
+        } else if (prepared.warnings.includes("very-small-image")) {
+          setImagePrepLabel("Note: this image is quite small — a higher-resolution photo may improve results.");
+        } else if (prepared.warnings.length > 0) {
+          setImagePrepLabel("Image prepared for single-tooth generation.");
+        } else {
+          setImagePrepLabel(null);
+        }
+        requestGpuWarmup("upload");
+      } catch {
+        setUploadedFileState(file);
+        setPreviewUrl(URL.createObjectURL(file));
+        setImagePrepLabel(null);
+      } finally {
+        setIsPreparingImage(false);
+      }
+    },
+    [clearUploadState]
+  );
 
   const setUploadedFile = useCallback(
     (file: File | null) => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-      setUploadedFileState(file);
-      setPreviewUrl(file ? URL.createObjectURL(file) : null);
-      setMeshData(null);
-      setModelUrl(null);
-      setModelKey(null);
-      setThumbnailUrl(null);
-      setMtlUrl(null);
-      setFormat(null);
-      setGenerationSource(null);
-      setGenerationQuality(null);
-      setCanEnhanceQuality(false);
-      setGenerationStage(null);
-      setGenerationProgress(0);
-      setGenerationJobId(null);
-      setGenerationJobToken(null);
-      setError(null);
+      void prepareAndSetUploadedFile(file);
     },
-    [previewUrl]
+    [prepareAndSetUploadedFile]
   );
 
   const generateModel = useCallback(async () => {
@@ -114,19 +149,15 @@ export function LandingModelProvider({ children }: { children: React.ReactNode }
     setMtlUrl(null);
     setFormat(null);
     setGenerationSource(null);
-    setGenerationQuality(null);
-    setCanEnhanceQuality(false);
     setGenerationStage(null);
     setGenerationProgress(0);
-    setGenerationJobId(null);
-    setGenerationJobToken(null);
 
     try {
       await prepareGenerationNotification();
-      const prepared = await prepareGenerationImage(uploadedFile);
+      requestGpuWarmup("generate");
       const formData = new FormData();
-      formData.append("image", prepared);
-      formData.append("quality", "preview");
+      formData.append("image", uploadedFile);
+      formData.append("quality", "standard");
       if (inviteCode) formData.append("accessCode", inviteCode);
 
       const controller = new AbortController();
@@ -162,10 +193,10 @@ export function LandingModelProvider({ children }: { children: React.ReactNode }
         throw new Error(data.error ?? "Generation failed.");
       }
       if (res.status === 202 && data.jobId && data.jobToken) {
-        setGenerationJobId(data.jobId);
-        setGenerationJobToken(data.jobToken);
         data = {
           ...(await pollGenerationJob(data.jobId, data.jobToken, {
+            intervalMs: GENERATION_POLL_INTERVAL_MS,
+            maxAttempts: GENERATION_POLL_MAX_ATTEMPTS,
             onUpdate: (job) => {
               setGenerationStage(job.stage ?? null);
               setGenerationProgress(job.progress ?? 0);
@@ -184,12 +215,6 @@ export function LandingModelProvider({ children }: { children: React.ReactNode }
         setGenerationSource(
           data.source === "modal" ? "modal" : data.source === "fal" ? "fal" : "mock"
         );
-        const quality =
-          data.quality === "preview" || data.quality === "final" || data.quality === "standard"
-            ? data.quality
-            : "preview";
-        setGenerationQuality(quality);
-        setCanEnhanceQuality(Boolean(data.canFinalize));
         notifyGenerationComplete();
       } else if (data.meshData) {
         setMeshData(data.meshData);
@@ -205,75 +230,15 @@ export function LandingModelProvider({ children }: { children: React.ReactNode }
     }
   }, [uploadedFile, searchParams]);
 
-  const enhanceModelQuality = useCallback(async () => {
-    if (!generationJobId || !generationJobToken) {
-      setError("Enhancement is unavailable for this model.");
-      return;
-    }
-    setIsEnhancing(true);
-    setError(null);
-    setGenerationStage("queued");
-    setGenerationProgress(0);
-    try {
-      const result = await finalizeGenerationJob(
-        generationJobId,
-        generationJobToken,
-        "standard",
-        {
-          onUpdate: (job) => {
-            setGenerationStage(job.stage ?? null);
-            setGenerationProgress(job.progress ?? 0);
-          },
-        }
-      );
-      setModelUrl(result.modelUrl ?? null);
-      setModelKey(result.modelKey ?? null);
-      setFormat(result.format ?? "glb");
-      setGenerationQuality("standard");
-      setCanEnhanceQuality(false);
-      notifyGenerationComplete(GENERATION_COPY.finalModelReadyHint);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not enhance model quality.");
-    } finally {
-      setIsEnhancing(false);
-      setGenerationStage(null);
-      setGenerationProgress(0);
-    }
-  }, [generationJobId, generationJobToken]);
-
   const clearAll = useCallback(() => {
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setUploadedFileState(null);
-    setPreviewUrl(null);
-    setMeshData(null);
-    setModelUrl(null);
-    setModelKey(null);
-    setThumbnailUrl(null);
-    setMtlUrl(null);
-    setFormat(null);
-    setGenerationSource(null);
-    setGenerationQuality(null);
-    setCanEnhanceQuality(false);
-    setGenerationStage(null);
-    setGenerationProgress(0);
-    setGenerationJobId(null);
-    setGenerationJobToken(null);
-    setError(null);
-  }, [previewUrl]);
+    setIsPreparingImage(false);
+    setImagePrepLabel(null);
+    clearUploadState();
+  }, [clearUploadState]);
 
   const clearError = useCallback(() => setError(null), []);
 
-  const hasPreview = Boolean(modelUrl || meshData);
-  const isFinalReady =
-    hasPreview &&
-    !canEnhanceQuality &&
-    !isLoading &&
-    !isEnhancing &&
-    (generationQuality === "standard" ||
-      generationQuality === "final" ||
-      generationSource === "mock" ||
-      generationSource === "fal");
-  const hasModel = hasPreview;
+  const hasModel = Boolean(modelUrl || meshData);
 
   return (
     <LandingModelContext.Provider
@@ -287,20 +252,17 @@ export function LandingModelProvider({ children }: { children: React.ReactNode }
         mtlUrl,
         format,
         generationSource,
-        generationQuality,
-        canEnhanceQuality,
         generationStage,
         generationProgress,
-        isEnhancing,
         isLoading,
+        isPreparingImage,
+        imagePrepLabel,
         error,
         setUploadedFile,
+        prepareAndSetUploadedFile,
         generateModel,
-        enhanceModelQuality,
         clearAll,
         clearError,
-        hasPreview,
-        isFinalReady,
         hasModel,
       }}
     >

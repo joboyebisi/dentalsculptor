@@ -16,6 +16,7 @@ from modal_app.trellis_config import (
     MODEL_NAME,
     TRELLIS2_PATH,
     TRELLIS_COMMIT,
+    modal_runtime_env,
 )
 
 PINNED_COMMITS = {
@@ -112,6 +113,7 @@ trellis_gpu_image = (
             "OPENCV_IO_ENABLE_OPENEXR": "1",
             "TORCH_CUDA_ARCH_LIST": "8.0;8.6;8.9;9.0",
             "HF_HUB_OFFLINE": "1" if HF_HUB_OFFLINE else "0",
+            **modal_runtime_env(),
         }
     )
 )

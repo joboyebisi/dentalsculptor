@@ -73,6 +73,7 @@ Add these under **Project → Settings → Environment Variables** for **Product
 | `MODAL_ASYNC_S3_ENABLED` | Set manually | `true` when async S3 path is live |
 | `MODAL_EDIT_URL` | Modal deployment output | Nano3D endpoint |
 | `MODAL_JOB_STATUS_URL` | Modal deployment output | Async job polling |
+| `MODAL_WARM_GPU_URL` | Modal deployment output | Session GPU warmup (`warm-gpu`) |
 | `MODAL_WEBHOOK_SECRET` | Generate securely | Must match Modal `dentalsculptor-webhook` secret |
 | `MODAL_TOKEN_ID` / `MODAL_TOKEN_SECRET` | Modal account settings | Server-only deployment/config credentials |
 | `RESEARCH_GENERATION_ACCESS_CODE` | Generate securely | Educator invite code; share as `?invite=CODE` on landing |
@@ -89,12 +90,26 @@ Add these under **Project → Settings → Environment Variables** for **Product
 | `NEXT_PUBLIC_POSTHOG_KEY` / `NEXT_PUBLIC_POSTHOG_HOST` | Analytics |
 | `NEXT_PUBLIC_ASSETS_CDN_URL` | Optional CloudFront URL in front of S3 |
 
-### 3. Clerk production URLs
+### 3. Clerk for research pilot (no custom domain needed)
 
-In Clerk Dashboard → **Configure → Paths / Domains**:
+In Clerk Dashboard → **Configure → Domains**:
 
-- Add your Vercel domain (e.g. `dentalsculptor.vercel.app`)
-- Allowed redirect URLs: `https://your-domain/consent`
+1. Add your Vercel URL: `https://your-app.vercel.app`
+2. Optional: allow preview deploys if Clerk supports your pattern
+
+**You do not need** a custom domain or `pk_live_` keys for first-stage testing. Use the same **development** Clerk instance (`pk_test_` / `sk_test_`) locally and on Vercel.
+
+Set on Vercel (same as local):
+
+| Variable | Value |
+|----------|-------|
+| `NEXT_PUBLIC_APP_URL` | Your Vercel URL |
+| `NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL` | `/consent` |
+| `NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL` | `/consent` |
+
+In Clerk → **Paths**, ensure allowed redirect URLs include `https://your-app.vercel.app/*`.
+
+**Public routes (no sign-in):** landing `/`, generation APIs, model proxy, and GPU warmup — handled in `middleware.ts`. Testers use `?invite=CODE` for anonymous generation.
 
 ### 4. Supabase database
 
@@ -132,6 +147,22 @@ Set `STORAGE_BACKEND=s3` plus `AWS_*` on Vercel. Postgres stays on Supabase — 
 ### 7. Deploy
 
 Push to `main` on GitHub — Vercel auto-deploys.
+
+---
+
+## Research pilot launch checklist
+
+Before sharing a tester link:
+
+- [ ] Modal deployed: `.\dentalsculptor-ml\scripts\deploy-scale-to-zero.ps1` (A100, async S3 on)
+- [ ] Vercel root directory: `dentalsculptor-app`
+- [ ] `MODAL_ASYNC_S3_ENABLED=true`, all Modal URLs + `MODAL_WARM_GPU_URL` set
+- [ ] `STORAGE_BACKEND=s3`, AWS bucket matches Modal secret
+- [ ] `DATABASE_URL` uses Supabase **pooler port 6543**
+- [ ] `RESEARCH_GENERATION_ACCESS_CODE` set; share `https://YOUR_APP/?invite=CODE`
+- [ ] `UI_PREVIEW_MODE=false` on Vercel
+- [ ] Clerk dev keys on Vercel; Vercel URL added in Clerk Domains
+- [ ] Smoke test: invite link → upload → generate → download GLB
 
 ---
 
@@ -206,7 +237,49 @@ Modal-to-S3 upload before public deployment.
 | Vercel | Pro recommended for the pilot until ML routes are fully asynchronous |
 | Supabase Free | Free (500 MB DB) |
 | Clerk Free | Free (~10k MAU) |
-| Modal TRELLIS | Usage-based GPU cost; warm capacity trades idle cost for lower latency |
+| Modal TRELLIS | Usage-based GPU; see warm-pool table below |
+
+### Modal GPU strategy (research pilot — default)
+
+**Default: scale-to-zero** (`min_containers=0`) — you only pay while a container is running.
+
+| Pattern | Cost | First preview | Follow-up previews |
+|---------|------|---------------|-------------------|
+| Scale-to-zero + session warmup | ~$0 idle; ~$0.07–0.15 per cold session | ~2–5 min (model load) | ~10–60s while container stays up (20 min idle window) |
+| Always-warm pool (`min_containers=1`) | ~$3.95/hr H100 | ~10–60s | ~10–60s |
+
+**Session warmup (recommended):** when a tester opens the invite link or uploads an image, the app calls `POST /api/ml/warm` → Modal `warm-gpu`, which spins up a GPU and loads TRELLIS in the background. Generation uses async jobs (202 + poll) so HTTP never blocks for 10 minutes.
+
+Deploy scale-to-zero (production default):
+
+```powershell
+.\dentalsculptor-ml\scripts\deploy-scale-to-zero.ps1
+```
+
+**Optional — always-warm for live demo days only:**
+
+```powershell
+.\dentalsculptor-ml\scripts\deploy-research-warm-pool.ps1          # H100
+.\dentalsculptor-ml\scripts\deploy-research-warm-pool.ps1 -Gpu L40S  # cheaper
+```
+
+Turn off after sessions:
+
+```powershell
+.\dentalsculptor-ml\scripts\deploy-scale-to-zero.ps1
+```
+
+### Modal warm GPU cost reference (always-on only)
+
+Modal bills **per second** while a GPU container is running. With `min_containers=1`, one GPU stays on until you scale back to zero.
+
+| GPU | ~$/hour | 8-hour test day | 24/7 month (avoid) |
+|-----|---------|-----------------|---------------------|
+| **L40S** (recommended pilot) | $1.95 | ~$16 | ~$1,400 |
+| A100-40GB | $2.10 | ~$17 | ~$1,500 |
+| **H100** (fastest preview) | $3.95 | ~$32 | ~$2,800 |
+
+Rates from Modal list pricing (verify at [modal.com/pricing](https://modal.com/pricing)).
 | AWS S3 / R2 | Free tier or ~$1–5/mo |
 
 ---

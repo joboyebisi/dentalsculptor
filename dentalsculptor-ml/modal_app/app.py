@@ -40,6 +40,7 @@ from modal_app.trellis_config import (
     MIN_CONTAINERS,
     SCALEDOWN_WINDOW,
     get_quality_preset,
+    modal_runtime_env,
 )
 from modal_app.workers.mesh_utils import generate_response_from_image
 from modal_app.workers.nano3d_utils import run_nano3d_edit
@@ -68,7 +69,7 @@ cpu_image = modal.Image.debian_slim(python_version="3.11").pip_install(
     "pillow>=10.0.0",
     "numpy>=1.26.0",
     "trimesh>=4.0.0",
-)
+).env(modal_runtime_env())
 weights_image = cpu_image.pip_install("huggingface-hub>=0.34.0")
 
 app = modal.App(APP_NAME, image=cpu_image)
@@ -146,6 +147,15 @@ class TrellisGenerateService:
     def load_model(self) -> None:
         self.generator = TrellisGenerator()
         self.generator.load_model()
+
+    @modal.method()
+    def warm(self) -> dict[str, object]:
+        """Ensure GPU container is loaded; returns load timings for observability."""
+        return {
+            "ready": True,
+            "loadTimeSeconds": self.generator.load_time,
+            "loadTimings": self.generator.load_timings,
+        }
 
     @modal.method()
     def generate_job(
@@ -422,6 +432,15 @@ class TrellisGenerateService:
             quality=quality,
             metrics=self.generator.last_metrics,
         )
+
+
+@app.function(image=cpu_image, timeout=60, secrets=[webhook_secret])
+@modal.fastapi_endpoint(method="POST", label=web_label("warm-gpu"))
+async def warm_gpu(request: Request):
+    """Spin up a GPU container and load TRELLIS (fire-and-forget)."""
+    authorize(request)
+    TrellisGenerateService().warm.spawn()
+    return JSONResponse({"status": "warming"}, status_code=202)
 
 
 @app.function(image=cpu_image, timeout=60, secrets=[webhook_secret])

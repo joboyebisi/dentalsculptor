@@ -29,22 +29,29 @@ def _env_bool(name: str, default: bool = False) -> bool:
 
 DEPLOYMENT_ENV = os.getenv("TRELLIS_DEPLOYMENT_ENV", "development").strip().lower()
 IS_PRODUCTION = DEPLOYMENT_ENV == "production"
+# Research pilot: keep one warm GPU even when DEPLOYMENT_ENV=development.
+RESEARCH_WARM_POOL = _env_bool("TRELLIS_RESEARCH_WARM_POOL", False)
 
-# Modal capacity is resolved when the app is deployed. Development scales to zero;
-# production starts with the brief's single-resident-H100 settings.
-GPU_TYPE = os.getenv("TRELLIS_MODAL_GPU", "H100")
+# Modal capacity is resolved when the app is deployed. Development scales to zero
+# unless TRELLIS_RESEARCH_WARM_POOL or TRELLIS_DEPLOYMENT_ENV=production.
+GPU_TYPE = os.getenv("TRELLIS_MODAL_GPU", "A100")
 MIN_CONTAINERS = _env_int(
     "TRELLIS_MIN_CONTAINERS",
-    1 if IS_PRODUCTION else 0,
+    1 if (IS_PRODUCTION or RESEARCH_WARM_POOL) else 0,
 )
 BUFFER_CONTAINERS = _env_int("TRELLIS_BUFFER_CONTAINERS", 0)
-SCALEDOWN_WINDOW = _env_int("TRELLIS_SCALEDOWN_WINDOW", 1200, minimum=60)
+SCALEDOWN_WINDOW = _env_int(
+    "TRELLIS_SCALEDOWN_WINDOW",
+    3600 if RESEARCH_WARM_POOL else 1200,
+    minimum=60,
+)
 MAX_CONTAINERS = _env_int("TRELLIS_MAX_CONTAINERS", 1, minimum=1)
 if MIN_CONTAINERS > MAX_CONTAINERS:
     raise ValueError("TRELLIS_MIN_CONTAINERS cannot exceed TRELLIS_MAX_CONTAINERS.")
 
 ENABLE_TF32 = _env_bool("TRELLIS_ENABLE_TF32", True)
-ENABLE_WARMUP = _env_bool("TRELLIS_ENABLE_WARMUP", IS_PRODUCTION)
+# Warm CUDA kernels on every new container (scale-to-zero or warm pool).
+ENABLE_WARMUP = _env_bool("TRELLIS_ENABLE_WARMUP", True)
 HF_HUB_OFFLINE = _env_bool("TRELLIS_HF_HUB_OFFLINE", False)
 ASYNC_S3_ENABLED = _env_bool("TRELLIS_ASYNC_S3_ENABLED", False)
 BASE64_COMPAT_ENABLED = _env_bool("TRELLIS_BASE64_COMPAT_ENABLED", True)
@@ -120,6 +127,23 @@ if DEFAULT_QUALITY not in QUALITY_PRESETS:
     raise ValueError(
         f"TRELLIS_DEFAULT_QUALITY must be one of {sorted(QUALITY_PRESETS)}."
     )
+
+
+def _bool_env(value: bool) -> str:
+    return "true" if value else "false"
+
+
+def modal_runtime_env() -> dict[str, str]:
+    """Env vars baked into Modal images at deploy time (local shell env is not inherited)."""
+    return {
+        "TRELLIS_ASYNC_S3_ENABLED": _bool_env(ASYNC_S3_ENABLED),
+        "TRELLIS_ENABLE_WARMUP": _bool_env(ENABLE_WARMUP),
+        "TRELLIS_ENABLE_TF32": _bool_env(ENABLE_TF32),
+        "TRELLIS_HF_HUB_OFFLINE": _bool_env(HF_HUB_OFFLINE),
+        "TRELLIS_BASE64_COMPAT_ENABLED": _bool_env(BASE64_COMPAT_ENABLED),
+        "TRELLIS_DEPLOYMENT_ENV": DEPLOYMENT_ENV,
+        "TRELLIS_MODAL_GPU": GPU_TYPE,
+    }
 
 
 def get_quality_preset(quality: str | None) -> dict[str, int | str]:

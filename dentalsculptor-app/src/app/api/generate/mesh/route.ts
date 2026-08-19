@@ -12,6 +12,8 @@ import {
   isModalAsyncS3Enabled,
 } from "@/lib/ml-provider";
 import { prisma } from "@/lib/prisma";
+import { generationErrorMessage, logGeneration } from "@/lib/generation-log";
+import { isModalAsyncDisabledError, modalAsyncDisabledHint } from "@/lib/generation-errors";
 
 export const maxDuration = 600;
 
@@ -51,7 +53,7 @@ export async function POST(req: NextRequest) {
     qualityRaw === "preview" || qualityRaw === "final" || qualityRaw === "standard"
       ? qualityRaw
       : isModalAsyncS3Enabled()
-        ? "preview"
+        ? "standard"
         : "standard";
   const seedValue = formData.get("seed");
   const seed =
@@ -65,7 +67,14 @@ export async function POST(req: NextRequest) {
 
   const provider = getMlMeshProvider();
   const traceId = randomUUID();
-  console.info(`[generate/mesh] start trace=${traceId} provider=${provider} size=${image.size}`);
+  logGeneration({
+    traceId,
+    phase: "start",
+    provider,
+    quality,
+    imageBytes: image.size,
+    asyncS3: isModalAsyncS3Enabled(),
+  });
 
   if (provider === "mock") {
     const meshData = generateDentalMeshFromImage(800, 600);
@@ -109,21 +118,55 @@ export async function POST(req: NextRequest) {
       try {
         await createModalGenerationJob(image, jobId, { quality, seed, traceId });
       } catch (error) {
+        const errMsg = error instanceof Error ? error.message : "Modal submission failed.";
+        logGeneration({
+          traceId,
+          phase: "failed",
+          provider: "modal",
+          jobId,
+          error: errMsg,
+          upstream: "createModalGenerationJob",
+        });
+        if (isModalAsyncDisabledError(errMsg)) {
+          logGeneration({
+            traceId,
+            phase: "failed",
+            provider: "modal",
+            jobId,
+            error: errMsg,
+            detail: modalAsyncDisabledHint(),
+          });
+          await prisma.generationJob.delete({ where: { id: jobId } }).catch(() => undefined);
+          return NextResponse.json(
+            {
+              error:
+                "Generation service is misconfigured. The admin needs to redeploy Modal with async S3 enabled.",
+              traceId,
+              detail: modalAsyncDisabledHint(),
+            },
+            { status: 503 }
+          );
+        }
         await prisma.generationJob.update({
           where: { id: jobId },
           data: {
             status: "FAILED",
             stage: "failed",
             progress: 100,
-            error: error instanceof Error ? error.message : "Modal submission failed.",
+            error: errMsg,
             completedAt: new Date(),
           },
         });
         throw error;
       }
-      console.info(
-        `[generate/mesh] accepted trace=${traceId} job=${jobId} duration=${Date.now() - t0}ms`
-      );
+      logGeneration({
+        traceId,
+        phase: "accepted",
+        provider: "modal",
+        jobId,
+        durationMs: Date.now() - t0,
+        mode: "async",
+      });
       return NextResponse.json(
         {
           source: "modal",
@@ -147,9 +190,13 @@ export async function POST(req: NextRequest) {
           })
         : await generateMeshFromImage(image);
 
-    console.info(
-      `[generate/mesh] complete trace=${traceId} provider=${provider} duration=${Date.now() - t0}ms format=${result.format}`
-    );
+    logGeneration({
+      traceId,
+      phase: "complete",
+      provider,
+      durationMs: Date.now() - t0,
+      format: result.format,
+    });
 
     if (user && projectId && !isUiPreviewMode()) {
       await trackResearchEvent({
@@ -174,7 +221,14 @@ export async function POST(req: NextRequest) {
       requestId: result.requestId,
     });
   } catch (error) {
-    console.error(`[generate/mesh] failed trace=${traceId}`, error);
+    const errMsg = error instanceof Error ? error.message : String(error);
+    logGeneration({
+      traceId,
+      phase: "failed",
+      provider,
+      error: errMsg,
+      detail: isModalAsyncDisabledError(errMsg) ? modalAsyncDisabledHint() : undefined,
+    });
 
     const allowFallback =
       process.env.ML_ALLOW_FAL_FALLBACK === "true" && isFalConfigured();
@@ -192,10 +246,10 @@ export async function POST(req: NextRequest) {
       provider === "modal"
         ? error instanceof Error && error.message.startsWith("The tooth could not be isolated")
           ? error.message
-          : "The 3D reconstruction service could not complete this request. Please try again."
+          : generationErrorMessage(error, traceId)
         : error instanceof Error
           ? error.message
           : "Mesh generation failed.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: message, traceId }, { status: 500 });
   }
 }

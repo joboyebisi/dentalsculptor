@@ -1,3 +1,8 @@
+import {
+  GENERATION_POLL_INTERVAL_MS,
+  GENERATION_POLL_MAX_ATTEMPTS,
+} from "@/lib/generation-copy";
+
 export interface GenerationJobResult {
   jobId: string;
   status: "queued" | "running" | "completed" | "failed";
@@ -23,8 +28,8 @@ export async function pollGenerationJob(
   jobToken: string,
   options: GenerationJobPollOptions = {}
 ): Promise<GenerationJobResult> {
-  const intervalMs = options.intervalMs ?? 1500;
-  const maxAttempts = options.maxAttempts ?? 300;
+  const intervalMs = options.intervalMs ?? GENERATION_POLL_INTERVAL_MS;
+  const maxAttempts = options.maxAttempts ?? GENERATION_POLL_MAX_ATTEMPTS;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     if (attempt > 0) {

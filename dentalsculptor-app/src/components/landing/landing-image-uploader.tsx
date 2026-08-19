@@ -1,10 +1,10 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useEffect, useState } from "react";
 import Image from "next/image";
 import { useAuth } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
-import { X, ImagePlus, Factory } from "lucide-react";
+import { X, ImagePlus, Factory, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -17,18 +17,33 @@ import {
 import { useLandingModel } from "@/context/landing-model-context";
 import { GenerationNotifyOption } from "@/components/generation/generation-notify-option";
 import { ResearchInviteCallout } from "@/components/landing/research-invite-callout";
-import { INVITE_QUERY_PARAM, resolveInviteCode } from "@/lib/research-invite";
+import { INVITE_QUERY_PARAM, normalizeInviteCode, resolveInviteCode } from "@/lib/research-invite";
 
 export function LandingImageUploader() {
   const { isSignedIn } = useAuth();
   const searchParams = useSearchParams();
-  const { previewUrl, uploadedFile, isLoading, error, setUploadedFile, generateModel, clearAll } =
-    useLandingModel();
+  const {
+    previewUrl,
+    uploadedFile,
+    isLoading,
+    isPreparingImage,
+    imagePrepLabel,
+    error,
+    prepareAndSetUploadedFile,
+    generateModel,
+    clearAll,
+  } = useLandingModel();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const inviteCode = resolveInviteCode(searchParams.get(INVITE_QUERY_PARAM));
-  const hasInvite = Boolean(inviteCode);
-  const canGenerate = Boolean(uploadedFile) && !isLoading && (Boolean(isSignedIn) || hasInvite);
+  const inviteFromUrl = normalizeInviteCode(searchParams.get(INVITE_QUERY_PARAM));
+  const [hasInvite, setHasInvite] = useState(Boolean(inviteFromUrl));
+
+  useEffect(() => {
+    setHasInvite(Boolean(resolveInviteCode(searchParams.get(INVITE_QUERY_PARAM))));
+  }, [searchParams]);
+
+  const canGenerate =
+    Boolean(uploadedFile) && !isLoading && !isPreparingImage && (Boolean(isSignedIn) || hasInvite);
 
   return (
     <Card className="w-full max-w-md border-border-subtle">
@@ -46,13 +61,24 @@ export function LandingImageUploader() {
           className="hidden"
           onChange={(e) => {
             const file = e.target.files?.[0] ?? null;
-            setUploadedFile(file);
+            void prepareAndSetUploadedFile(file);
           }}
         />
 
-        {previewUrl ? (
+        {isPreparingImage ? (
+          <div className="flex aspect-[4/3] w-full flex-col items-center justify-center rounded-lg border border-border-subtle bg-surface-container-low text-on-surface-variant">
+            <Loader2 className="mb-2 h-8 w-8 animate-spin text-primary-container" />
+            <span className="text-body-sm">{imagePrepLabel ?? "Preparing image…"}</span>
+          </div>
+        ) : previewUrl ? (
           <div className="relative aspect-[4/3] overflow-hidden rounded-lg border border-border-subtle bg-surface-container-low">
-            <Image src={previewUrl} alt="Selected dental image" fill className="object-cover" />
+            <Image
+              src={previewUrl}
+              alt="Selected dental image"
+              fill
+              className="object-contain p-1"
+              sizes="(max-width: 768px) 100vw, 340px"
+            />
           </div>
         ) : (
           <button
@@ -76,6 +102,10 @@ export function LandingImageUploader() {
             </Button>
           )}
         </div>
+
+        {imagePrepLabel && !isPreparingImage && (
+          <p className="text-body-sm text-on-surface-variant">{imagePrepLabel}</p>
+        )}
 
         {error && <p className="text-body-sm text-error">{error}</p>}
 

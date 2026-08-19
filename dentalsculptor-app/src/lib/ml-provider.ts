@@ -54,6 +54,26 @@ export function isModalAsyncS3Enabled(): boolean {
   );
 }
 
+/** Spin up Modal GPU container (load model + optional CUDA warmup). Fire-and-forget. */
+export async function warmModalGpu(): Promise<void> {
+  const url =
+    process.env.MODAL_WARM_GPU_URL ??
+    process.env.MODAL_GENERATE_ASYNC_URL?.replace("generate-job", "warm-gpu");
+  if (!url) throw new Error("MODAL_WARM_GPU_URL is not configured.");
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.MODAL_WEBHOOK_SECRET ?? ""}`,
+    },
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (res.status !== 202 && !res.ok) {
+    const text = await res.text();
+    throw new Error(`Modal warm-gpu failed (${res.status}): ${text.slice(0, 200)}`);
+  }
+}
+
 export async function finalizeModalGenerationJob(
   jobId: string,
   quality: ModalQuality = "standard",
@@ -124,10 +144,11 @@ export async function createModalGenerationJob(
   try {
     data = JSON.parse(responseText) as ModalGenerateResponse;
   } catch {
-    throw new Error(`The reconstruction service failed (${res.status}).`);
+    throw new Error(`The reconstruction service failed (${res.status}): ${responseText.slice(0, 200)}`);
   }
   if (!res.ok) {
-    throw new Error(data.error ?? data.detail ?? `Modal generate failed (${res.status})`);
+    const detail = data.error ?? data.detail ?? `Modal generate failed (${res.status})`;
+    throw new Error(`${detail} (HTTP ${res.status})`);
   }
   if (!data.jobId || data.status !== "queued") {
     throw new Error("Modal did not accept the generation job.");

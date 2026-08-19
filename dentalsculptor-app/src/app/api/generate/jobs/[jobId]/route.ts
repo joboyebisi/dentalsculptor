@@ -38,7 +38,6 @@ export async function GET(
   }
 
   let current = job;
-  let modalSnapshot: { canFinalize?: boolean; phase?: string } | undefined;
   if (job.status === "QUEUED" || job.status === "RUNNING") {
     const statusUrl = process.env.MODAL_JOB_STATUS_URL;
     if (!statusUrl) {
@@ -87,9 +86,8 @@ export async function GET(
         { status: 502 }
       );
     }
-    modalSnapshot = modalData;
 
-    const status =
+    const status: "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED" =
       modalData.status === "completed"
         ? "COMPLETED"
         : modalData.status === "failed"
@@ -97,16 +95,17 @@ export async function GET(
           : modalData.status === "running"
             ? "RUNNING"
             : "QUEUED";
+
     current = await prisma.generationJob.update({
       where: { id: jobId },
       data: {
         status,
         stage: modalData.stage ?? job.stage,
         progress: modalData.progress ?? job.progress,
-        resultKey: modalData.resultKey,
-        format: modalData.format,
-        seed: modalData.seed,
-        pipelineType: modalData.pipelineType,
+        resultKey: modalData.resultKey ?? job.resultKey,
+        format: modalData.format ?? job.format,
+        seed: modalData.seed ?? job.seed,
+        pipelineType: modalData.pipelineType ?? job.pipelineType,
         quality: modalData.quality ?? job.quality,
         timings: asJson(modalData.timings),
         metrics: asJson(modalData.metrics),
@@ -144,9 +143,5 @@ export async function GET(
     timings: current.timings,
     metrics: current.metrics,
     error: current.error,
-    canFinalize:
-      modalSnapshot?.canFinalize ??
-      (current.quality === "preview" && current.status === "COMPLETED"),
-    phase: modalSnapshot?.phase,
   });
 }
