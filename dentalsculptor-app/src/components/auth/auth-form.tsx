@@ -9,13 +9,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 import { AppLogo } from "@/components/brand/app-logo";
+import { GoogleIcon, MicrosoftIcon } from "@/components/auth/oauth-icons";
+import { cn } from "@/lib/utils";
 
 type AuthMode = "sign-in" | "sign-up";
 
 const OAUTH_PROVIDERS = [
-  { id: "google" as const, label: "Google" },
-  { id: "azure" as const, label: "Microsoft" },
-  { id: "facebook" as const, label: "Facebook" },
+  { id: "google" as const, label: "Google", Icon: GoogleIcon },
+  { id: "azure" as const, label: "Microsoft", Icon: MicrosoftIcon },
 ];
 
 function resolveRedirectPath(redirectUrl: string | null, fallback: string) {
@@ -124,18 +125,25 @@ export function AuthForm({
       </div>
 
       <div className="rounded-xl border border-border-subtle bg-panel-bg p-6 shadow-sm">
-        <div className="space-y-3">
-          {OAUTH_PROVIDERS.map((provider) => (
-            <Button
-              key={provider.id}
+        <div className="space-y-2.5">
+          {OAUTH_PROVIDERS.map(({ id, label, Icon }) => (
+            <button
+              key={id}
               type="button"
-              variant="outline"
-              className="w-full"
               disabled={busy}
-              onClick={() => handleOAuth(provider.id)}
+              onClick={() => handleOAuth(id)}
+              className={cn(
+                "flex h-11 w-full items-center gap-3 rounded-lg border border-border-subtle bg-background px-4",
+                "text-body-sm font-medium text-on-surface transition-colors",
+                "hover:bg-surface-container-low focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-container/40",
+                "disabled:pointer-events-none disabled:opacity-50"
+              )}
             >
-              Continue with {provider.label}
-            </Button>
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+                <Icon className="h-5 w-5" />
+              </span>
+              <span className="flex-1 text-center pr-5">Continue with {label}</span>
+            </button>
           ))}
         </div>
 
