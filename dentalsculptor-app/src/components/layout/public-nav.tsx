@@ -1,14 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { SignInButton, SignUpButton, useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { AppLogo } from "@/components/brand/app-logo";
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 
 const isPreview = process.env.NEXT_PUBLIC_UI_PREVIEW_MODE === "true";
-const hasClerk = Boolean(
-  process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY?.startsWith("pk_")
-);
 
 export function PublicNav() {
   return (
@@ -20,15 +17,7 @@ export function PublicNav() {
 }
 
 function NavAuthActions() {
-  if (hasClerk) {
-    return <NavAuthClerk />;
-  }
-  return <NavAuthLinks />;
-}
-
-/** Clerk modal buttons when keys are configured. */
-function NavAuthClerk() {
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, loading } = useSupabaseAuth();
 
   return (
     <div className="flex items-center gap-2 sm:gap-3">
@@ -39,45 +28,22 @@ function NavAuthClerk() {
           </Button>
         </Link>
       )}
-      {isSignedIn ? (
+      {loading ? null : isSignedIn ? (
         <Link href="/dashboard">
           <Button size="sm">Dashboard</Button>
         </Link>
       ) : (
         <>
-          <SignInButton mode="modal">
+          <Link href="/sign-in">
             <Button variant="ghost" size="sm">
               Sign in
             </Button>
-          </SignInButton>
-          <SignUpButton mode="modal">
+          </Link>
+          <Link href="/sign-up">
             <Button size="sm">Register</Button>
-          </SignUpButton>
+          </Link>
         </>
       )}
-    </div>
-  );
-}
-
-/** Fallback links when Clerk keys are not set yet. */
-function NavAuthLinks() {
-  return (
-    <div className="flex items-center gap-2 sm:gap-3">
-      {isPreview && (
-        <Link href="/editor/preview-project-1" className="hidden sm:block">
-          <Button variant="ghost" size="sm">
-            Try editor
-          </Button>
-        </Link>
-      )}
-      <Link href="/sign-in">
-        <Button variant="ghost" size="sm">
-          Sign in
-        </Button>
-      </Link>
-      <Link href="/sign-up">
-        <Button size="sm">Register</Button>
-      </Link>
     </div>
   );
 }

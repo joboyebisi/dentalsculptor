@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS } from "@/lib/constants";
-import { UserButton } from "@clerk/nextjs";
+import { UserMenu } from "@/components/auth/user-menu";
 import { AppLogo, AppLogoMark } from "@/components/brand/app-logo";
 
 const isPreview = process.env.NEXT_PUBLIC_UI_PREVIEW_MODE === "true";
@@ -84,7 +84,7 @@ export function AppSidebar() {
               <User className="h-4 w-4 text-on-surface-variant" />
             </div>
           ) : (
-            <UserButton />
+            <UserMenu />
           )}
           {!collapsed && (
             <span className="text-body-sm text-on-surface-variant">Account</span>

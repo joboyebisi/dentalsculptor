@@ -1,17 +1,10 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { Suspense } from "react";
-import { ClerkProvider } from "@clerk/nextjs";
 import { PostHogProvider } from "@/components/providers/posthog-provider";
 import { PreviewBanner } from "@/components/layout/preview-banner";
 import { APP_NAME, APP_TAGLINE } from "@/lib/constants";
-import { isUiPreviewMode } from "@/lib/preview-mode";
 import "./globals.css";
-
-function hasClerkKeys(): boolean {
-  const key = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-  return Boolean(key && key.startsWith("pk_"));
-}
 
 const inter = Inter({
   subsets: ["latin"],
@@ -40,7 +33,11 @@ export const metadata: Metadata = {
   },
 };
 
-function AppBody({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <body className="min-h-screen bg-background font-sans antialiased">
@@ -51,23 +48,4 @@ function AppBody({ children }: { children: React.ReactNode }) {
       </body>
     </html>
   );
-}
-
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  const body = <AppBody>{children}</AppBody>;
-
-  // Clerk required for sign-in even when UI_PREVIEW_MODE bypasses auth middleware
-  if (hasClerkKeys()) {
-    return <ClerkProvider>{body}</ClerkProvider>;
-  }
-
-  if (isUiPreviewMode()) {
-    return body;
-  }
-
-  return <ClerkProvider>{body}</ClerkProvider>;
 }

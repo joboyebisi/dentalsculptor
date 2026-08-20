@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState } from "react";
 import Image from "next/image";
-import { useAuth } from "@clerk/nextjs";
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { useSearchParams } from "next/navigation";
 import { X, ImagePlus, Factory, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,7 @@ import { ResearchInviteCallout } from "@/components/landing/research-invite-call
 import { INVITE_QUERY_PARAM, normalizeInviteCode, resolveInviteCode } from "@/lib/research-invite";
 
 export function LandingImageUploader() {
-  const { isSignedIn } = useAuth();
+  const { isSignedIn } = useSupabaseAuth();
   const searchParams = useSearchParams();
   const {
     previewUrl,

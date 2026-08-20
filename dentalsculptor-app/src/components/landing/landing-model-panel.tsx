@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@clerk/nextjs";
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { Download, Loader2, BookOpen, Pencil } from "lucide-react";
 import { DentalViewer } from "@/components/three/dental-viewer";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,7 @@ import { projectFileName } from "@/lib/editor-segmentation";
 
 export function LandingModelPanel() {
   const router = useRouter();
-  const { isSignedIn } = useAuth();
+  const { isSignedIn } = useSupabaseAuth();
   const {
     meshData,
     modelUrl,

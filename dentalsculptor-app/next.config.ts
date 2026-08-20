@@ -1,5 +1,4 @@
 import type { NextConfig } from "next";
-import { resolveClerkProxyUrl } from "./src/lib/clerk-proxy";
 
 function supabaseStorageHostname(): string | undefined {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -12,12 +11,8 @@ function supabaseStorageHostname(): string | undefined {
 }
 
 const supabaseHost = supabaseStorageHostname();
-const clerkProxyUrl = resolveClerkProxyUrl();
 
 const nextConfig: NextConfig = {
-  ...(clerkProxyUrl
-    ? { env: { NEXT_PUBLIC_CLERK_PROXY_URL: clerkProxyUrl } }
-    : {}),
   images: {
     remotePatterns: [
       ...(supabaseHost

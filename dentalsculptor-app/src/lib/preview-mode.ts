@@ -8,7 +8,7 @@ export function isUiPreviewMode(): boolean {
 
 export const PREVIEW_USER = {
   id: "preview-user",
-  clerkId: "preview-clerk",
+  supabaseId: "preview-supabase",
   email: "educator.preview@university.ac.uk",
   name: "Dr. Preview Educator",
   role: "EDUCATOR" as const,

@@ -1,5 +1,5 @@
-import { auth, currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 import type { UserRole } from "@/generated/prisma/client";
 import { isUiPreviewMode, PREVIEW_USER } from "@/lib/preview-mode";
 
@@ -8,21 +8,27 @@ export async function getAuthUser() {
     return PREVIEW_USER;
   }
 
-  const { userId } = await auth();
-  if (!userId) return null;
+  const supabase = await createClient();
+  const {
+    data: { user: supabaseUser },
+  } = await supabase.auth.getUser();
 
-  const clerkUser = await currentUser();
-  if (!clerkUser) return null;
+  if (!supabaseUser) return null;
 
-  let user = await prisma.user.findUnique({ where: { clerkId: userId } });
+  let user = await prisma.user.findUnique({ where: { supabaseId: supabaseUser.id } });
 
   if (!user) {
+    const meta = supabaseUser.user_metadata ?? {};
     user = await prisma.user.create({
       data: {
-        clerkId: userId,
-        email: clerkUser.emailAddresses[0]?.emailAddress ?? "",
-        name: clerkUser.fullName ?? clerkUser.firstName ?? "User",
-        avatarUrl: clerkUser.imageUrl,
+        supabaseId: supabaseUser.id,
+        email: supabaseUser.email ?? "",
+        name:
+          (meta.full_name as string | undefined) ??
+          (meta.name as string | undefined) ??
+          supabaseUser.email?.split("@")[0] ??
+          "User",
+        avatarUrl: (meta.avatar_url as string | undefined) ?? null,
       },
     });
   }
