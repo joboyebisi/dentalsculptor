@@ -21,19 +21,30 @@ import type { RemoteModelFormat } from "@/lib/model-format";
 
 export interface RectMark {
   id: string;
+  index: number;
+  /** Display label — shown on attachment chip and viewport badge */
+  label: string;
+  /** @deprecated use label — kept for backwards compatibility */
   text: string;
   color: string;
   x: number;
   y: number;
   width: number;
   height: number;
+  thumbnailUrl?: string;
   corners3d?: [number, number, number][];
 }
+
+export type ViewerInteractionMode = "orbit" | "pan";
 
 export interface CamViewerHandle {
   resetHome: () => void;
   raycastAt: (clientX: number, clientY: number) => THREE.Vector3 | null;
   captureView: () => Promise<ViewerCapture | null>;
+  captureRegionThumbnail: (mark: Pick<RectMark, "x" | "y" | "width" | "height">) => Promise<string | null>;
+  zoomIn: () => void;
+  zoomOut: () => void;
+  setInteractionMode: (mode: ViewerInteractionMode) => void;
 }
 
 export interface ViewerCapture {
@@ -54,12 +65,13 @@ interface CamModelViewerProps {
   markMode?: boolean;
   selectMode?: boolean;
   onMeshSelect?: () => void;
-  onRectMarkComplete?: (mark: Omit<RectMark, "id" | "text">) => void;
+  onRectMarkComplete?: (mark: Omit<RectMark, "id" | "index" | "label" | "text">) => void;
   segmentParts?: SegmentPart[];
   activePartId?: string | null;
   modelSelected?: boolean;
   className?: string;
   onModelStatusChange?: (status: ModelLoadStatus, detail?: string) => void;
+  interactionMode?: ViewerInteractionMode;
 }
 
 function computeRemoteModelVisuals(
@@ -351,6 +363,7 @@ function SceneContent({
   fitGeneration,
   onModelLoaded,
   onModelError,
+  interactionMode = "orbit",
 }: {
   meshData?: GeneratedMesh | null;
   modelUrl?: string | null;
@@ -370,7 +383,13 @@ function SceneContent({
   fitGeneration?: number;
   onModelLoaded?: (info: { meshCount: number }) => void;
   onModelError?: (message: string) => void;
+  interactionMode?: ViewerInteractionMode;
 }) {
+  const mouseButtons =
+    interactionMode === "pan"
+      ? ({ LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE } as const)
+      : ({ LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN } as const);
+
   return (
     <>
       <color attach="background" args={[VIEWPORT_THEME.background]} />
@@ -432,6 +451,7 @@ function SceneContent({
         enabled={!markMode}
         minDistance={0.5}
         maxDistance={50}
+        mouseButtons={mouseButtons}
       />
 
       <CameraRig
@@ -467,12 +487,38 @@ function RaycastBridge({
   return null;
 }
 
+function ZoomBridge({
+  controlsRef,
+  zoomInRef,
+  zoomOutRef,
+}: {
+  controlsRef: React.RefObject<OrbitControlsImpl | null>;
+  zoomInRef: React.MutableRefObject<() => void>;
+  zoomOutRef: React.MutableRefObject<() => void>;
+}) {
+  const dolly = (factor: number) => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+    const offset = new THREE.Vector3().subVectors(controls.object.position, controls.target);
+    offset.multiplyScalar(factor);
+    controls.object.position.copy(controls.target).add(offset);
+    controls.update();
+  };
+  zoomInRef.current = () => dolly(0.82);
+  zoomOutRef.current = () => dolly(1.22);
+  return null;
+}
+
 function CaptureBridge({
   controlsRef,
   captureRef,
+  captureRegionRef,
 }: {
   controlsRef: React.RefObject<OrbitControlsImpl | null>;
   captureRef: React.MutableRefObject<() => Promise<ViewerCapture | null>>;
+  captureRegionRef: React.MutableRefObject<
+    (mark: Pick<RectMark, "x" | "y" | "width" | "height">) => Promise<string | null>
+  >;
 }) {
   const { camera, gl, scene } = useThree();
   captureRef.current = () =>
@@ -515,6 +561,33 @@ function CaptureBridge({
         });
       }, "image/png");
     });
+
+  captureRegionRef.current = (mark) =>
+    new Promise((resolve) => {
+      camera.updateMatrixWorld();
+      camera.updateProjectionMatrix();
+      gl.render(scene, camera);
+
+      const rect = gl.domElement.getBoundingClientRect();
+      const width = Math.max(1, Math.floor(rect.width));
+      const height = Math.max(1, Math.floor(rect.height));
+      const sx = Math.floor(mark.x * width);
+      const sy = Math.floor(mark.y * height);
+      const sw = Math.max(1, Math.floor(mark.width * width));
+      const sh = Math.max(1, Math.floor(mark.height * height));
+
+      const output = document.createElement("canvas");
+      output.width = sw;
+      output.height = sh;
+      const context = output.getContext("2d");
+      if (!context) {
+        resolve(null);
+        return;
+      }
+      context.drawImage(gl.domElement, sx, sy, sw, sh, 0, 0, sw, sh);
+      resolve(output.toDataURL("image/jpeg", 0.85));
+    });
+
   return null;
 }
 
@@ -536,6 +609,7 @@ export const CamModelViewer = forwardRef<CamViewerHandle, CamModelViewerProps>(f
     modelSelected = false,
     className = "h-full w-full",
     onModelStatusChange,
+    interactionMode = "orbit",
   },
   ref
 ) {
@@ -543,6 +617,11 @@ export const CamModelViewer = forwardRef<CamViewerHandle, CamModelViewerProps>(f
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
   const raycastRef = useRef<(x: number, y: number) => THREE.Vector3 | null>(() => null);
   const captureRef = useRef<() => Promise<ViewerCapture | null>>(async () => null);
+  const captureRegionRef = useRef<
+    (mark: Pick<RectMark, "x" | "y" | "width" | "height">) => Promise<string | null>
+  >(async () => null);
+  const zoomInRef = useRef<() => void>(() => {});
+  const zoomOutRef = useRef<() => void>(() => {});
   const homeRef = useRef<{ position: Coordinate; target: Coordinate } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [drawing, setDrawing] = useState<{ startX: number; startY: number; curX: number; curY: number } | null>(null);
@@ -628,6 +707,12 @@ export const CamModelViewer = forwardRef<CamViewerHandle, CamModelViewerProps>(f
     },
     raycastAt: (clientX, clientY) => raycastRef.current(clientX, clientY),
     captureView: () => captureRef.current(),
+    captureRegionThumbnail: (mark) => captureRegionRef.current(mark),
+    zoomIn: () => zoomInRef.current(),
+    zoomOut: () => zoomOutRef.current(),
+    setInteractionMode: () => {
+      /* mode driven by interactionMode prop */
+    },
   }));
 
   const handleHomeReady = useCallback((home: { position: Coordinate; target: Coordinate }) => {
@@ -769,9 +854,15 @@ export const CamModelViewer = forwardRef<CamViewerHandle, CamModelViewerProps>(f
             fitGeneration={fitGeneration}
             onModelLoaded={handleModelLoaded}
             onModelError={handleModelError}
+            interactionMode={interactionMode}
           />
           <RaycastBridge meshGroupRef={meshGroupRef} raycastRef={raycastRef} />
-          <CaptureBridge controlsRef={controlsRef} captureRef={captureRef} />
+          <CaptureBridge
+            controlsRef={controlsRef}
+            captureRef={captureRef}
+            captureRegionRef={captureRegionRef}
+          />
+          <ZoomBridge controlsRef={controlsRef} zoomInRef={zoomInRef} zoomOutRef={zoomOutRef} />
         </Canvas>
       )}
 
@@ -786,11 +877,12 @@ export const CamModelViewer = forwardRef<CamViewerHandle, CamModelViewerProps>(f
             height: `${m.height * 100}%`,
           }}
         >
-          {m.text && (
-            <span className="absolute -top-5 left-0 rounded bg-primary-container px-1.5 py-0.5 text-[10px] text-on-primary">
-              {m.text}
+          <span className="absolute -top-5 left-0 flex items-center gap-1 rounded bg-primary-container px-1.5 py-0.5 text-[10px] font-semibold text-on-primary">
+            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-error text-[9px] text-white">
+              {m.index}
             </span>
-          )}
+            {m.label || m.text}
+          </span>
         </div>
       ))}
 

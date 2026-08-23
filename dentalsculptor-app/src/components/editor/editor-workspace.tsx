@@ -12,6 +12,7 @@ import { EditorSourcePanel } from "@/components/editor/editor-source-panel";
 import { EditorDashboardSidebar } from "@/components/editor/editor-dashboard-sidebar";
 import { MaskPaintOverlay, type MaskPaintOverlayHandle, type MaskBrushMode } from "@/components/editor/mask-paint-overlay";
 import { EditorMaskToolbar } from "@/components/editor/editor-mask-toolbar";
+import { EditorEditWorkflowPanel } from "@/components/editor/editor-edit-workflow-panel";
 import {
   EditPreviewModal,
   EditorEditActions,
@@ -21,8 +22,9 @@ import { ExportWizardDialog } from "@/components/export/export-wizard-dialog";
 import { EditorCasePanel } from "@/components/editor/editor-case-panel";
 import { CaseWizardDialog, type CaseWizardContinuePayload } from "@/components/case-wizard/case-wizard-dialog";
 import type { CaseTemplate } from "@/lib/case-templates";
+import { getCaseTemplate } from "@/lib/case-templates";
 import type { CaseRecipe } from "@/lib/clinical-case-params";
-import { parseCaseRecipeFromProject, formatInstructionsFromRecipe } from "@/lib/case-recipe-utils";
+import { parseCaseRecipeFromProject, formatInstructionsFromRecipe, buildEditPromptFromRecipe } from "@/lib/case-recipe-utils";
 import { useResearchTracker } from "@/hooks/use-research-tracker";
 import { generateSegmentParts, type SegmentPart } from "@/lib/editor-segmentation";
 import { triggerSFX } from "@/lib/sfx-bus";
@@ -39,7 +41,13 @@ import { pollGenerationJob } from "@/lib/generation-jobs";
 import { EDITOR_SURFACE } from "@/lib/constants";
 import { expandDentalPrompt } from "@/lib/dental-prompt-glossary";
 import type { EditOperation } from "@/lib/edit-types";
+import {
+  attachmentFromRectMark,
+  buildRegionMarksPayload,
+  instructionWithRegionRefs,
+} from "@/lib/edit-region-attachments";
 import { DEFAULT_EXPORT_TARGET } from "@/lib/export-presets";
+import type { ViewerInteractionMode } from "@/components/editor/cam-model-viewer";
 
 export interface EditorProject {
   id: string;
@@ -75,6 +83,11 @@ export function EditorWorkspace({
   onSave,
   initialCaseWizardOpen = false,
 }: EditorWorkspaceProps) {
+  const initialRecipe = parseCaseRecipeFromProject(project);
+  const initialTemplate = initialRecipe?.templateId
+    ? getCaseTemplate(initialRecipe.templateId) ?? null
+    : null;
+
   const { track } = useResearchTracker();
   const viewerRef = useRef<CamViewerHandle>(null);
   const maskOverlayRef = useRef<MaskPaintOverlayHandle>(null);
@@ -97,14 +110,14 @@ export function EditorWorkspace({
   const [partsOpen, setPartsOpen] = useState(false);
   const [caseWizardOpen, setCaseWizardOpen] = useState(initialCaseWizardOpen);
   const [applyingTemplate, setApplyingTemplate] = useState(false);
-  const [selectedCase, setSelectedCase] = useState<CaseTemplate | null>(null);
-  const [caseRecipe, setCaseRecipe] = useState<CaseRecipe | null>(() =>
-    parseCaseRecipeFromProject(project)
-  );
+  const [selectedCase, setSelectedCase] = useState<CaseTemplate | null>(initialTemplate);
+  const [caseRecipe, setCaseRecipe] = useState<CaseRecipe | null>(() => initialRecipe);
   const [templateError, setTemplateError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<EditorTab>("authoring");
-  const [aiPrompt, setAiPrompt] = useState(
-    "Deepen the distal groove by 0.5mm and smoothen the buccal cusp transitions for better occlusion."
+  const [aiPrompt, setAiPrompt] = useState(() =>
+    initialRecipe && initialTemplate
+      ? buildEditPromptFromRecipe(initialRecipe, initialTemplate)
+      : ""
   );
   const [aiLoading, setAiLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -116,7 +129,9 @@ export function EditorWorkspace({
   const [instructions, setInstructions] = useState(project.instructions);
   const [brushMode, setBrushMode] = useState<MaskBrushMode>("paint");
   const [brushSize, setBrushSize] = useState(32);
-  const [editOperation, setEditOperation] = useState<EditOperation>("remove");
+  const [editOperation, setEditOperation] = useState<EditOperation>(
+    initialTemplate?.defaultOperation ?? "remove"
+  );
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [editJobLoading, setEditJobLoading] = useState(false);
@@ -130,6 +145,9 @@ export function EditorWorkspace({
     project.dentalModel?.sourceImageUrl ?? null
   );
   const [rectMarks, setRectMarks] = useState<RectMark[]>([]);
+  const [markRedoStack, setMarkRedoStack] = useState<RectMark[]>([]);
+  const [maskHasStrokes, setMaskHasStrokes] = useState(false);
+  const [viewerInteractionMode, setViewerInteractionMode] = useState<ViewerInteractionMode>("orbit");
   const [modelSelected, setModelSelected] = useState(false);
   const [activePartId, setActivePartId] = useState<string | null>(null);
   const [modelLoadStatus, setModelLoadStatus] = useState<ModelLoadStatus>(
@@ -151,24 +169,92 @@ export function EditorWorkspace({
   const selectMode = activeTool === "select" && !maskMode;
   const hasModel = Boolean(meshData?.vertices?.length) || Boolean(modelUrl);
   const hasPartSelection = segmentParts.some((p) => p.visible);
-  const canApply = hasModel && (modelSelected || hasPartSelection);
+  const maskVisible = hasModel && (maskMode || maskHasStrokes || maskCoverage > 0);
+  const regionAttachments = rectMarks.map((m, i) => attachmentFromRectMark(m, i + 1));
+  const hasSpatialEditTarget =
+    regionAttachments.length > 0 || maskHasStrokes || maskCoverage > 0;
+  const canApply =
+    hasModel && (modelSelected || hasPartSelection || hasSpatialEditTarget);
 
   const handleRectMarkComplete = useCallback(
-    (partial: Omit<RectMark, "id" | "text">) => {
-      const text = prompt("Label this region:");
-      if (!text) return;
-      setRectMarks((prev) => [...prev, { ...partial, id: `mark-${Date.now()}`, text }]);
-      track("ANNOTATION_CREATED", projectId, { text, type: "rect" });
+    async (partial: Omit<RectMark, "id" | "index" | "label" | "text">) => {
+      const index = rectMarks.length + 1;
+      const label = `Region ${index}`;
+      const id = `mark-${Date.now()}-${index}`;
+      const thumbnailUrl =
+        (await viewerRef.current?.captureRegionThumbnail(partial)) ?? undefined;
+      const mark: RectMark = {
+        ...partial,
+        id,
+        index,
+        label,
+        text: label,
+        thumbnailUrl,
+      };
+      setRectMarks((prev) => [...prev, mark]);
+      setMarkRedoStack([]);
+      track("ANNOTATION_CREATED", projectId, { text: label, type: "rect", index });
     },
-    [projectId, track]
+    [rectMarks.length, projectId, track]
   );
 
+  const handleRemoveRegionAttachment = useCallback((id: string) => {
+    setRectMarks((prev) =>
+      prev
+        .filter((m) => m.id !== id)
+        .map((m, i) => ({
+          ...m,
+          index: i + 1,
+          label: `Region ${i + 1}`,
+          text: `Region ${i + 1}`,
+        }))
+    );
+    setMarkRedoStack([]);
+    triggerSFX("toggle");
+  }, []);
+
   const handleToolChange = (tool: EditorTool) => {
-    if (tool === "edit") setWireframe((w) => !w);
-    if (tool !== "undo" && tool !== "redo") {
-      triggerSFX("tool-click");
-      setActiveTool(tool);
+    if (tool === "edit") {
+      setWireframe((w) => !w);
+      return;
     }
+    if (tool === "zoom-in") {
+      viewerRef.current?.zoomIn();
+      triggerSFX("tool-click");
+      return;
+    }
+    if (tool === "zoom-out") {
+      viewerRef.current?.zoomOut();
+      triggerSFX("tool-click");
+      return;
+    }
+    if (tool === "undo") {
+      if (maskOverlayRef.current?.hasStrokes()) {
+        maskOverlayRef.current.undo();
+        bumpMaskCoverage();
+      } else if (rectMarks.length > 0) {
+        const last = rectMarks[rectMarks.length - 1]!;
+        setRectMarks((prev) => prev.slice(0, -1));
+        setMarkRedoStack((prev) => [...prev, last]);
+      }
+      triggerSFX("tool-click");
+      return;
+    }
+    if (tool === "redo") {
+      if (markRedoStack.length > 0) {
+        const mark = markRedoStack[markRedoStack.length - 1]!;
+        setMarkRedoStack((prev) => prev.slice(0, -1));
+        setRectMarks((prev) => [...prev, mark]);
+      } else {
+        maskOverlayRef.current?.redo();
+        bumpMaskCoverage();
+      }
+      triggerSFX("tool-click");
+      return;
+    }
+    triggerSFX("tool-click");
+    setActiveTool(tool);
+    setViewerInteractionMode(tool === "pan" ? "pan" : "orbit");
   };
 
   const handleSave = async () => {
@@ -179,7 +265,13 @@ export function EditorWorkspace({
   };
 
   const handleApplyAi = async () => {
-    if (!aiPrompt.trim() || !canApply) return;
+    if (!aiPrompt.trim()) return;
+    if (hasSpatialEditTarget || maskMode) {
+      if (!hasSpatialEditTarget && maskMode) return;
+      await handlePreview2d();
+      return;
+    }
+    if (!canApply) return;
     setAiLoading(true);
     track("AI_PROMPT_SUBMITTED", projectId, { prompt: aiPrompt });
     await new Promise((r) => setTimeout(r, 1200));
@@ -227,6 +319,7 @@ export function EditorWorkspace({
       );
       if (data.editPrompt) setAiPrompt(data.editPrompt);
       if (payload.template.defaultOperation) setEditOperation(payload.template.defaultOperation);
+      setActiveTool("mask");
       setCaseWizardOpen(false);
       track("LEARNING_OBJECTIVE_CREATED", projectId, {
         caseTemplateId: payload.template.id,
@@ -270,13 +363,17 @@ export function EditorWorkspace({
     if (!modelUrl || !aiPrompt.trim()) return;
     setEditJobLoading(true);
     const maskBlob = await maskOverlayRef.current?.toMaskBlob();
+    const instruction = instructionWithRegionRefs(aiPrompt, rectMarks);
     const formData = new FormData();
-    formData.append("instruction", aiPrompt);
+    formData.append("instruction", instruction);
     formData.append("operation", editOperation);
     formData.append("sourceModelUrl", modelUrl);
     if (maskBlob) formData.append("maskImage", maskBlob, "mask.png");
     if (referenceImage) formData.append("referenceImage", referenceImage, "reference.png");
     if (referenceCamera) formData.append("camera", JSON.stringify(referenceCamera));
+    if (rectMarks.length > 0) {
+      formData.append("regionMarks", JSON.stringify(buildRegionMarksPayload(rectMarks)));
+    }
     const selectedPartIds = segmentParts.filter((part) => part.visible).map((part) => part.id);
     if (selectedPartIds.length > 0) {
       formData.append("selectedPartIds", JSON.stringify(selectedPartIds));
@@ -473,39 +570,52 @@ export function EditorWorkspace({
               markMode={markMode && !maskMode}
               selectMode={selectMode}
               onMeshSelect={handleMeshSelect}
-              onRectMarkComplete={handleRectMarkComplete}
+              onRectMarkComplete={(partial) => void handleRectMarkComplete(partial)}
               segmentParts={segmentParts}
               activePartId={activePartId}
               modelSelected={modelSelected}
               className="absolute inset-0"
               onModelStatusChange={handleModelStatusChange}
+              interactionMode={viewerInteractionMode}
             />
 
             <MaskPaintOverlay
               ref={maskOverlayRef}
-              active={maskMode && hasModel}
+              interactive={maskMode && hasModel}
+              visible={maskVisible}
               brushSize={brushSize}
               brushMode={brushMode}
               onStrokeEnd={bumpMaskCoverage}
+              onStrokesChange={setMaskHasStrokes}
             />
 
             <EditorMaskContextPanel
-              visible={maskMode && hasModel}
+              visible={maskVisible}
               coveragePercent={maskCoverage}
               revisionLabel={`v${revisionVersion}`}
+              operation={editOperation}
+            />
+
+            <EditorEditWorkflowPanel
+              selectedCase={selectedCase}
+              activeTool={activeTool}
+              editOperation={editOperation}
+              maskCoverage={maskCoverage}
+              hasInstruction={Boolean(aiPrompt.trim())}
+              regionMarkCount={rectMarks.length}
             />
 
             <EditorEditActions
-              visible={maskMode && hasModel}
+              visible={maskVisible}
               previewLoading={previewLoading}
               generateLoading={editJobLoading}
-              canPreview={Boolean(aiPrompt.trim()) && maskCoverage > 0}
+              canPreview={Boolean(aiPrompt.trim()) && hasSpatialEditTarget}
               canGenerate={Boolean(afterPreview) && !previewLoading}
               onPreview2d={handlePreview2d}
               onGenerate3d={() => void handleGenerate3dEdit()}
             />
 
-            {maskMode && hasModel && (
+            {maskVisible && (
               <EditorMaskToolbar
                 brushMode={brushMode}
                 onBrushModeChange={setBrushMode}
@@ -517,6 +627,7 @@ export function EditorWorkspace({
                 onClear={() => {
                   maskOverlayRef.current?.clear();
                   setMaskCoverage(0);
+                  setMaskHasStrokes(false);
                 }}
               />
             )}
@@ -532,9 +643,12 @@ export function EditorWorkspace({
             value={aiPrompt}
             onChange={setAiPrompt}
             onApply={handleApplyAi}
-            loading={aiLoading}
+            loading={aiLoading || previewLoading}
             canApply={canApply}
             maskMode={maskMode}
+            regionAttachments={regionAttachments}
+            onRemoveAttachment={handleRemoveRegionAttachment}
+            hasMask={maskHasStrokes || maskCoverage > 0}
           />
         </section>
 
@@ -566,6 +680,14 @@ export function EditorWorkspace({
           selectedCase={selectedCase}
           instructions={instructions}
           learningObjectives={learningObjectives}
+          onSelectPrompt={(prompt) => {
+            setAiPrompt(prompt);
+            setActiveTool("mask");
+          }}
+          onStartMaskEdit={() => {
+            if (selectedCase?.defaultOperation) setEditOperation(selectedCase.defaultOperation);
+            setActiveTool("mask");
+          }}
         />
       </div>
 
@@ -593,7 +715,10 @@ export function EditorWorkspace({
         onClose={() => setExportWizardOpen(false)}
         projectId={projectId}
         projectTitle={title}
+        modelUrl={modelUrl}
         defaultTarget={selectedCase?.exportRecommendation ?? DEFAULT_EXPORT_TARGET}
+        hasPartSelection={hasPartSelection}
+        selectedPartCount={segmentParts.filter((p) => p.visible).length}
         onExportComplete={() => {
           triggerSFX("toggle");
           track("EXPORT_REQUESTED", projectId, { target: selectedCase?.exportRecommendation ?? DEFAULT_EXPORT_TARGET });

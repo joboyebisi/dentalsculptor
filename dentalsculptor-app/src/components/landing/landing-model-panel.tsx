@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
-import { Download, Loader2, BookOpen, Pencil } from "lucide-react";
+import { Download, Loader2, BookOpen, Pencil, Sparkles } from "lucide-react";
 import { DentalViewer } from "@/components/three/dental-viewer";
 import { Button } from "@/components/ui/button";
 import { useLandingModel } from "@/context/landing-model-context";
@@ -13,7 +13,8 @@ import {
   type PendingNextStep,
 } from "@/lib/landing-session";
 import { createProjectFromLandingPayload } from "@/lib/create-landing-project";
-import { GENERATION_COPY, GENERATION_STAGE_LABELS } from "@/lib/generation-copy";
+import { GENERATION_COPY } from "@/lib/generation-copy";
+import { GenerationProgressDisplay } from "@/components/generation/generation-progress-display";
 import { projectFileName } from "@/lib/editor-segmentation";
 
 export function LandingModelPanel() {
@@ -32,20 +33,26 @@ export function LandingModelPanel() {
     error,
     generationStage,
     generationProgress,
+    modelQuality,
+    isEnhancing,
+    enhanceModel,
+    canEnhance,
+    isFinalModel,
+    lastGenerationSeconds,
   } = useLandingModel();
   const [busy, setBusy] = useState<PendingNextStep | "download" | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [elapsedSec, setElapsedSec] = useState(0);
 
   useEffect(() => {
-    if (!isLoading) {
+    if (!isLoading && !isEnhancing) {
       setElapsedSec(0);
       return;
     }
     const start = Date.now();
     const id = setInterval(() => setElapsedSec(Math.floor((Date.now() - start) / 1000)), 1000);
     return () => clearInterval(id);
-  }, [isLoading]);
+  }, [isLoading, isEnhancing]);
 
   async function handleDownload() {
     if (!modelUrl) return;
@@ -128,6 +135,11 @@ export function LandingModelPanel() {
   return (
     <div className="flex w-full flex-col">
       <div className="relative h-[420px] overflow-hidden rounded-xl border border-border-subtle bg-surface-container-low md:h-[500px]">
+        {hasModel && modelQuality === "preview" && !isEnhancing && (
+          <span className="absolute left-3 top-3 z-10 rounded-full bg-warning/90 px-2.5 py-1 text-xs font-medium text-white">
+            Preview
+          </span>
+        )}
         {hasModel ? (
           <DentalViewer
             meshData={meshData}
@@ -136,31 +148,20 @@ export function LandingModelPanel() {
             mtlUrl={mtlUrl}
             className="h-full"
           />
-        ) : isLoading ? (
-          <div className="flex h-full flex-col items-center justify-center gap-3 text-on-surface-variant">
-            <Loader2 className="h-8 w-8 animate-spin text-primary-container" />
-            <p className="font-medium text-text-main">{GENERATION_COPY.inProgressTitle}</p>
-            <p className="text-body-sm">{GENERATION_COPY.inProgressDetail}</p>
-            {generationStage && (
-              <p className="text-body-sm text-primary-container">
-                {GENERATION_STAGE_LABELS[generationStage] ?? generationStage}
-                {generationProgress > 0 ? ` · ${generationProgress}%` : ""}
-              </p>
-            )}
-            {elapsedSec > 0 && (
-              <p className="text-body-sm text-on-surface-variant/80">Elapsed: {elapsedSec}s</p>
-            )}
-            {elapsedSec >= 30 && elapsedSec < 90 && (
-              <p className="max-w-xs text-center text-body-sm text-on-surface-variant/80">
-                {GENERATION_COPY.inProgressQueuedHint}
-              </p>
-            )}
-            {elapsedSec >= 90 && (
-              <p className="max-w-xs text-center text-body-sm text-on-surface-variant/80">
-                {GENERATION_COPY.inProgressSlowHint}
-              </p>
-            )}
-          </div>
+        ) : isLoading || isEnhancing ? (
+          <GenerationProgressDisplay
+            title={
+              isEnhancing ? GENERATION_COPY.enhancingQualityLabel : GENERATION_COPY.inProgressTitle
+            }
+            detail={
+              isEnhancing
+                ? "Extracting full-resolution mesh from the preview — no second inference run."
+                : GENERATION_COPY.inProgressDetail
+            }
+            stage={generationStage}
+            progress={generationProgress}
+            elapsedSec={elapsedSec}
+          />
         ) : error ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
             <p className="font-medium text-error">Generation failed</p>
@@ -182,47 +183,84 @@ export function LandingModelPanel() {
 
       {hasModel && (
         <div className="mt-4 space-y-3 border-t border-border-subtle pt-4">
-          <p className="text-center text-body-sm text-on-surface-variant">
-            {GENERATION_COPY.modelReadyHint}
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <Button variant="outline" onClick={handleDownload} disabled={!modelUrl || busy !== null}>
-              {busy === "download" ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="mr-2 h-4 w-4" />
-              )}
-              Download model
-            </Button>
+          {lastGenerationSeconds != null && (
+            <p className="text-center text-body-sm text-on-surface-variant">
+              {GENERATION_COPY.completedIn(lastGenerationSeconds)}
+            </p>
+          )}
+          {canEnhance && (
             <Button
-              className="bg-primary-container text-on-primary"
-              onClick={() => resumeAfterAuth("case-wizard")}
-              disabled={!modelUrl || busy !== null}
+              className="w-full bg-primary-container text-on-primary ring-2 ring-primary-container/30"
+              onClick={() => void enhanceModel()}
+              disabled={isEnhancing || isLoading || busy !== null}
             >
-              {busy === "case-wizard" ? (
+              {isEnhancing ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
-                <BookOpen className="mr-2 h-4 w-4" />
+                <Sparkles className="mr-2 h-4 w-4" />
               )}
-              Create teaching case
+              {isEnhancing
+                ? GENERATION_COPY.enhancingQualityLabel
+                : "Build final 3D model"}
             </Button>
-            <Button
-              variant="secondary"
-              onClick={() => resumeAfterAuth("editor")}
-              disabled={!modelUrl || busy !== null}
-            >
-              {busy === "editor" ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Pencil className="mr-2 h-4 w-4" />
-              )}
-              Open in editor
-            </Button>
-          </div>
-          <p className="text-center text-body-sm text-on-surface-variant">
-            Creating a case or opening the editor will ask you to sign in if needed — then you can
-            pick a case template, edit, place on a jaw, and export.
-          </p>
+          )}
+
+          {isFinalModel && (
+            <>
+              <p className="text-center text-body-sm text-on-surface-variant">
+                {GENERATION_COPY.modelReadyHint}
+              </p>
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <Button
+                  variant="outline"
+                  onClick={handleDownload}
+                  disabled={!modelUrl || busy !== null}
+                >
+                  {busy === "download" ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="mr-2 h-4 w-4" />
+                  )}
+                  Download model
+                </Button>
+                <Button
+                  className="bg-primary-container text-on-primary"
+                  onClick={() => resumeAfterAuth("case-wizard")}
+                  disabled={!modelUrl || busy !== null}
+                >
+                  {busy === "case-wizard" ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <BookOpen className="mr-2 h-4 w-4" />
+                  )}
+                  Create teaching case
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => resumeAfterAuth("editor")}
+                  disabled={!modelUrl || busy !== null}
+                >
+                  {busy === "editor" ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Pencil className="mr-2 h-4 w-4" />
+                  )}
+                  Open in editor
+                </Button>
+              </div>
+              <p className="text-center text-body-sm text-on-surface-variant">
+                Creating a case or opening the editor will ask you to sign in if needed — then you
+                can pick a case template, edit, place on a jaw, and export.
+              </p>
+            </>
+          )}
+
+          {canEnhance && !isEnhancing && (
+            <p className="text-center text-body-sm text-on-surface-variant">
+              Preview loaded — build the final model for download, teaching cases, or editing.
+            </p>
+          )}
+
           {actionError && (
             <p className="text-center text-body-sm text-error">{actionError}</p>
           )}

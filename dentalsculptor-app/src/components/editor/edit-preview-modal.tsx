@@ -2,6 +2,7 @@
 
 import { ArrowRight, Check, Eye, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import type { EditOperation } from "@/lib/edit-types";
 
 interface EditPreviewModalProps {
   open: boolean;
@@ -169,12 +170,14 @@ interface EditorMaskContextPanelProps {
   visible: boolean;
   coveragePercent: number;
   revisionLabel?: string;
+  operation?: EditOperation;
 }
 
 export function EditorMaskContextPanel({
   visible,
   coveragePercent,
   revisionLabel = "v1",
+  operation = "remove",
 }: EditorMaskContextPanelProps) {
   if (!visible) return null;
 
@@ -185,7 +188,7 @@ export function EditorMaskContextPanel({
       </h3>
       <div className="mb-2 flex items-center justify-between text-body-sm text-on-surface">
         <span>Coverage</span>
-        <Sparkles className="h-3.5 w-3.5 text-tertiary" />
+        <span className="font-semibold uppercase text-tertiary">{operation}</span>
       </div>
       <div className="mb-3 h-1.5 w-full rounded-full bg-surface-container-high">
         <div
@@ -194,7 +197,7 @@ export function EditorMaskContextPanel({
         />
       </div>
       <p className="text-xs text-on-surface-variant">
-        Paint the editable region, then preview the 2D change before running Nano3D.
+        Paint the region to {operation}, then preview the 2D change before running the 3D edit.
       </p>
     </div>
   );

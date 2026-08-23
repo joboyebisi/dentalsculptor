@@ -54,8 +54,8 @@ export async function POST(req: NextRequest) {
     qualityRaw === "preview" || qualityRaw === "final" || qualityRaw === "standard"
       ? qualityRaw
       : isModalAsyncS3Enabled()
-        ? "standard"
-        : "standard";
+        ? "preview"
+        : "preview";
   const seedValue = formData.get("seed");
   const seed =
     typeof seedValue === "string" && /^\d+$/.test(seedValue)

@@ -27,6 +27,7 @@ export async function POST(
   const sourceModelUrl = (formData.get("sourceModelUrl") as string) || "";
   const camera = (formData.get("camera") as string) || "";
   const selectedPartIds = (formData.get("selectedPartIds") as string) || "[]";
+  const regionMarks = (formData.get("regionMarks") as string) || "";
   const referenceImage = formData.get("referenceImage");
 
   if (!instruction.trim()) {
@@ -62,6 +63,7 @@ export async function POST(
     proxyForm.append("projectId", projectId);
     if (camera) proxyForm.append("camera", camera);
     proxyForm.append("selectedPartIds", selectedPartIds);
+    if (regionMarks) proxyForm.append("regionMarks", regionMarks);
     const mask = formData.get("maskImage");
     if (mask instanceof File) proxyForm.append("maskImage", mask);
     if (referenceImage instanceof File) {
@@ -105,7 +107,7 @@ export async function POST(
     userId: user.id,
     projectId,
     eventType: "AI_PROMPT_SUBMITTED",
-    metadata: { jobId, provider: "stub", operation, prompt: expanded.original },
+      metadata: { jobId, provider: "stub", operation, prompt: expanded.original, regionMarks: regionMarks || undefined },
   });
 
   return NextResponse.json({

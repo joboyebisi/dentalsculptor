@@ -7,6 +7,10 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
 import type { ExportPreset } from "@/lib/export-presets";
 
+export type MeshExportFormat = "stl" | "obj" | "glb" | "ply";
+
+export type ExportScope = "full" | "selection";
+
 export interface ExportValidationReport {
   triangleCount: number;
   maxTriangles: number;
@@ -281,11 +285,103 @@ export async function loadMeshFromUrl(
   return loadMeshFromBuffer(buffer, format);
 }
 
+export function geometryToObj(geometry: THREE.BufferGeometry): string {
+  const geo = geometry.index ? geometry.toNonIndexed() : geometry;
+  const pos = geo.getAttribute("position");
+  const lines: string[] = ["# DentalSculptor export", "o tooth"];
+  for (let i = 0; i < pos.count; i++) {
+    lines.push(`v ${pos.getX(i)} ${pos.getY(i)} ${pos.getZ(i)}`);
+  }
+  for (let i = 0; i < pos.count; i += 3) {
+    lines.push(`f ${i + 1} ${i + 2} ${i + 3}`);
+  }
+  return lines.join("\n");
+}
+
+export function geometryToPly(geometry: THREE.BufferGeometry): Buffer {
+  const geo = geometry.index ? geometry.toNonIndexed() : geometry;
+  const pos = geo.getAttribute("position");
+  const triCount = pos.count / 3;
+  const header = [
+    "ply",
+    "format binary_little_endian 1.0",
+    `element vertex ${pos.count}`,
+    "property float x",
+    "property float y",
+    "property float z",
+    `element face ${triCount}`,
+    "property list uchar int vertex_indices",
+    "end_header",
+  ].join("\n") + "\n";
+
+  const headerBuf = Buffer.from(header, "ascii");
+  const vertexBuf = Buffer.alloc(pos.count * 12);
+  for (let i = 0; i < pos.count; i++) {
+    vertexBuf.writeFloatLE(pos.getX(i), i * 12);
+    vertexBuf.writeFloatLE(pos.getY(i), i * 12 + 4);
+    vertexBuf.writeFloatLE(pos.getZ(i), i * 12 + 8);
+  }
+
+  const faceBuf = Buffer.alloc(triCount * 13);
+  let offset = 0;
+  for (let i = 0; i < pos.count; i += 3) {
+    faceBuf.writeUInt8(3, offset);
+    faceBuf.writeInt32LE(i, offset + 1);
+    faceBuf.writeInt32LE(i + 1, offset + 5);
+    faceBuf.writeInt32LE(i + 2, offset + 9);
+    offset += 13;
+  }
+
+  return Buffer.concat([headerBuf, vertexBuf, faceBuf]);
+}
+
+function contentTypeForFormat(format: MeshExportFormat): string {
+  switch (format) {
+    case "stl":
+      return "model/stl";
+    case "obj":
+      return "text/plain";
+    case "glb":
+      return "model/gltf-binary";
+    case "ply":
+      return "application/octet-stream";
+  }
+}
+
+async function encodeGeometry(
+  geometry: THREE.BufferGeometry,
+  outputFormat: MeshExportFormat,
+  sourceFormat: "glb" | "obj",
+  modelUrl: string
+): Promise<{ buffer: Buffer; extension: string }> {
+  if (outputFormat === "glb" && sourceFormat === "glb") {
+    const res = await fetch(modelUrl, { headers: { "User-Agent": "DentalSculptor-Export/1.0" } });
+    if (!res.ok) throw new Error(`Failed to fetch GLB (${res.status}).`);
+    return { buffer: Buffer.from(await res.arrayBuffer()), extension: "glb" };
+  }
+
+  if (outputFormat === "stl") {
+    return { buffer: geometryToBinaryStl(geometry), extension: "stl" };
+  }
+  if (outputFormat === "obj") {
+    return { buffer: Buffer.from(geometryToObj(geometry), "utf-8"), extension: "obj" };
+  }
+  if (outputFormat === "ply") {
+    return { buffer: geometryToPly(geometry), extension: "ply" };
+  }
+
+  return { buffer: geometryToBinaryStl(geometry), extension: "stl" };
+}
+
 export async function exportMeshForPreset(
   modelUrl: string,
   format: "glb" | "obj",
   preset: ExportPreset,
-  options?: { validateOnly?: boolean }
+  options?: {
+    validateOnly?: boolean;
+    outputFormat?: MeshExportFormat;
+    scope?: ExportScope;
+  }
 ): Promise<ExportMeshResult | { validation: ExportValidationReport }> {
   let geometry = await loadMeshFromUrl(modelUrl, format);
   geometry = normalizeToMm(geometry, preset);
@@ -297,27 +393,23 @@ export async function exportMeshForPreset(
     return { validation: { ...validation, warnings: [...preValidation.warnings, ...validation.warnings] } };
   }
 
-  const primaryFormat = preset.formats[0];
+  const outputFormat: MeshExportFormat =
+    options?.outputFormat ??
+    (preset.formats[0] === "zip" ? "stl" : (preset.formats[0] as MeshExportFormat));
 
-  if (primaryFormat === "glb" && format === "glb") {
-    const res = await fetch(modelUrl, { headers: { "User-Agent": "DentalSculptor-Export/1.0" } });
-    if (!res.ok) throw new Error(`Failed to fetch GLB (${res.status}).`);
-    const buffer = Buffer.from(await res.arrayBuffer());
-    return {
-      buffer,
-      contentType: "model/gltf-binary",
-      filename: "export.glb",
-      extension: "glb",
-      validation,
-    };
+  if (options?.scope === "selection") {
+    validation.warnings.push(
+      "Selection-scoped export uses the full mesh until part-level geometry splitting is enabled."
+    );
   }
 
-  const stl = geometryToBinaryStl(geometry);
+  const encoded = await encodeGeometry(geometry, outputFormat, format, modelUrl);
+
   return {
-    buffer: stl,
-    contentType: "model/stl",
-    filename: "export.stl",
-    extension: "stl",
+    buffer: encoded.buffer,
+    contentType: contentTypeForFormat(outputFormat),
+    filename: `export.${encoded.extension}`,
+    extension: encoded.extension,
     validation,
   };
 }

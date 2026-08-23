@@ -2,17 +2,19 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Upload, ArrowLeft, Loader2 } from "lucide-react";
+import { Upload, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { DentalViewer } from "@/components/three/dental-viewer";
 import { autoProjectTitle } from "@/lib/auto-project-title";
 import { prepareGenerationImageDetailed } from "@/lib/prepare-generation-image";
+import { rotateImageFile } from "@/lib/image-rotation";
 import { GENERATION_COPY } from "@/lib/generation-copy";
 import { GenerationNotifyOption } from "@/components/generation/generation-notify-option";
+import { GenerationImageControls } from "@/components/generation/generation-image-controls";
+import { GenerationProgressDisplay } from "@/components/generation/generation-progress-display";
 import {
   notifyGenerationComplete,
   prepareGenerationNotification,
@@ -32,6 +34,7 @@ export default function NewProjectPage() {
   const [progress, setProgress] = useState(0);
   const [stageLabel, setStageLabel] = useState<string | null>(null);
   const [elapsedSec, setElapsedSec] = useState(0);
+  const [lastGenerationSeconds, setLastGenerationSeconds] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [meshData, setMeshData] = useState<GeneratedMesh | null>(null);
   const [modelUrl, setModelUrl] = useState<string | null>(null);
@@ -80,18 +83,30 @@ export default function NewProjectPage() {
     [applyImageFile]
   );
 
+  const rotateImage = useCallback(
+    async (direction: "cw" | "ccw") => {
+      if (!imageFile || processing) return;
+      const degrees = direction === "cw" ? 90 : -90;
+      const rotated = await rotateImageFile(imageFile, degrees);
+      applyImageFile(rotated);
+    },
+    [imageFile, processing, applyImageFile]
+  );
+
   async function startProcessing() {
     if (!imageFile) return;
     setStep(2);
     setProcessing(true);
     setProgress(5);
     setError(null);
-    setStageLabel("Preparing image…");
+    setStageLabel("preprocessing");
+    setLastGenerationSeconds(null);
+    const startedAt = Date.now();
 
     try {
       await prepareGenerationNotification();
       const prepared = await prepareGenerationImageDetailed(imageFile);
-      setStageLabel("Creating project…");
+      setStageLabel("starting");
 
       const formData = new FormData();
       formData.append("title", autoProjectTitle(imageFile.name));
@@ -105,7 +120,7 @@ export default function NewProjectPage() {
       setProjectId(data.project.id);
 
       if (data.asyncGeneration) {
-        setStageLabel(GENERATION_COPY.inProgressTitle);
+        setStageLabel("queued");
         const genForm = new FormData();
         genForm.append("image", prepared.file);
         genForm.append("projectId", data.project.id);
@@ -118,7 +133,7 @@ export default function NewProjectPage() {
         if (genRes.status === 202 && genData.jobId && genData.jobToken) {
           const polled = await pollGenerationJob(genData.jobId, genData.jobToken, {
             onUpdate: (job) => {
-              setStageLabel(job.stage ?? GENERATION_COPY.inProgressTitle);
+              setStageLabel(job.stage ?? "generating_shape");
               setProgress(Math.max(10, job.progress ?? 0));
             },
           });
@@ -133,6 +148,7 @@ export default function NewProjectPage() {
       }
 
       setProgress(100);
+      setLastGenerationSeconds(Math.max(1, Math.round((Date.now() - startedAt) / 1000)));
       notifyGenerationComplete();
       setStep(3);
     } catch (err) {
@@ -227,6 +243,14 @@ export default function NewProjectPage() {
                 </Button>
               </CardContent>
             </Card>
+            {imageFile && (
+              <div className="mt-4">
+                <GenerationImageControls
+                  disabled={processing}
+                  onRotate={(dir) => void rotateImage(dir)}
+                />
+              </div>
+            )}
             {error && (
               <p className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-body-sm text-destructive">
                 {error}
@@ -240,18 +264,13 @@ export default function NewProjectPage() {
         )}
 
         {step === 2 && (
-          <div className="text-center">
-            <Loader2 className="mx-auto mb-4 h-10 w-10 animate-spin text-primary-container" />
-            <h1 className="text-display-lg">{stageLabel ?? GENERATION_COPY.inProgressTitle}</h1>
-            <p className="mt-2 text-body-md text-on-surface-variant">
-              {GENERATION_COPY.inProgressDetail}
-            </p>
-            {elapsedSec > 0 && (
-              <p className="mt-1 text-body-sm text-on-surface-variant/80">
-                Elapsed: {elapsedSec}s
-              </p>
-            )}
-            <Progress value={progress} className="mt-6" />
+          <div className="py-8">
+            <GenerationProgressDisplay
+              title={GENERATION_COPY.inProgressTitle}
+              stage={stageLabel}
+              progress={progress}
+              elapsedSec={elapsedSec}
+            />
           </div>
         )}
 
@@ -261,6 +280,11 @@ export default function NewProjectPage() {
             <p className="mt-1 text-body-md text-on-surface-variant">
               Your model has been generated. Open the editor to annotate and author content.
             </p>
+            {lastGenerationSeconds != null && (
+              <p className="mt-2 text-body-sm text-on-surface-variant">
+                {GENERATION_COPY.completedIn(lastGenerationSeconds)}
+              </p>
+            )}
             <div className="mt-6 h-80 overflow-hidden rounded-xl border border-border-subtle">
               <DentalViewer meshData={meshData} modelUrl={modelUrl} className="h-full" />
             </div>

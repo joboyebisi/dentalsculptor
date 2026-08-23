@@ -14,13 +14,14 @@ import {
   GENERATION_POLL_INTERVAL_MS,
   GENERATION_POLL_MAX_ATTEMPTS,
 } from "@/lib/generation-copy";
-import { pollGenerationJob } from "@/lib/generation-jobs";
+import { finalizeGenerationJob, pollGenerationJob } from "@/lib/generation-jobs";
 import {
   INVITE_QUERY_PARAM,
   persistInviteCode,
   resolveInviteCode,
 } from "@/lib/research-invite";
 import { requestGpuWarmup } from "@/lib/gpu-warmup";
+import { rotateImageFile } from "@/lib/image-rotation";
 
 interface LandingModelState {
   uploadedFile: File | null;
@@ -38,15 +39,22 @@ interface LandingModelState {
   isPreparingImage: boolean;
   imagePrepLabel: string | null;
   error: string | null;
+  modelQuality: "preview" | "standard" | "final" | null;
+  isEnhancing: boolean;
+  lastGenerationSeconds: number | null;
 }
 
 interface LandingModelContextType extends LandingModelState {
   setUploadedFile: (file: File | null) => void;
   prepareAndSetUploadedFile: (file: File | null) => Promise<void>;
   generateModel: () => Promise<void>;
+  enhanceModel: () => Promise<void>;
+  rotateUploadedImage: (direction: "cw" | "ccw") => Promise<void>;
   clearAll: () => void;
   clearError: () => void;
   hasModel: boolean;
+  canEnhance: boolean;
+  isFinalModel: boolean;
 }
 
 const LandingModelContext = createContext<LandingModelContextType | undefined>(undefined);
@@ -68,6 +76,13 @@ export function LandingModelProvider({ children }: { children: React.ReactNode }
   const [isPreparingImage, setIsPreparingImage] = useState(false);
   const [imagePrepLabel, setImagePrepLabel] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [modelQuality, setModelQuality] = useState<"preview" | "standard" | "final" | null>(
+    null
+  );
+  const [isEnhancing, setIsEnhancing] = useState(false);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [jobToken, setJobToken] = useState<string | null>(null);
+  const [lastGenerationSeconds, setLastGenerationSeconds] = useState<number | null>(null);
 
   useEffect(() => {
     const fromUrl = searchParams.get(INVITE_QUERY_PARAM);
@@ -91,6 +106,11 @@ export function LandingModelProvider({ children }: { children: React.ReactNode }
     setGenerationStage(null);
     setGenerationProgress(0);
     setError(null);
+    setModelQuality(null);
+    setIsEnhancing(false);
+    setJobId(null);
+    setJobToken(null);
+    setLastGenerationSeconds(null);
   }, [previewUrl]);
 
   const prepareAndSetUploadedFile = useCallback(
@@ -151,13 +171,18 @@ export function LandingModelProvider({ children }: { children: React.ReactNode }
     setGenerationSource(null);
     setGenerationStage(null);
     setGenerationProgress(0);
+    setModelQuality(null);
+    setJobId(null);
+    setJobToken(null);
+
+    const startedAt = Date.now();
 
     try {
       await prepareGenerationNotification();
       requestGpuWarmup("generate");
       const formData = new FormData();
       formData.append("image", uploadedFile);
-      formData.append("quality", "standard");
+      formData.append("quality", "preview");
       if (inviteCode) formData.append("accessCode", inviteCode);
 
       const controller = new AbortController();
@@ -192,7 +217,14 @@ export function LandingModelProvider({ children }: { children: React.ReactNode }
       if (!res.ok) {
         throw new Error(data.error ?? "Generation failed.");
       }
+
+      let activeJobId: string | null = null;
+      let activeJobToken: string | null = null;
       if (res.status === 202 && data.jobId && data.jobToken) {
+        activeJobId = data.jobId;
+        activeJobToken = data.jobToken;
+        setJobId(activeJobId);
+        setJobToken(activeJobToken);
         data = {
           ...(await pollGenerationJob(data.jobId, data.jobToken, {
             intervalMs: GENERATION_POLL_INTERVAL_MS,
@@ -212,13 +244,22 @@ export function LandingModelProvider({ children }: { children: React.ReactNode }
         setThumbnailUrl(data.thumbnailUrl ?? null);
         setMtlUrl(data.mtlUrl ?? null);
         setFormat(data.format ?? "glb");
+        setModelQuality(
+          data.quality === "final" || data.quality === "standard"
+            ? data.quality
+            : activeJobId
+              ? "preview"
+              : "standard"
+        );
         setGenerationSource(
           data.source === "modal" ? "modal" : data.source === "fal" ? "fal" : "mock"
         );
+        setLastGenerationSeconds(Math.max(1, Math.round((Date.now() - startedAt) / 1000)));
         notifyGenerationComplete();
       } else if (data.meshData) {
         setMeshData(data.meshData);
         setGenerationSource("mock");
+        setLastGenerationSeconds(Math.max(1, Math.round((Date.now() - startedAt) / 1000)));
         notifyGenerationComplete();
       } else {
         throw new Error("No model was returned.");
@@ -230,6 +271,51 @@ export function LandingModelProvider({ children }: { children: React.ReactNode }
     }
   }, [uploadedFile, searchParams]);
 
+  const enhanceModel = useCallback(async () => {
+    if (!jobId || !jobToken) {
+      setError("Enhancement is unavailable for this session. Generate a new preview first.");
+      return;
+    }
+    if (modelQuality !== "preview") return;
+
+    setIsEnhancing(true);
+    setError(null);
+    setGenerationStage(null);
+    setGenerationProgress(0);
+
+    try {
+      const data = await finalizeGenerationJob(jobId, jobToken, "standard", {
+        intervalMs: GENERATION_POLL_INTERVAL_MS,
+        maxAttempts: GENERATION_POLL_MAX_ATTEMPTS,
+        onUpdate: (job) => {
+          setGenerationStage(job.stage ?? null);
+          setGenerationProgress(job.progress ?? 0);
+        },
+      });
+      setModelUrl(data.modelUrl ?? null);
+      setModelKey(data.modelKey ?? null);
+      setFormat(data.format ?? "glb");
+      setModelQuality("standard");
+      notifyGenerationComplete();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Could not enhance the model. Try again."
+      );
+    } finally {
+      setIsEnhancing(false);
+    }
+  }, [jobId, jobToken, modelQuality]);
+
+  const rotateUploadedImage = useCallback(
+    async (direction: "cw" | "ccw") => {
+      if (!uploadedFile || isLoading || isEnhancing) return;
+      const degrees = direction === "cw" ? 90 : -90;
+      const rotated = await rotateImageFile(uploadedFile, degrees);
+      await prepareAndSetUploadedFile(rotated);
+    },
+    [uploadedFile, isLoading, isEnhancing, prepareAndSetUploadedFile]
+  );
+
   const clearAll = useCallback(() => {
     setIsPreparingImage(false);
     setImagePrepLabel(null);
@@ -239,6 +325,8 @@ export function LandingModelProvider({ children }: { children: React.ReactNode }
   const clearError = useCallback(() => setError(null), []);
 
   const hasModel = Boolean(modelUrl || meshData);
+  const canEnhance = modelQuality === "preview" && Boolean(jobId && jobToken);
+  const isFinalModel = modelQuality === "standard" || modelQuality === "final";
 
   return (
     <LandingModelContext.Provider
@@ -258,12 +346,19 @@ export function LandingModelProvider({ children }: { children: React.ReactNode }
         isPreparingImage,
         imagePrepLabel,
         error,
+        modelQuality,
+        isEnhancing,
+        lastGenerationSeconds,
         setUploadedFile,
         prepareAndSetUploadedFile,
         generateModel,
+        enhanceModel,
+        rotateUploadedImage,
         clearAll,
         clearError,
         hasModel,
+        canEnhance,
+        isFinalModel,
       }}
     >
       {children}

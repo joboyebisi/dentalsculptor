@@ -11,6 +11,8 @@ interface EditorCasePanelProps {
   selectedCase: CaseTemplate | null;
   instructions: string | null;
   learningObjectives: Array<{ id: string; title: string }>;
+  onSelectPrompt?: (prompt: string) => void;
+  onStartMaskEdit?: () => void;
 }
 
 export function EditorCasePanel({
@@ -20,6 +22,8 @@ export function EditorCasePanel({
   selectedCase,
   instructions,
   learningObjectives,
+  onSelectPrompt,
+  onStartMaskEdit,
 }: EditorCasePanelProps) {
   if (!open) {
     return (
@@ -95,6 +99,50 @@ export function EditorCasePanel({
               </ul>
             </div>
           </div>
+        )}
+
+        {selectedCase && selectedCase.suggestedPrompts.length > 0 && (
+          <div className="mt-4">
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant">
+              Suggested edits
+            </p>
+            <ul className="space-y-1">
+              {selectedCase.suggestedPrompts.map((prompt) => (
+                <li key={prompt}>
+                  <button
+                    type="button"
+                    onClick={() => onSelectPrompt?.(prompt)}
+                    className="w-full rounded-md border border-outline-variant bg-surface-container-low px-2 py-1.5 text-left text-[11px] text-on-surface hover:border-primary-container/40 hover:bg-surface-container"
+                  >
+                    {prompt}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {selectedCase && selectedCase.studentHints.length > 0 && (
+          <div className="mt-4">
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant">
+              Hints
+            </p>
+            <ul className="list-inside list-disc space-y-1 text-[11px] text-on-surface-variant">
+              {selectedCase.studentHints.map((hint) => (
+                <li key={hint}>{hint}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {selectedCase && onStartMaskEdit && (
+          <button
+            type="button"
+            onClick={onStartMaskEdit}
+            className="mt-4 w-full rounded-lg bg-primary-container px-3 py-2 text-[11px] font-semibold text-on-primary hover:opacity-90"
+          >
+            Start mask edit ({selectedCase.defaultOperation})
+          </button>
         )}
 
         {learningObjectives.length > 0 && (

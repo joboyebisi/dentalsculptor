@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getExportPreset, type ExportTarget } from "@/lib/export-presets";
-import { exportMeshForPreset } from "@/lib/export-mesh";
+import { exportMeshForPreset, type ExportScope, type MeshExportFormat } from "@/lib/export-mesh";
 import { trackResearchEvent } from "@/lib/research-events";
 import { parseModelProcessingStage } from "@/lib/model-processing-stage";
 
@@ -20,6 +20,9 @@ export async function POST(
   const body = await req.json();
   const target = body.target as ExportTarget;
   const validateOnly = Boolean(body.validateOnly);
+  const outputFormat = body.outputFormat as MeshExportFormat | undefined;
+  const scope = (body.scope as ExportScope | undefined) ?? "full";
+  const modelUrlOverride = body.modelUrl as string | undefined;
 
   if (!target) {
     return NextResponse.json({ error: "target is required." }, { status: 400 });
@@ -30,17 +33,21 @@ export async function POST(
     include: { dentalModel: true },
   });
 
-  if (!project?.dentalModel?.generated3DUrl) {
+  const modelUrl = modelUrlOverride ?? project?.dentalModel?.generated3DUrl;
+  if (!modelUrl) {
     return NextResponse.json({ error: "No generated model to export." }, { status: 400 });
   }
 
-  const modelUrl = project.dentalModel.generated3DUrl;
-  const meta = parseModelProcessingStage(project.dentalModel.processingStage);
+  const meta = parseModelProcessingStage(project?.dentalModel?.processingStage ?? null);
   const format = (meta.format === "obj" ? "obj" : "glb") as "glb" | "obj";
   const preset = getExportPreset(target);
 
   try {
-    const result = await exportMeshForPreset(modelUrl, format, preset, { validateOnly });
+    const result = await exportMeshForPreset(modelUrl, format, preset, {
+      validateOnly,
+      outputFormat,
+      scope,
+    });
 
     if (validateOnly && "validation" in result) {
       return NextResponse.json({ validation: result.validation, preset: target });
@@ -50,7 +57,7 @@ export async function POST(
       return NextResponse.json({ error: "Export failed." }, { status: 500 });
     }
 
-    const safeTitle = project.title.replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 64);
+    const safeTitle = (project?.title ?? "model").replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 64);
     const filename = `${safeTitle}-${target}.${result.extension}`;
 
     await trackResearchEvent({

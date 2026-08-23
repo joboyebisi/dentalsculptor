@@ -10,14 +10,25 @@ import {
   type ExportTarget,
 } from "@/lib/export-presets";
 import type { ExportValidationReport } from "@/lib/export-mesh";
+import type { ExportScope, MeshExportFormat } from "@/lib/export-mesh";
 import { cn } from "@/lib/utils";
+
+const DIRECT_FORMATS: { id: MeshExportFormat; label: string; hint: string }[] = [
+  { id: "stl", label: "STL", hint: "Simulators, 3D print (mm)" },
+  { id: "obj", label: "OBJ", hint: "CAD / Blender interchange" },
+  { id: "glb", label: "GLB", hint: "Web viewer, Quest" },
+  { id: "ply", label: "PLY", hint: "Research / point tools" },
+];
 
 interface ExportWizardDialogProps {
   open: boolean;
   onClose: () => void;
   projectId: string;
   projectTitle: string;
+  modelUrl?: string | null;
   defaultTarget?: ExportTarget;
+  hasPartSelection?: boolean;
+  selectedPartCount?: number;
   onExportComplete?: (target: ExportTarget) => void;
 }
 
@@ -29,10 +40,15 @@ export function ExportWizardDialog({
   projectId,
   projectTitle,
   defaultTarget = "simodont",
+  modelUrl,
+  hasPartSelection = false,
+  selectedPartCount = 0,
   onExportComplete,
 }: ExportWizardDialogProps) {
   const [step, setStep] = useState<WizardStep>(1);
   const [target, setTarget] = useState<ExportTarget>(defaultTarget);
+  const [outputFormat, setOutputFormat] = useState<MeshExportFormat>("stl");
+  const [scope, setScope] = useState<ExportScope>("full");
   const [exporting, setExporting] = useState(false);
   const [validating, setValidating] = useState(false);
   const [validation, setValidation] = useState<ExportValidationReport | null>(null);
@@ -45,6 +61,8 @@ export function ExportWizardDialog({
   useEffect(() => {
     if (open) {
       setTarget(defaultTarget);
+      setOutputFormat(defaultTarget === "meta-quest" ? "glb" : "stl");
+      setScope("full");
       setStep(1);
       setValidation(null);
       setValidateError(null);
@@ -52,6 +70,14 @@ export function ExportWizardDialog({
       setDone(false);
     }
   }, [open, defaultTarget]);
+
+  useEffect(() => {
+    const preset = listExportPresets().find((p) => p.id === target);
+    if (preset) {
+      const preferred = preset.formats.find((f) => f !== "zip") as MeshExportFormat | undefined;
+      if (preferred) setOutputFormat(preferred);
+    }
+  }, [target]);
 
   if (!open) return null;
 
@@ -76,7 +102,13 @@ export function ExportWizardDialog({
       const res = await fetch(`/api/projects/${projectId}/export`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target, validateOnly: true }),
+        body: JSON.stringify({
+          target,
+          validateOnly: true,
+          outputFormat,
+          scope,
+          modelUrl: modelUrl ?? undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Validation failed.");
@@ -96,14 +128,19 @@ export function ExportWizardDialog({
       const res = await fetch(`/api/projects/${projectId}/export`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target }),
+        body: JSON.stringify({
+          target,
+          outputFormat,
+          scope,
+          modelUrl: modelUrl ?? undefined,
+        }),
       });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error ?? "Export failed.");
       }
       const blob = await res.blob();
-      const ext = primaryExtension(preset);
+      const ext = outputFormat;
       const safeName = projectTitle.replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 64);
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
@@ -157,7 +194,75 @@ export function ExportWizardDialog({
 
         <div className="flex-1 overflow-y-auto p-5">
           {step === 1 && (
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-6">
+              <div>
+                <p className="mb-2 text-label-caps font-semibold text-on-surface-variant">
+                  What to export
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setScope("full")}
+                    className={cn(
+                      "rounded-lg border px-4 py-2 text-body-sm transition-colors",
+                      scope === "full"
+                        ? "border-primary-container bg-primary-container/10 text-primary-container"
+                        : "border-outline-variant hover:border-primary-container/30"
+                    )}
+                  >
+                    Full model
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setScope("selection")}
+                    disabled={!hasPartSelection}
+                    className={cn(
+                      "rounded-lg border px-4 py-2 text-body-sm transition-colors",
+                      scope === "selection"
+                        ? "border-primary-container bg-primary-container/10 text-primary-container"
+                        : "border-outline-variant hover:border-primary-container/30",
+                      !hasPartSelection && "cursor-not-allowed opacity-50"
+                    )}
+                  >
+                    Selected parts ({selectedPartCount})
+                  </button>
+                </div>
+                {!hasPartSelection && (
+                  <p className="mt-1 text-[11px] text-on-surface-variant">
+                    Enable parts in the properties panel to export a selection.
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <p className="mb-2 text-label-caps font-semibold text-on-surface-variant">
+                  File format
+                </p>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {DIRECT_FORMATS.map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => setOutputFormat(f.id)}
+                      className={cn(
+                        "rounded-lg border p-3 text-left transition-colors",
+                        outputFormat === f.id
+                          ? "border-primary-container bg-primary-container/10 ring-2 ring-primary-container/15"
+                          : "border-outline-variant hover:border-primary-container/30"
+                      )}
+                    >
+                      <span className="font-semibold text-on-surface">{f.label}</span>
+                      <p className="mt-0.5 text-[10px] text-on-surface-variant">{f.hint}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-2 text-label-caps font-semibold text-on-surface-variant">
+                  Destination preset
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
               {listExportPresets().map((p) => (
                 <button
                   key={p.id}
@@ -183,6 +288,8 @@ export function ExportWizardDialog({
                   <p className="text-body-sm text-on-surface-variant">{p.description}</p>
                 </button>
               ))}
+                </div>
+              </div>
             </div>
           )}
 
@@ -238,7 +345,7 @@ export function ExportWizardDialog({
               </div>
               <h3 className="text-headline-md font-semibold text-on-surface">Export complete</h3>
               <p className="mt-2 text-body-sm text-on-surface-variant">
-                {`${projectTitle}.${primaryExtension(preset)} downloaded for ${preset.label}.`}
+                {`${projectTitle}.${outputFormat} downloaded for ${preset.label}.`}
               </p>
             </div>
           )}

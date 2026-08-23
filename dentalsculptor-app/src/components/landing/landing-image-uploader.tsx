@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/card";
 import { useLandingModel } from "@/context/landing-model-context";
 import { GenerationNotifyOption } from "@/components/generation/generation-notify-option";
+import { GenerationImageControls } from "@/components/generation/generation-image-controls";
 import { ResearchInviteCallout } from "@/components/landing/research-invite-callout";
 import { INVITE_QUERY_PARAM, normalizeInviteCode, resolveInviteCode } from "@/lib/research-invite";
 
@@ -31,7 +32,9 @@ export function LandingImageUploader() {
     error,
     prepareAndSetUploadedFile,
     generateModel,
+    rotateUploadedImage,
     clearAll,
+    isEnhancing,
   } = useLandingModel();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -43,7 +46,11 @@ export function LandingImageUploader() {
   }, [searchParams]);
 
   const canGenerate =
-    Boolean(uploadedFile) && !isLoading && !isPreparingImage && (Boolean(isSignedIn) || hasInvite);
+    Boolean(uploadedFile) &&
+    !isLoading &&
+    !isPreparingImage &&
+    !isEnhancing &&
+    (Boolean(isSignedIn) || hasInvite);
 
   return (
     <Card className="w-full max-w-md border-border-subtle">
@@ -109,7 +116,14 @@ export function LandingImageUploader() {
 
         {error && <p className="text-body-sm text-error">{error}</p>}
 
-        <GenerationNotifyOption disabled={isLoading} />
+        {uploadedFile && (
+          <GenerationImageControls
+            disabled={isLoading || isPreparingImage || isEnhancing}
+            onRotate={(dir) => void rotateUploadedImage(dir)}
+          />
+        )}
+
+        <GenerationNotifyOption disabled={isLoading || isEnhancing} />
       </CardContent>
       <CardFooter className="flex-col items-stretch gap-0">
         <Button

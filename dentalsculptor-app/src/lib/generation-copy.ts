@@ -18,6 +18,9 @@ export const GENERATION_COPY = {
   notifyReadyTitle: "DentalSculptor",
   notifyReadyBody: "Your 3D model is ready to view.",
   notifyReadyBodyEditor: "Your 3D model is ready in the editor.",
+  poseNotice:
+    "The angle of your photo sets the 3D pose — rotate the image so the tooth faces the way you want it in the viewer, then generate.",
+  completedIn: (seconds: number) => `Generated in ${seconds}s`,
 } as const;
 
 /** Stage labels shown while polling async jobs. */
