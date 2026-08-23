@@ -19,6 +19,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ONBOARDING_ROLES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { getPendingLandingProject } from "@/lib/landing-session";
+import { useAuthGate } from "@/hooks/use-auth-gate";
 
 const roleIcons = {
   EDUCATOR: GraduationCap,
@@ -29,6 +30,7 @@ const roleIcons = {
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const { checking } = useAuthGate("onboarding");
   const [step, setStep] = useState(1);
   const [role, setRole] = useState("");
   const [institution, setInstitution] = useState("");
@@ -64,6 +66,9 @@ export default function OnboardingPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
+      {checking ? (
+        <p className="text-body-md text-on-surface-variant">Loading…</p>
+      ) : (
       <div className="w-full max-w-lg">
         <div className="mb-8 flex justify-center gap-2">
           {[1, 2, 3].map((s) => (
@@ -225,10 +230,7 @@ export default function OnboardingPage() {
                     </div>
                   </CardContent>
                 </Card>
-                <Card
-                  className="cursor-pointer transition-shadow hover:workbench-shadow"
-                  onClick={() => router.push("/dashboard")}
-                >
+                <Card className="opacity-70">
                   <CardContent className="flex items-center gap-4 p-4">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary/10">
                       <Play className="h-5 w-5 text-secondary" />
@@ -236,7 +238,7 @@ export default function OnboardingPage() {
                     <div>
                       <p className="font-semibold">Watch Tutorial</p>
                       <p className="text-body-sm text-on-surface-variant">
-                        Learn the basics in 5 minutes
+                        Coming soon — guided walkthrough for educators and students
                       </p>
                     </div>
                   </CardContent>
@@ -246,6 +248,7 @@ export default function OnboardingPage() {
           )}
         </AnimatePresence>
       </div>
+      )}
     </div>
   );
 }

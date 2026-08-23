@@ -9,6 +9,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RESEARCH_INFO_SHEET_URL } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { useAuthGate } from "@/hooks/use-auth-gate";
+import { resolvePostAuthPath } from "@/lib/post-auth-redirect";
 
 const collectedData = [
   "Editing behaviour",
@@ -21,6 +23,7 @@ const collectedData = [
 
 export default function ConsentPage() {
   const router = useRouter();
+  const { checking } = useAuthGate("consent");
   const [consent, setConsent] = useState(false);
   const [researchOptIn, setResearchOptIn] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -39,6 +42,14 @@ export default function ConsentPage() {
         const data = (await res.json().catch(() => null)) as { error?: string } | null;
         throw new Error(data?.error ?? "Could not save consent");
       }
+      const profile = await fetch("/api/user/profile");
+      if (profile.ok) {
+        const data = (await profile.json()) as {
+          user?: { consentAccepted: boolean; onboardingCompleted: boolean };
+        };
+        router.push(resolvePostAuthPath(data.user));
+        return;
+      }
       router.push("/onboarding");
     } catch (error) {
       setLoading(false);
@@ -48,6 +59,9 @@ export default function ConsentPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
+      {checking ? (
+        <p className="text-body-md text-on-surface-variant">Loading…</p>
+      ) : (
       <Card className="w-full max-w-xl">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 flex justify-center">
@@ -143,6 +157,7 @@ export default function ConsentPage() {
           </div>
         </CardContent>
       </Card>
+      )}
     </div>
   );
 }

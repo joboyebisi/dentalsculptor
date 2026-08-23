@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { trackResearchEvent } from "@/lib/research-events";
 import { generateDentalMeshFromImage } from "@/lib/model-generator";
 import { generateMeshFromImage, isFalConfigured } from "@/lib/fal-mesh-generator";
+import { getMlMeshProvider, isModalAsyncS3Enabled } from "@/lib/ml-provider";
 import { autoProjectTitle } from "@/lib/auto-project-title";
 import { serializeModelProcessingStage } from "@/lib/model-processing-stage";
 import { generateAssetKey, isS3BackendSelected, uploadAsset } from "@/lib/storage";
@@ -32,6 +33,43 @@ export async function POST(req: NextRequest) {
   const title = titleInput.trim() || autoProjectTitle(image.name);
   const buffer = Buffer.from(await image.arrayBuffer());
   const key = generateAssetKey(user.id, image.name);
+  const provider = getMlMeshProvider();
+  const deferToAsyncModal =
+    !existingModelUrl && provider === "modal" && isModalAsyncS3Enabled();
+
+  if (deferToAsyncModal) {
+    const imageUrl = await uploadAsset(key, buffer, image.type);
+    const project = await prisma.project.create({
+      data: {
+        ownerId: user.id,
+        title,
+        description,
+        status: "PROCESSING",
+        dentalModel: {
+          create: {
+            sourceImageUrl: imageUrl,
+          },
+        },
+      },
+      include: { dentalModel: true },
+    });
+
+    await trackResearchEvent({
+      userId: user.id,
+      projectId: project.id,
+      eventType: "PROJECT_CREATED",
+      metadata: { title, generation: "modal-async" },
+    });
+    await trackResearchEvent({
+      userId: user.id,
+      projectId: project.id,
+      eventType: "IMAGE_UPLOADED",
+      metadata: { filename: image.name },
+    });
+
+    console.info(`[projects] create shell project ${Date.now() - t0}ms`);
+    return NextResponse.json({ project, asyncGeneration: true });
+  }
 
   let generated3DUrl = existingModelUrl;
   let thumbnailUrl = existingThumbnailUrl;

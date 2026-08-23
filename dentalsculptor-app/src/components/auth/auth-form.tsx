@@ -11,6 +11,7 @@ import { createClient } from "@/lib/supabase/client";
 import { AppLogo } from "@/components/brand/app-logo";
 import { GoogleIcon, MicrosoftIcon } from "@/components/auth/oauth-icons";
 import { cn } from "@/lib/utils";
+import { resolvePostAuthPath } from "@/lib/post-auth-redirect";
 
 type AuthMode = "sign-in" | "sign-up";
 
@@ -43,8 +44,21 @@ export function AuthForm({
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const afterAuthPath = resolveRedirectPath(redirectUrl, "/consent");
+  const afterAuthPath = resolveRedirectPath(redirectUrl, "/dashboard");
   const isSignUp = mode === "sign-up";
+
+  async function navigateAfterAuth() {
+    const profileRes = await fetch("/api/user/profile");
+    if (profileRes.ok) {
+      const data = (await profileRes.json()) as {
+        user?: { consentAccepted: boolean; onboardingCompleted: boolean };
+      };
+      router.push(resolvePostAuthPath(data.user, afterAuthPath));
+    } else {
+      router.push(resolvePostAuthPath(null, afterAuthPath));
+    }
+    router.refresh();
+  }
 
   async function handleEmailAuth(e: React.FormEvent) {
     e.preventDefault();
@@ -71,8 +85,7 @@ export function AuthForm({
       }
 
       if (data.session) {
-        router.push(afterAuthPath);
-        router.refresh();
+        await navigateAfterAuth();
         return;
       }
 
@@ -92,8 +105,7 @@ export function AuthForm({
       return;
     }
 
-    router.push(afterAuthPath);
-    router.refresh();
+    await navigateAfterAuth();
   }
 
   async function handleOAuth(provider: (typeof OAUTH_PROVIDERS)[number]["id"]) {

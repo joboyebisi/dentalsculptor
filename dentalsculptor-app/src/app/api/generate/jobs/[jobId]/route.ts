@@ -121,6 +121,10 @@ export async function GET(
         where: { projectId: current.projectId },
         data: { generated3DKey: modalData.resultKey },
       });
+      await prisma.project.updateMany({
+        where: { id: current.projectId },
+        data: { status: "READY" },
+      });
     }
   }
 

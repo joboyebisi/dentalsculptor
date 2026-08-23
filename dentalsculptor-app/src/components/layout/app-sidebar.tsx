@@ -79,16 +79,13 @@ export function AppSidebar() {
         >
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </button>
-        <div className="flex items-center gap-3 px-2">
+        <div className={cn("px-2", collapsed && "px-0")}>
           {isPreview ? (
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-container">
               <User className="h-4 w-4 text-on-surface-variant" />
             </div>
           ) : (
-            <UserMenu />
-          )}
-          {!collapsed && (
-            <span className="text-body-sm text-on-surface-variant">Account</span>
+            <UserMenu collapsed={collapsed} />
           )}
         </div>
       </div>
