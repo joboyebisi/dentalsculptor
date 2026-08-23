@@ -194,14 +194,18 @@ export default async function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {communityProjects.map((cp) => (
-                  <div key={cp.id} className="text-body-sm">
-                    <p className="font-medium">{cp.project.title}</p>
-                    <p className="text-on-surface-variant">
-                      {cp.project.owner.name} · {cp.downloads} downloads
-                    </p>
-                  </div>
-                ))}
+                {communityProjects.length === 0 ? (
+                  <p className="text-body-sm text-on-surface-variant">No community activity yet</p>
+                ) : (
+                  communityProjects.map((cp) => (
+                    <div key={cp.id} className="text-body-sm">
+                      <p className="font-medium">{cp.project.title}</p>
+                      <p className="text-on-surface-variant">
+                        {cp.project.owner.name ?? "Educator"} · {cp.downloads} downloads
+                      </p>
+                    </div>
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>

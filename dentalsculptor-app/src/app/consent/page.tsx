@@ -24,19 +24,25 @@ export default function ConsentPage() {
   const [consent, setConsent] = useState(false);
   const [researchOptIn, setResearchOptIn] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleAccept() {
     if (!consent) return;
     setLoading(true);
     try {
-      await fetch("/api/user/consent", {
+      const res = await fetch("/api/user/consent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ consentAccepted: true, researchContactOptIn: researchOptIn }),
       });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(data?.error ?? "Could not save consent");
+      }
       router.push("/onboarding");
-    } catch {
+    } catch (error) {
       setLoading(false);
+      setError(error instanceof Error ? error.message : "Could not save consent");
     }
   }
 
@@ -113,6 +119,12 @@ export default function ConsentPage() {
               </span>
             </label>
           </div>
+
+          {error && (
+            <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-body-sm text-destructive">
+              {error}
+            </p>
+          )}
 
           <div className="flex flex-col gap-3 sm:flex-row">
             <Button

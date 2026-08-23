@@ -138,10 +138,89 @@ Optional: **Authentication** → ensure **Web** redirect URI is listed; add `htt
 ### E. Enable in Supabase
 
 1. Supabase → **Authentication** → **Providers** → **Azure** → **Enable**.
-2. **Client ID** = Application (client) ID.
-3. **Client Secret** = secret **Value** from step C.
+2. **Client ID** = Application (client) ID (GUID like `31f606bd-6a1b-408a-b3df-7d55f12e5fc4`).
+3. **Client Secret** = secret **Value** from step C — **not** the Secret ID, and **not** pasted into the Client ID field.
 4. **Azure Tenant URL** — leave default for personal + work/school accounts (`common`). Use a specific tenant ID only if your university requires org-only login.
 5. **Save**.
+
+### F. Verify publisher domain (Microsoft branding)
+
+Microsoft requires a file on your app domain before it shows **DentalSculptor** instead of an unverified publisher.
+
+1. The repo includes:
+
+```
+dentalsculptor-app/public/.well-known/microsoft-identity-association.json
+```
+
+2. After deploy, confirm it loads:
+
+```
+https://dentalsculptor.vercel.app/.well-known/microsoft-identity-association.json
+```
+
+3. Azure → **Microsoft Entra ID** → **App registrations** → **DentalSculptor** → **Branding & properties**.
+4. **Publisher domain** → enter `dentalsculptor.vercel.app` → **Verify and save domain**.
+
+Also set on the same **Branding** page:
+
+| Field | Value |
+|-------|--------|
+| Home page URL | `https://dentalsculptor.vercel.app` |
+| Terms of service URL | `https://dentalsculptor.vercel.app/terms` |
+| Privacy statement URL | `https://dentalsculptor.vercel.app/privacy` |
+| Logo | Upload your DentalSculptor icon (240×240 PNG) |
+
+---
+
+## OAuth branding — show DentalSculptor, not `supabase.co`
+
+Users see **two different places** where branding matters:
+
+| Where | What users see today | How to fix |
+|-------|----------------------|------------|
+| **Google consent screen** (“Continue to …”) | Often `ozqaomjpdmdrkxthlhvx.supabase.co` | Google Cloud → **Branding** → app name + logo + publish |
+| **Google sign-in summary email** | “sign in to `….supabase.co`” | Supabase **custom auth domain** (paid) **or** your own domain |
+| **Microsoft login** | Unverified publisher | Publisher domain file (below) + Azure branding |
+| **Your app** (sign-in page, nav) | Already DentalSculptor | No change needed |
+
+Supabase sits in the middle of Google/Microsoft OAuth, so Google’s **email** and some **consent** text reference the Supabase project URL until you use a [custom domain for Auth](https://supabase.com/docs/guides/platform/custom-domains) (e.g. `auth.dentalsculptor.com` → Supabase). That is optional for a pilot but recommended before wider rollout.
+
+### Google — consent screen (free, do this now)
+
+1. [Google Cloud Console → Branding](https://console.cloud.google.com/auth/branding) (same project as your OAuth client).
+2. Set **App name** to `DentalSculptor`, upload logo, support email.
+3. **App domain** section:
+
+| Field | Value |
+|-------|--------|
+| Application home page | `https://dentalsculptor.vercel.app` |
+| Privacy policy | `https://dentalsculptor.vercel.app/privacy` |
+| Terms of service | `https://dentalsculptor.vercel.app/terms` |
+
+4. **Authorized domains:** `dentalsculptor.vercel.app` only — **never** add `supabase.co`.
+5. Verify site in [Search Console](https://search.google.com/search-console) (HTML tag → `GOOGLE_SITE_VERIFICATION` on Vercel — already wired in the app).
+6. **Publish app** (OAuth consent screen → move from Testing to **In production**).
+
+After publish, the live consent screen should say **DentalSculptor** with your logo. Google’s post-login email may still mention `supabase.co` until you add a Supabase custom auth domain.
+
+### Microsoft — publisher domain (free, do this now)
+
+See **Step 3F** above. Host `microsoft-identity-association.json` on Vercel, then verify `dentalsculptor.vercel.app` in Azure **Branding & properties**.
+
+### Supabase — emails and “who am I signing into?”
+
+1. **Authentication → URL Configuration** — Site URL must be `https://dentalsculptor.vercel.app` (not the Supabase URL).
+2. **Authentication → Email templates** — edit **Confirm signup**, **Magic link**, etc. Replace generic copy with “DentalSculptor” and link to your app URL.
+3. **Optional (best long-term):** Supabase **Settings → Custom domains** → e.g. `auth.yourdomain.com` — update Google/Azure callback URLs to include the custom domain callback. This removes `supabase.co` from OAuth emails and consent text.
+
+### Dashboard after sign-in (not from 3D generation)
+
+Normal path: **Sign in → Consent → Onboarding → Dashboard**.
+
+The **editor resume** path (`/auth/continue`) only runs when you generated a 3D model on the landing page first. If you sign in directly, onboarding sends you to **Dashboard** — not the editor.
+
+If Dashboard errors after OAuth, it is usually an account linking issue (Clerk-era email vs new Supabase ID). The app now links by email automatically on deploy.
 
 ---
 

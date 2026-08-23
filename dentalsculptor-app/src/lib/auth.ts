@@ -1,7 +1,26 @@
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
-import type { UserRole } from "@/generated/prisma/client";
+import { Prisma, type UserRole } from "@/generated/prisma/client";
 import { isUiPreviewMode, PREVIEW_USER } from "@/lib/preview-mode";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
+
+function profileFromSupabaseUser(supabaseUser: SupabaseUser) {
+  const meta = supabaseUser.user_metadata ?? {};
+  const email =
+    supabaseUser.email?.trim() ||
+    `${supabaseUser.id}@users.dentalsculptor.local`;
+
+  return {
+    supabaseId: supabaseUser.id,
+    email,
+    name:
+      (meta.full_name as string | undefined) ??
+      (meta.name as string | undefined) ??
+      supabaseUser.email?.split("@")[0] ??
+      "User",
+    avatarUrl: (meta.avatar_url as string | undefined) ?? null,
+  };
+}
 
 export async function getAuthUser() {
   if (isUiPreviewMode()) {
@@ -17,20 +36,47 @@ export async function getAuthUser() {
 
   let user = await prisma.user.findUnique({ where: { supabaseId: supabaseUser.id } });
 
-  if (!user) {
-    const meta = supabaseUser.user_metadata ?? {};
-    user = await prisma.user.create({
-      data: {
-        supabaseId: supabaseUser.id,
-        email: supabaseUser.email ?? "",
-        name:
-          (meta.full_name as string | undefined) ??
-          (meta.name as string | undefined) ??
-          supabaseUser.email?.split("@")[0] ??
-          "User",
-        avatarUrl: (meta.avatar_url as string | undefined) ?? null,
-      },
+  if (!user && supabaseUser.email) {
+    const existingByEmail = await prisma.user.findUnique({
+      where: { email: supabaseUser.email.trim() },
     });
+
+    if (existingByEmail) {
+      const profile = profileFromSupabaseUser(supabaseUser);
+      user = await prisma.user.update({
+        where: { id: existingByEmail.id },
+        data: {
+          supabaseId: profile.supabaseId,
+          name: existingByEmail.name ?? profile.name,
+          avatarUrl: existingByEmail.avatarUrl ?? profile.avatarUrl,
+        },
+      });
+    }
+  }
+
+  if (!user) {
+    const profile = profileFromSupabaseUser(supabaseUser);
+
+    try {
+      user = await prisma.user.create({ data: profile });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002" &&
+        supabaseUser.email
+      ) {
+        user = await prisma.user.update({
+          where: { email: supabaseUser.email.trim() },
+          data: {
+            supabaseId: supabaseUser.id,
+            name: profile.name,
+            avatarUrl: profile.avatarUrl,
+          },
+        });
+      } else {
+        throw error;
+      }
+    }
   }
 
   return user;

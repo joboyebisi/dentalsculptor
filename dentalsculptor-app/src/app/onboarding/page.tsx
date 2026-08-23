@@ -39,11 +39,15 @@ export default function OnboardingPage() {
   async function completeOnboarding() {
     setLoading(true);
     try {
-      await fetch("/api/user/onboarding", {
+      const res = await fetch("/api/user/onboarding", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ role, institution, department, country }),
       });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(data?.error ?? "Could not save onboarding details");
+      }
 
       if (getPendingLandingProject()) {
         router.push("/auth/continue");
@@ -51,6 +55,8 @@ export default function OnboardingPage() {
       }
 
       setStep(3);
+    } catch (error) {
+      console.error(error);
     } finally {
       setLoading(false);
     }
