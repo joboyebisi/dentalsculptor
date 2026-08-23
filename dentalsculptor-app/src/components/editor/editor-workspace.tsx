@@ -40,6 +40,7 @@ import { GENERATION_COPY } from "@/lib/generation-copy";
 import { pollGenerationJob } from "@/lib/generation-jobs";
 import { EDITOR_SURFACE } from "@/lib/constants";
 import { expandDentalPrompt } from "@/lib/dental-prompt-glossary";
+import { applyMasked2dPreview } from "@/lib/edit-2d-preview";
 import type { EditOperation } from "@/lib/edit-types";
 import {
   attachmentFromRectMark,
@@ -347,8 +348,13 @@ export function EditorWorkspace({
       setReferenceImage(capture.image);
       setReferenceCamera(capture.camera);
       setBeforePreview(previewUrl);
-      // The image-edit worker will replace this with the inpainted reference.
-      setAfterPreview(previewUrl);
+
+      const maskBlob = await maskOverlayRef.current?.toMaskBlob();
+      const previewBlob = await applyMasked2dPreview(capture.image, maskBlob ?? null, editOperation);
+      if (afterPreview?.startsWith("blob:") && afterPreview !== beforePreview) {
+        URL.revokeObjectURL(afterPreview);
+      }
+      setAfterPreview(URL.createObjectURL(previewBlob));
       const expanded = expandDentalPrompt(aiPrompt);
       track("AI_PROMPT_SUBMITTED", projectId, {
         stage: "2d-mask-approval",
@@ -402,8 +408,14 @@ export function EditorWorkspace({
       const jobId = data.jobId as string;
       for (let attempt = 0; attempt < 90; attempt++) {
         await new Promise((r) => setTimeout(r, 2000));
-        const statusRes = await fetch(`/api/edit-jobs/${encodeURIComponent(jobId)}`);
+        const statusRes = await fetch(
+          `/api/edit-jobs/${encodeURIComponent(jobId)}?projectId=${encodeURIComponent(projectId)}`
+        );
         const status = await statusRes.json();
+        if (status.preview2dUrl && typeof status.preview2dUrl === "string") {
+          if (afterPreview?.startsWith("blob:")) URL.revokeObjectURL(afterPreview);
+          setAfterPreview(status.preview2dUrl);
+        }
         if (status.status === "completed" && status.modelUrl) {
           setModelUrl(status.modelUrl);
           setModelFormat(status.format ?? detectModelFormat(status.modelUrl));

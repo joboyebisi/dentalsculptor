@@ -554,19 +554,38 @@ def run_edit_job(
     operation: str,
     instruction: str,
     mask_bytes: bytes | None,
+    reference_bytes: bytes | None = None,
+    camera_json: str | None = None,
+    region_marks_json: str | None = None,
 ):
-    jobs_dict[job_id] = {"jobId": job_id, "status": "running", "progress": 10, "stage": "nano3d"}
+    jobs_dict[job_id] = {"jobId": job_id, "status": "running", "progress": 20, "stage": "preprocessing"}
     try:
-        result = run_nano3d_edit(source_model_url, operation, instruction, mask_bytes)
-        jobs_dict[job_id] = {
+        jobs_dict[job_id] = {**jobs_dict[job_id], "progress": 40, "stage": "2d_inpaint"}
+        result = run_nano3d_edit(
+            source_model_url,
+            operation,
+            instruction,
+            mask_bytes,
+            reference_bytes,
+            camera_json,
+            region_marks_json,
+        )
+        jobs_dict[job_id] = {**jobs_dict[job_id], "progress": 80, "stage": "extracting_mesh"}
+        payload = {
             "jobId": job_id,
             "status": "completed",
             "progress": 100,
             "stage": result.get("source", "nano3d"),
             "format": result["format"],
             "modelBase64": base64.b64encode(result["glbBytes"]).decode("ascii"),
-            "message": "Nano3D placeholder edit complete — swap in Case 3 pipeline when ready.",
+            "maskedVertexRatio": result.get("maskedVertexRatio", 0),
+            "regionMarkCount": result.get("regionMarkCount", 0),
+            "message": "Nano3D Case 3 path (CPU v1) — masked edit applied.",
         }
+        edited_2d = result.get("edited2dPng")
+        if edited_2d:
+            payload["preview2dBase64"] = base64.b64encode(edited_2d).decode("ascii")
+        jobs_dict[job_id] = payload
     except Exception as exc:
         jobs_dict[job_id] = {
             "jobId": job_id,
@@ -584,13 +603,26 @@ async def edit(
     sourceModelUrl: str = Form(""),
     instruction: str = Form(""),
     operation: str = Form("replace"),
+    camera: str = Form(""),
+    regionMarks: str = Form(""),
     maskImage: UploadFile | None = File(None),
+    referenceImage: UploadFile | None = File(None),
 ):
     authorize(request)
     job_id = str(uuid.uuid4())
     mask_bytes = await maskImage.read() if maskImage else None
+    reference_bytes = await referenceImage.read() if referenceImage else None
     jobs_dict[job_id] = {"jobId": job_id, "status": "queued", "progress": 0, "stage": "queued"}
-    run_edit_job.spawn(job_id, sourceModelUrl, operation, instruction, mask_bytes)
+    run_edit_job.spawn(
+        job_id,
+        sourceModelUrl,
+        operation,
+        instruction,
+        mask_bytes,
+        reference_bytes,
+        camera or None,
+        regionMarks or None,
+    )
     return {"jobId": job_id, "status": "queued"}
 
 

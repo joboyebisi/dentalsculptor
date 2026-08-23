@@ -7,9 +7,39 @@ import { prisma } from "@/lib/prisma";
 
 export const maxDuration = 300;
 
+function isAllowedSourceModelUrl(url: string, storedUrl: string | null | undefined): boolean {
+  if (!url) return false;
+  if (storedUrl && url === storedUrl) return true;
+  // Allow revised models uploaded to our asset storage between DB updates.
+  if (url.includes("supabase.co/storage") || url.includes(".amazonaws.com/")) return true;
+  return false;
+}
+
+async function persistEditedModel(
+  projectId: string,
+  modelUrl: string,
+  format: string
+): Promise<void> {
+  const dentalModel = await prisma.dentalModel.findUnique({ where: { projectId } });
+  if (!dentalModel) return;
+
+  const stage = {
+    format,
+    source: "nano3d",
+    editedAt: new Date().toISOString(),
+  };
+
+  await prisma.dentalModel.update({
+    where: { projectId },
+    data: {
+      generated3DUrl: modelUrl,
+      processingStage: JSON.stringify(stage),
+    },
+  });
+}
+
 /**
  * Submit a masked 3D edit job (Nano3D on Modal when deployed).
- * Until Modal is live, returns queued stub for UI wiring.
  */
 export async function POST(
   req: NextRequest,
@@ -47,7 +77,7 @@ export async function POST(
   if (!project) {
     return NextResponse.json({ error: "Project not found." }, { status: 404 });
   }
-  if (project.dentalModel?.generated3DUrl !== sourceModelUrl) {
+  if (!isAllowedSourceModelUrl(sourceModelUrl, project.dentalModel?.generated3DUrl)) {
     return NextResponse.json({ error: "Source model does not belong to this project." }, { status: 403 });
   }
 
@@ -81,12 +111,16 @@ export async function POST(
     }
 
     let modelUrl = data.modelUrl as string | undefined;
-    let format = data.format as string | undefined;
+    let format = (data.format as string | undefined) ?? "glb";
     if (data.status === "completed" && data.modelBase64 && !modelUrl) {
       const buffer = Buffer.from(data.modelBase64, "base64");
       const key = generateAssetKey(user.id, `edit-${data.jobId ?? jobId}.glb`);
       modelUrl = await uploadAsset(key, buffer, "model/gltf-binary");
       format = "glb";
+    }
+
+    if (modelUrl) {
+      await persistEditedModel(projectId, modelUrl, format);
     }
 
     await trackResearchEvent({
@@ -100,6 +134,7 @@ export async function POST(
       status: data.status ?? "queued",
       modelUrl,
       format,
+      preview2dBase64: data.preview2dBase64 as string | undefined,
     });
   }
 
@@ -107,12 +142,12 @@ export async function POST(
     userId: user.id,
     projectId,
     eventType: "AI_PROMPT_SUBMITTED",
-      metadata: { jobId, provider: "stub", operation, prompt: expanded.original, regionMarks: regionMarks || undefined },
+    metadata: { jobId, provider: "stub", operation, prompt: expanded.original, regionMarks: regionMarks || undefined },
   });
 
   return NextResponse.json({
     jobId,
     status: "queued",
-    message: "Modal Nano3D not deployed — job recorded for UI testing.",
+    message: "Modal Nano3D not deployed — set MODAL_EDIT_URL in Vercel. See docs/MODAL_SETUP_GUIDE.md",
   });
 }

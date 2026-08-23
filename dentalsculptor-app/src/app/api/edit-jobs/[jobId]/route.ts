@@ -13,6 +13,27 @@ async function persistModalModelBase64(
   return { modelUrl, format: "glb" };
 }
 
+async function persistEditedModelForProject(
+  projectId: string,
+  modelUrl: string,
+  format: string
+): Promise<void> {
+  const { prisma } = await import("@/lib/prisma");
+  const dentalModel = await prisma.dentalModel.findUnique({ where: { projectId } });
+  if (!dentalModel) return;
+  await prisma.dentalModel.update({
+    where: { projectId },
+    data: {
+      generated3DUrl: modelUrl,
+      processingStage: JSON.stringify({
+        format,
+        source: "nano3d",
+        editedAt: new Date().toISOString(),
+      }),
+    },
+  });
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ jobId: string }> }
@@ -23,6 +44,7 @@ export async function GET(
   }
 
   const { jobId } = await params;
+  const projectId = req.nextUrl.searchParams.get("projectId");
   const statusUrl = process.env.MODAL_JOB_STATUS_URL;
   if (!statusUrl) {
     return NextResponse.json({
@@ -47,7 +69,7 @@ export async function GET(
     format?: string;
     error?: string;
     detail?: string;
-    message?: string;
+    preview2dBase64?: string;
   };
 
   if (!res.ok) {
@@ -65,12 +87,30 @@ export async function GET(
 
   if (data.status === "completed" && data.modelBase64 && !data.modelUrl) {
     const persisted = await persistModalModelBase64(data.modelBase64, jobId, user.id);
+    if (projectId) {
+      await persistEditedModelForProject(projectId, persisted.modelUrl, persisted.format);
+    }
     return NextResponse.json({
       ...data,
       modelUrl: persisted.modelUrl,
       format: persisted.format,
+      preview2dUrl: data.preview2dBase64
+        ? `data:image/png;base64,${data.preview2dBase64}`
+        : undefined,
     });
   }
 
-  return NextResponse.json(data, { status: res.status });
+  if (data.status === "completed" && data.modelUrl && projectId) {
+    await persistEditedModelForProject(projectId, data.modelUrl, data.format ?? "glb");
+  }
+
+  return NextResponse.json(
+    {
+      ...data,
+      preview2dUrl: data.preview2dBase64
+        ? `data:image/png;base64,${data.preview2dBase64}`
+        : undefined,
+    },
+    { status: res.status }
+  );
 }
