@@ -189,9 +189,40 @@ Optional: **Authentication** → ensure **Web** redirect URI is listed; add `htt
 
 ## Google Search Console (only if verifying branding / production)
 
-**Do not use DNS TXT** for `dentalsculptor.vercel.app` — you do not control `vercel.app` DNS.
+### Why `*.vercel.app` is painful
 
-Use **URL prefix** + **HTML tag** instead:
+| Property type | Where to type URL | Verification options | Works on Vercel subdomain? |
+|---------------|-------------------|----------------------|----------------------------|
+| **Domain** (left) | `dentalsculptor.vercel.app` — **no** `https://` | DNS TXT **only** | **No** — you do not control `vercel.app` DNS |
+| **URL prefix** (right) | `https://dentalsculptor.vercel.app` — **with** `https://` | HTML tag, HTML file, etc. | **Yes** — if Continue works in your browser |
+
+**Common mistake (see screenshot):** typing `https://dentalsculptor.vercel.app` in the **left** Domain box shows *“Remove protocols and paths”* and only leads to TXT — that path cannot succeed on Vercel.
+
+**URL prefix steps (try once more in Chrome incognito):**
+
+1. Click the **right** card (**URL prefix**), not Domain.
+2. Enter exactly: `https://dentalsculptor.vercel.app`
+3. **Continue** → choose **HTML file** (easiest — no Vercel env var).
+4. Send the downloaded filename + contents to add under `dentalsculptor-app/public/`, deploy, then Verify.
+
+If URL prefix Continue is blank or broken in your browser, skip to **custom domain** below — that is the reliable fix.
+
+### Recommended: custom domain + DNS TXT (Route 53 or any registrar)
+
+Google OAuth branding verification is much easier when you **own** the domain:
+
+1. Register e.g. `dentalsculptor.com` (Route 53, Cloudflare, Namecheap — check whether AWS credits cover registration).
+2. **Vercel** → Project → **Settings → Domains** → add the domain → follow DNS instructions.
+3. Update **Supabase** Site URL + redirect URLs to the new domain.
+4. Update **Google OAuth** home page, privacy, terms, and client origins/redirects.
+5. **Search Console** → **Domain** (left) → enter `dentalsculptor.com` (no `https://`) → add Google’s **TXT** record at your DNS host → Verify.
+6. Retry OAuth **branding re-verification**.
+
+This matches how Google expects production apps to work and avoids Vercel subdomain verification quirks.
+
+### HTML tag on Vercel (if URL prefix works)
+
+**Do not use DNS TXT** for `dentalsculptor.vercel.app` — you do not control `vercel.app` DNS.
 
 1. [search.google.com/search-console](https://search.google.com/search-console) → **Add property** → **URL prefix** → `https://dentalsculptor.vercel.app`
 2. Verification method: **HTML tag** (not Domain / DNS TXT)
@@ -223,7 +254,9 @@ To let **any invited educator** sign in with Google **without** adding their ema
 | Home page | `https://dentalsculptor.vercel.app` |
 | Privacy policy | `https://dentalsculptor.vercel.app/privacy` |
 | Terms of service | `https://dentalsculptor.vercel.app/terms` |
-| Authorized domains | `dentalsculptor.vercel.app`, `supabase.co` |
+| Authorized domains | `dentalsculptor.vercel.app` only (domains you own — **not** `supabase.co`) |
+
+**Important:** Do **not** add `supabase.co` to **Authorized domains** on the consent screen — Google rejects it (“must be a top private domain”) because you do not own Supabase. Put your Supabase callback URL only under **Credentials → OAuth client → Authorized redirect URIs** (see step 2C above).
 
 ### 2. Verify site ownership (Search Console)
 

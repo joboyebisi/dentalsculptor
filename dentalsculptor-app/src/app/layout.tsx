@@ -16,7 +16,9 @@ const jetbrainsMono = JetBrains_Mono({
   variable: "--font-mono",
 });
 
-const googleSiteVerification = process.env.GOOGLE_SITE_VERIFICATION?.trim();
+const googleSiteVerification =
+  process.env.GOOGLE_SITE_VERIFICATION?.trim() ||
+  "Kd8gTflL9eqhRS6aikLAVsvU9qpqIrpajgZ9cqbGM14";
 
 export const metadata: Metadata = {
   title: {
@@ -25,9 +27,7 @@ export const metadata: Metadata = {
   },
   description:
     "Upload dental images and generate editable 3D models for teaching, assessment, and immersive learning.",
-  ...(googleSiteVerification
-    ? { verification: { google: googleSiteVerification } }
-    : {}),
+  verification: { google: googleSiteVerification },
   icons: {
     icon: [
       { url: "/icon.png", type: "image/png", sizes: "32x32" },
