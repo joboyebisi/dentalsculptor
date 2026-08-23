@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthUser } from "@/lib/auth";
+import { getAuthUser, isResearcherOrAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { trackResearchEvent } from "@/lib/research-events";
 
 export async function GET() {
   const user = await getAuthUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isResearcherOrAdmin(user.role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const responses = await prisma.surveyResponse.findMany({
     where: { surveyType: "likert" },

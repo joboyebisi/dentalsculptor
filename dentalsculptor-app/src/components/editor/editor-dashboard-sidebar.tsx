@@ -12,7 +12,7 @@ import {
   User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { NAV_ITEMS } from "@/lib/constants";
+import { useNavItems } from "@/hooks/use-nav-items";
 import { UserMenu } from "@/components/auth/user-menu";
 import { AppLogo } from "@/components/brand/app-logo";
 
@@ -33,6 +33,7 @@ interface EditorDashboardSidebarProps {
 
 export function EditorDashboardSidebar({ open }: EditorDashboardSidebarProps) {
   const pathname = usePathname();
+  const navItems = useNavItems();
 
   return (
     <aside
@@ -46,7 +47,7 @@ export function EditorDashboardSidebar({ open }: EditorDashboardSidebarProps) {
       </div>
 
       <nav className="min-w-sidebar-width flex-1 space-y-1 p-3">
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const Icon = iconMap[item.icon as keyof typeof iconMap];
           const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
 

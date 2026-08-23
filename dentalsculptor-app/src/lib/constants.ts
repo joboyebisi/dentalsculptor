@@ -91,8 +91,20 @@ export const NAV_ITEMS = [
   { href: "/projects", label: "Projects", icon: "FolderOpen" },
   { href: "/community", label: "Community", icon: "Users" },
   { href: "/students", label: "Students", icon: "GraduationCap" },
-  { href: "/research", label: "Research", icon: "BarChart3" },
+  { href: "/research", label: "Research", icon: "BarChart3", researcherOnly: true },
   { href: "/settings", label: "Settings", icon: "Settings" },
 ] as const;
+
+/** Nav items visible for a given role (hides supervisor tools from participants). */
+export function getNavItemsForRole(role: string) {
+  return NAV_ITEMS.filter(
+    (item) => !("researcherOnly" in item && item.researcherOnly) || role === "RESEARCHER" || role === "ADMINISTRATOR"
+  );
+}
+
+/** Roles users may self-select during onboarding (supervisor roles are assigned separately). */
+export const ONBOARDING_ROLES = USER_ROLES.filter(
+  (r) => r.value === "EDUCATOR" || r.value === "STUDENT"
+);
 
 export const RESEARCH_INFO_SHEET_URL = "/research-information-sheet.pdf";

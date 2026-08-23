@@ -194,12 +194,12 @@ function LandingPageContent() {
               (UKRI) Doctoral Mobility Pilot.
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
-              <Link href="/research">
+              <a href="#how-it-works">
                 <Button variant="outline" size="sm">
                   <BookOpen className="mr-2 h-4 w-4" />
-                  Research dashboard
+                  How it works
                 </Button>
-              </Link>
+              </a>
             </div>
           </div>
         </section>

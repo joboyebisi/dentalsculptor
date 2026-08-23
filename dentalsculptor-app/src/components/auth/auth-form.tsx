@@ -101,6 +101,10 @@ export function AuthForm({
       provider,
       options: {
         redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(afterAuthPath)}`,
+        queryParams:
+          provider === "google"
+            ? { prompt: "select_account", access_type: "offline" }
+            : { prompt: "select_account" },
       },
     });
 

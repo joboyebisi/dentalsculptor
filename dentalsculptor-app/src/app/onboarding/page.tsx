@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { USER_ROLES } from "@/lib/constants";
+import { ONBOARDING_ROLES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { getPendingLandingProject } from "@/lib/landing-session";
 
@@ -84,7 +84,7 @@ export default function OnboardingPage() {
                 This helps us personalise your experience
               </p>
               <div className="grid gap-3 sm:grid-cols-2">
-                {USER_ROLES.map((r) => {
+                {ONBOARDING_ROLES.map((r) => {
                   const Icon = roleIcons[r.value as keyof typeof roleIcons];
                   return (
                     <button

@@ -22,7 +22,8 @@
 | [**Deployment Guide**](./docs/DEPLOYMENT.md) | Vercel vs GitHub Pages, env vars, Clerk, Supabase, fal.ai |
 | [**Supabase Setup**](./docs/SUPABASE_SETUP.md) | Database + Storage bucket configuration |
 | [**Environment Variables**](./docs/ENV.md) | `.env` vs `.env.example`, full variable list |
-| [**Progress Tracker**](./docs/PROGRESS.md) | What's done, Phase A status, next steps |
+| [**Sprint Roadmap**](./docs/SPRINT_ROADMAP.md) | **Active task tracker** — OAuth, edit, export, placement, multilayer |
+| [**Supabase OAuth Setup**](./docs/SUPABASE_OAUTH_SETUP.md) | Google + Microsoft SSO configuration |
 | [**Design System**](./DESIGN.md) | Clinical Precision design tokens |
 | [App README](./dentalsculptor-app/README.md) | Setup, env vars, deployment |
 | [Architecture](./dentalsculptor-app/ARCHITECTURE.md) | Database, auth, API overview |
@@ -65,7 +66,7 @@ DentalSculptor/
 | Layer | Technology |
 |-------|------------|
 | Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS 4 |
-| Auth | Clerk |
+| Auth | Supabase Auth |
 | Database | Supabase PostgreSQL + Prisma 7 |
 | Storage | AWS S3 (+ Cloudflare R2 planned) |
 | 3D | Three.js, React Three Fiber, Drei |
