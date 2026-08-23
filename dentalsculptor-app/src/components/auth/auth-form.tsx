@@ -14,9 +14,13 @@ import { cn } from "@/lib/utils";
 
 type AuthMode = "sign-in" | "sign-up";
 
+const MICROSOFT_ENABLED = process.env.NEXT_PUBLIC_ENABLE_MICROSOFT_AUTH === "true";
+
 const OAUTH_PROVIDERS = [
   { id: "google" as const, label: "Google", Icon: GoogleIcon },
-  { id: "azure" as const, label: "Microsoft", Icon: MicrosoftIcon },
+  ...(MICROSOFT_ENABLED
+    ? [{ id: "azure" as const, label: "Microsoft", Icon: MicrosoftIcon }]
+    : []),
 ];
 
 function resolveRedirectPath(redirectUrl: string | null, fallback: string) {

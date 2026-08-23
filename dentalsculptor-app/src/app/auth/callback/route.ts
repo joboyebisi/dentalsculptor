@@ -12,6 +12,12 @@ export async function GET(request: Request) {
     if (!error) {
       return NextResponse.redirect(`${origin}${next.startsWith("/") ? next : `/${next}`}`);
     }
+
+    console.error("[auth/callback]", error.message);
+    const reason = encodeURIComponent(error.message.slice(0, 200));
+    return NextResponse.redirect(
+      `${origin}/sign-in?error=auth_callback_failed&reason=${reason}`
+    );
   }
 
   return NextResponse.redirect(`${origin}/sign-in?error=auth_callback_failed`);

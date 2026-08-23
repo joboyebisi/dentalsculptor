@@ -179,12 +179,13 @@ Users see **two different places** where branding matters:
 
 | Where | What users see today | How to fix |
 |-------|----------------------|------------|
-| **Google consent screen** (“Continue to …”) | Often `ozqaomjpdmdrkxthlhvx.supabase.co` | Google Cloud → **Branding** → app name + logo + publish |
-| **Google sign-in summary email** | “sign in to `….supabase.co`” | Supabase **custom auth domain** (paid) **or** your own domain |
-| **Microsoft login** | Unverified publisher | Publisher domain file (below) + Azure branding |
+| **Google consent screen — “Sign in to …”** | `ozqaomjpdmdrkxthlhvx.supabase.co` | **Supabase custom auth domain** (only reliable fix) |
+| **Google consent screen — app name/logo** | Can show DentalSculptor | Google Cloud → **Branding** + publish (helps, but does **not** replace the domain line above) |
+| **Google sign-in summary email** | “sign in to `….supabase.co`” | Supabase **custom auth domain** |
+| **Microsoft login** | “unverified” / org consent | Publisher domain verify + optional Partner Center verification |
 | **Your app** (sign-in page, nav) | Already DentalSculptor | No change needed |
 
-Supabase sits in the middle of Google/Microsoft OAuth, so Google’s **email** and some **consent** text reference the Supabase project URL until you use a [custom domain for Auth](https://supabase.com/docs/guides/platform/custom-domains) (e.g. `auth.dentalsculptor.com` → Supabase). That is optional for a pilot but recommended before wider rollout.
+**Important:** Google Cloud **Branding** (app name, logo, publish) is still worth doing — but it **cannot** change the **“Sign in to ozqaomjpdmdrkxthlhvx.supabase.co”** line while Supabase sits in the OAuth path. Microsoft looks better because Azure branding applies directly to your app registration. Google shows the **OAuth callback domain**, which is Supabase until you add a [custom domain for Auth](https://supabase.com/docs/guides/platform/custom-domains) (e.g. `auth.dentalsculptor.com`).
 
 ### Google — consent screen (free, do this now)
 
@@ -202,11 +203,54 @@ Supabase sits in the middle of Google/Microsoft OAuth, so Google’s **email** a
 5. Verify site in [Search Console](https://search.google.com/search-console) (HTML tag → `GOOGLE_SITE_VERIFICATION` on Vercel — already wired in the app).
 6. **Publish app** (OAuth consent screen → move from Testing to **In production**).
 
-After publish, the live consent screen should say **DentalSculptor** with your logo. Google’s post-login email may still mention `supabase.co` until you add a Supabase custom auth domain.
+After publish, the consent screen shows **DentalSculptor** and your logo **above** the permissions list — but the **“Sign in to …”** domain line still shows `supabase.co` until you add a Supabase custom auth domain (see below).
 
-### Microsoft — publisher domain (free, do this now)
+### Google — remove `supabase.co` from “Sign in to …” (requires custom domain)
 
-See **Step 3F** above. Host `microsoft-identity-association.json` on Vercel, then verify `dentalsculptor.vercel.app` in Azure **Branding & properties**.
+1. Register a domain you control (e.g. `dentalsculptor.com`) and add it in Vercel.
+2. Supabase → **Project Settings → Custom domains** → add e.g. `auth.dentalsculptor.com`.
+3. In **Google OAuth client → Authorized redirect URIs**, add **both**:
+   - `https://ozqaomjpdmdrkxthlhvx.supabase.co/auth/v1/callback` (keep)
+   - `https://auth.dentalsculptor.com/auth/v1/callback` (new)
+4. Update Supabase Site URL to `https://dentalsculptor.com` (or keep vercel.app during transition).
+
+Until then, Google will keep saying “Sign in to `….supabase.co`” even with perfect GCP branding. For a **pilot**, Google + email/password is enough; fix branding before public launch.
+
+### Microsoft — hide for pilot (recommended)
+
+University Microsoft accounts (`@mmu.ac.uk`, `@chatpye.com`, etc.) often show **“Consent on behalf of your organization”** and require **IT admin approval** — most supervisors cannot self-serve sign-in.
+
+The app **hides Microsoft by default**. On Vercel, leave unset or set:
+
+```env
+NEXT_PUBLIC_ENABLE_MICROSOFT_AUTH=false
+```
+
+Re-enable only after Azure publisher verification **and** Supabase Azure credentials are confirmed working:
+
+```env
+NEXT_PUBLIC_ENABLE_MICROSOFT_AUTH=true
+```
+
+**Do not check** “Consent on behalf of your organization” unless you are an IT admin setting up tenant-wide access.
+
+### Microsoft — “Sign-in could not be completed” after consent
+
+Usually **Supabase Azure provider misconfiguration**:
+
+| Supabase field | Must be |
+|----------------|---------|
+| Client ID | Azure **Application (client) ID** — GUID like `31f606bd-6a1b-408a-b3df-7d55f12e5fc4` |
+| Client Secret | Secret **Value** (`szt8Q~…`) — **not** the Secret ID, **not** pasted into Client ID |
+
+After the next deploy, a failed callback shows the underlying error on the sign-in page (e.g. `invalid_client`).
+
+Also verify in Azure → **Authentication** → redirect URI includes:
+`https://ozqaomjpdmdrkxthlhvx.supabase.co/auth/v1/callback`
+
+### Microsoft — Azure Branding Save button greyed out
+
+**Save** stays disabled until **Publisher domain** is verified (Step 3F). Verify `dentalsculptor.vercel.app` first, then Save becomes active. **Publisher verification** (Partner Center) is optional for pilot — domain verification is enough for login branding.
 
 ### Supabase — emails and “who am I signing into?”
 
