@@ -118,6 +118,26 @@ export async function POST(req: NextRequest) {
       });
       try {
         await createModalGenerationJob(image, jobId, { quality, seed, traceId });
+        logGeneration({
+          traceId,
+          phase: "accepted",
+          provider: "modal",
+          jobId,
+          durationMs: Date.now() - t0,
+          mode: "async",
+        });
+        return NextResponse.json(
+          {
+            source: "modal",
+            requestId: jobId,
+            jobId,
+            jobToken,
+            status: "queued",
+            stage: "queued",
+            progress: 0,
+          },
+          { status: 202 }
+        );
       } catch (error) {
         const errMsg = error instanceof Error ? error.message : "Modal submission failed.";
         logGeneration({
@@ -131,65 +151,70 @@ export async function POST(req: NextRequest) {
         if (isModalAsyncDisabledError(errMsg)) {
           logGeneration({
             traceId,
-            phase: "failed",
+            phase: "fallback",
             provider: "modal",
             jobId,
-            error: errMsg,
-            detail: modalAsyncDisabledHint(),
+            detail: "Async S3 disabled on worker — using sync Modal generate.",
           });
           await prisma.generationJob.delete({ where: { id: jobId } }).catch(() => undefined);
-          return NextResponse.json(
-            {
-              error:
-                "Generation service is misconfigured. The admin needs to redeploy Modal with async S3 enabled.",
-              traceId,
-              detail: modalAsyncDisabledHint(),
+          // Fall through to sync MODAL_GENERATE_URL below.
+        } else {
+          await prisma.generationJob.update({
+            where: { id: jobId },
+            data: {
+              status: "FAILED",
+              stage: "failed",
+              progress: 100,
+              error: errMsg,
+              completedAt: new Date(),
             },
-            { status: 503 }
-          );
+          });
+          throw error;
         }
-        await prisma.generationJob.update({
-          where: { id: jobId },
-          data: {
-            status: "FAILED",
-            stage: "failed",
-            progress: 100,
-            error: errMsg,
-            completedAt: new Date(),
-          },
-        });
-        throw error;
       }
-      logGeneration({
-        traceId,
-        phase: "accepted",
-        provider: "modal",
-        jobId,
-        durationMs: Date.now() - t0,
-        mode: "async",
-      });
-      return NextResponse.json(
-        {
-          source: "modal",
-          requestId: jobId,
-          jobId,
-          jobToken,
-          status: "queued",
-          stage: "queued",
-          progress: 0,
-        },
-        { status: 202 }
-      );
     }
 
-    const result =
-      provider === "modal"
-        ? await generateMeshViaModal(image, user?.id ?? "anonymous", {
-            quality,
-            seed,
-            traceId,
-          })
-        : await generateMeshFromImage(image);
+    if (provider === "modal") {
+      const result = await generateMeshViaModal(image, user?.id ?? "anonymous", {
+        quality,
+        seed,
+        traceId,
+      });
+
+      logGeneration({
+        traceId,
+        phase: "complete",
+        provider: "modal",
+        durationMs: Date.now() - t0,
+        format: result.format,
+        mode: "sync",
+      });
+
+      if (user && projectId && !isUiPreviewMode()) {
+        await trackResearchEvent({
+          userId: user.id,
+          projectId,
+          eventType: "MODEL_GENERATED",
+          metadata: {
+            provider: "modal",
+            format: result.format,
+            requestId: result.requestId,
+          },
+        });
+      }
+
+      return NextResponse.json({
+        source: "modal",
+        modelUrl: result.modelUrl,
+        thumbnailUrl: result.thumbnailUrl,
+        textureUrl: result.textureUrl,
+        mtlUrl: result.mtlUrl,
+        format: result.format,
+        requestId: result.requestId,
+      });
+    }
+
+    const result = await generateMeshFromImage(image);
 
     logGeneration({
       traceId,

@@ -247,7 +247,7 @@ export default function NewProjectPage() {
               <div className="mt-4">
                 <GenerationImageControls
                   disabled={processing}
-                  onRotate={(dir) => void rotateImage(dir)}
+                  onRotate={() => void rotateImage("cw")}
                 />
               </div>
             )}

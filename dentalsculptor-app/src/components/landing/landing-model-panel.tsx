@@ -16,6 +16,7 @@ import { createProjectFromLandingPayload } from "@/lib/create-landing-project";
 import { GENERATION_COPY } from "@/lib/generation-copy";
 import { GenerationProgressDisplay } from "@/components/generation/generation-progress-display";
 import { projectFileName } from "@/lib/editor-segmentation";
+import { LANDING_WORKBENCH_HEIGHT } from "@/components/landing/landing-workbench-heights";
 
 export function LandingModelPanel() {
   const router = useRouter();
@@ -134,7 +135,10 @@ export function LandingModelPanel() {
 
   return (
     <div className="flex w-full flex-col">
-      <div className="relative h-[420px] overflow-hidden rounded-xl border border-border-subtle bg-surface-container-low md:h-[500px]">
+      <div
+        className="relative h-[380px] overflow-hidden rounded-xl border border-border-subtle bg-surface-container-low sm:h-[420px] lg:h-[var(--workbench-h)]"
+        style={{ ["--workbench-h" as string]: LANDING_WORKBENCH_HEIGHT }}
+      >
         {hasModel && modelQuality === "preview" && !isEnhancing && (
           <span className="absolute left-3 top-3 z-10 rounded-full bg-warning/90 px-2.5 py-1 text-xs font-medium text-white">
             Preview

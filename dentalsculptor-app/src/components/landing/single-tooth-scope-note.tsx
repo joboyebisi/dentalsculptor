@@ -1,11 +1,11 @@
 import { Info } from "lucide-react";
 
 /** Beta scope notice — placed below the upload card on landing. */
-export function SingleToothScopeNote() {
+export function SingleToothScopeNote({ className }: { className?: string }) {
   return (
     <div
       role="note"
-      className="mt-4 rounded-lg border border-outline-variant bg-surface-container-low px-4 py-3"
+      className={`rounded-lg border border-outline-variant bg-surface-container-low px-4 py-3 ${className ?? ""}`}
     >
       <div className="flex gap-3">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary-container" aria-hidden />

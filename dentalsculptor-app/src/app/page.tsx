@@ -91,13 +91,13 @@ function LandingPageContent() {
         </section>
 
         {/* Interactive workbench */}
-        <section id="workbench" className="border-b border-border-subtle py-16 md:py-20">
+        <section id="workbench" className="border-b border-border-subtle py-10 md:py-12 lg:py-8">
           <div className="mx-auto max-w-6xl px-margin-page">
-            <div className="mb-10 text-center">
+            <div className="mb-6 text-center lg:mb-4">
               <h2 className="text-headline-md font-semibold text-text-main md:text-display-lg">
                 Create a model
               </h2>
-              <p className="mx-auto mt-2 max-w-xl text-body-md text-on-surface-variant">
+              <p className="mx-auto mt-1 max-w-xl text-body-md text-on-surface-variant">
                 Upload an image and view the 3D reconstruction below.
               </p>
             </div>
