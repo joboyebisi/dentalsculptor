@@ -341,9 +341,12 @@ export function CaseWizardDialog({ open, onClose, onContinue, applying = false }
               selectedTemplate && (
                 <>
                   <h1 className="mb-2 text-headline-md font-semibold text-on-surface">Clinical parameters</h1>
-                  <p className="mb-6 max-w-2xl text-body-sm text-on-surface-variant">
-                    Confirm FDI tooth, lesion or prep details, and protected tissues. These values are saved
-                    with the project and drive assessment roles.
+                  <p className="mb-2 max-w-2xl text-body-sm text-on-surface-variant">
+                    Fields marked <span className="text-error">*</span> are required. For mask edits, confirming{" "}
+                    <strong>Tooth (FDI)</strong> is enough — other fields enrich teaching notes and assessment.
+                  </p>
+                  <p className="mb-6 max-w-2xl text-[11px] text-on-surface-variant">
+                    We do not auto-detect tooth number from photos; FDI drives edit presets and suggested prompts.
                   </p>
 
                   <CaseWizardClinicalForm

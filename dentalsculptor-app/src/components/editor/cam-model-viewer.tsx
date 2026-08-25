@@ -72,6 +72,8 @@ interface CamModelViewerProps {
   className?: string;
   onModelStatusChange?: (status: ModelLoadStatus, detail?: string) => void;
   interactionMode?: ViewerInteractionMode;
+  /** Fired when the user finishes orbiting/panning/zooming the camera. */
+  onViewChange?: () => void;
 }
 
 function computeRemoteModelVisuals(
@@ -364,6 +366,7 @@ function SceneContent({
   onModelLoaded,
   onModelError,
   interactionMode = "orbit",
+  onViewChange,
 }: {
   meshData?: GeneratedMesh | null;
   modelUrl?: string | null;
@@ -384,6 +387,7 @@ function SceneContent({
   onModelLoaded?: (info: { meshCount: number }) => void;
   onModelError?: (message: string) => void;
   interactionMode?: ViewerInteractionMode;
+  onViewChange?: () => void;
 }) {
   const mouseButtons =
     interactionMode === "pan"
@@ -452,6 +456,7 @@ function SceneContent({
         minDistance={0.5}
         maxDistance={50}
         mouseButtons={mouseButtons}
+        onEnd={() => onViewChange?.()}
       />
 
       <CameraRig
@@ -610,6 +615,7 @@ export const CamModelViewer = forwardRef<CamViewerHandle, CamModelViewerProps>(f
     className = "h-full w-full",
     onModelStatusChange,
     interactionMode = "orbit",
+    onViewChange,
   },
   ref
 ) {
@@ -855,6 +861,7 @@ export const CamModelViewer = forwardRef<CamViewerHandle, CamModelViewerProps>(f
             onModelLoaded={handleModelLoaded}
             onModelError={handleModelError}
             interactionMode={interactionMode}
+            onViewChange={onViewChange}
           />
           <RaycastBridge meshGroupRef={meshGroupRef} raycastRef={raycastRef} />
           <CaptureBridge

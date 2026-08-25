@@ -187,6 +187,47 @@ export const ANATOMY_CLINICAL_FIELDS: ClinicalParameterField[] = [
   },
 ];
 
+/** Pathology add-on — FDI required for edit presets; other fields optional for teaching. */
+export const PATHOLOGY_CLINICAL_FIELDS: ClinicalParameterField[] = [
+  {
+    id: "fdiTooth",
+    label: "Tooth (FDI)",
+    type: "fdi-tooth",
+    required: true,
+    mapsTo: "anatomy-label",
+    helpText:
+      "Required — confirms edit presets and suggested prompts match your model. We do not auto-detect tooth number from photos.",
+  },
+  {
+    id: "toothType",
+    label: "Tooth type",
+    type: "select",
+    required: false,
+    options: [
+      { value: "incisor", label: "Incisor" },
+      { value: "canine", label: "Canine" },
+      { value: "premolar", label: "Premolar" },
+      { value: "molar", label: "Molar" },
+    ],
+    helpText: "Auto-filled from FDI — adjust only if the photo shows a different tooth type.",
+  },
+  {
+    id: "structuresToLabel",
+    label: "Structures to identify",
+    type: "multiselect",
+    required: false,
+    options: [
+      { value: "cusps", label: "Cusps" },
+      { value: "fossae", label: "Fossae" },
+      { value: "grooves", label: "Grooves / fissures" },
+      { value: "marginal-ridge", label: "Marginal ridge" },
+      { value: "cervical-line", label: "CEJ / cervical line" },
+    ],
+    mapsTo: "learner-task",
+    helpText: "Optional — for learner checklists, not required to run mask edits.",
+  },
+];
+
 export const CROWN_PREP_CLINICAL_FIELDS: ClinicalParameterField[] = [
   {
     id: "fdiTooth",

@@ -136,7 +136,7 @@ export function EditorWorkspace({
   const [learningObjectives, setLearningObjectives] = useState(project.learningObjectives);
   const [instructions, setInstructions] = useState(project.instructions);
   const [brushMode, setBrushMode] = useState<MaskBrushMode>("paint");
-  const [brushSize, setBrushSize] = useState(20);
+  const [brushSize, setBrushSize] = useState(12);
   const [editOperation, setEditOperation] = useState<EditOperation>(
     initialTemplate?.defaultOperation ?? "remove"
   );
@@ -168,19 +168,37 @@ export function EditorWorkspace({
   const [maskHasStrokes, setMaskHasStrokes] = useState(false);
   const [viewerInteractionMode, setViewerInteractionMode] = useState<ViewerInteractionMode>("orbit");
   const [navigateHeld, setNavigateHeld] = useState(false);
+  const [maskNotice, setMaskNotice] = useState<string | null>(null);
+  const navigateHeldRef = useRef(false);
+  const maskModeRef = useRef(false);
   const [floatingPanels, setFloatingPanels] = useState({
-    maskContext: true,
-    workflow: true,
-    editActions: true,
-    maskToolbar: true,
-    presets: true,
-    caseContext: true,
+    maskContext: { minimized: false },
+    workflow: { minimized: false },
+    editActions: { minimized: false },
+    maskToolbar: { minimized: false },
+    presets: { minimized: false },
+    caseContext: { minimized: false },
   });
-  const closeFloatingPanel = useCallback(
-    (key: keyof typeof floatingPanels) =>
-      setFloatingPanels((prev) => ({ ...prev, [key]: false })),
+  type FloatingPanelKey = keyof typeof floatingPanels;
+  const minimizeFloatingPanel = useCallback(
+    (key: FloatingPanelKey) =>
+      setFloatingPanels((prev) => ({ ...prev, [key]: { minimized: true } })),
     []
   );
+  const restoreFloatingPanel = useCallback(
+    (key: FloatingPanelKey) =>
+      setFloatingPanels((prev) => ({ ...prev, [key]: { minimized: false } })),
+    []
+  );
+  const openMaskEditPanels = useCallback(() => {
+    setFloatingPanels((prev) => ({
+      ...prev,
+      maskContext: { minimized: false },
+      presets: { minimized: false },
+      maskToolbar: { minimized: false },
+      editActions: { minimized: false },
+    }));
+  }, []);
   const [modelSelected, setModelSelected] = useState(false);
   const [activePartId, setActivePartId] = useState<string | null>(null);
   const [modelLoadStatus, setModelLoadStatus] = useState<ModelLoadStatus>(
@@ -199,9 +217,12 @@ export function EditorWorkspace({
 
   const markMode = activeTool === "mark";
   const maskMode = activeTool === "mask";
+  maskModeRef.current = maskMode;
   const selectMode = activeTool === "select" && !maskMode;
   const hasModel = Boolean(meshData?.vertices?.length) || Boolean(modelUrl);
   const hasPartSelection = segmentParts.some((p) => p.visible);
+  /** Mask canvas is screen-fixed — only show while the Mask tool is active. */
+  const maskOverlayVisible = maskMode && hasModel;
   const maskVisible = hasModel && (maskMode || maskHasStrokes || maskCoverage > 0);
   const regionAttachments = rectMarks.map((m, i) => attachmentFromRectMark(m, i + 1));
   const hasSpatialEditTarget =
@@ -214,12 +235,38 @@ export function EditorWorkspace({
     [caseRecipe, selectedCase]
   );
   const activeEditPreset = activePresetId ? getEditPreset(activePresetId) ?? null : null;
-  const showEditPresets = maskVisible;
+  const showEditPresets = maskVisible || (Boolean(selectedCase) && maskMode);
   const editWorkflowStep = resolveEditWorkflowStep({
     hasMask: maskHasStrokes || maskCoverage > 0 || rectMarks.length > 0,
     hasInstruction: Boolean(aiPrompt.trim()),
     hasPreview: Boolean(afterPreview),
   });
+
+  const clearMaskPaint = useCallback((notice?: string) => {
+    maskOverlayRef.current?.clear();
+    setMaskCoverage(0);
+    setMaskHasStrokes(false);
+    if (notice) setMaskNotice(notice);
+  }, []);
+
+  const handleViewChange = useCallback(() => {
+    if (!maskModeRef.current || navigateHeldRef.current) return;
+    if (maskOverlayRef.current?.hasStrokes()) {
+      clearMaskPaint(
+        "View changed — mask cleared. Hold Space to rotate without clearing, then repaint."
+      );
+    }
+  }, [clearMaskPaint]);
+
+  useEffect(() => {
+    navigateHeldRef.current = navigateHeld;
+  }, [navigateHeld]);
+
+  useEffect(() => {
+    if (!maskNotice) return;
+    const id = window.setTimeout(() => setMaskNotice(null), 5000);
+    return () => window.clearTimeout(id);
+  }, [maskNotice]);
 
   useEffect(() => {
     let cancelled = false;
@@ -310,11 +357,17 @@ export function EditorWorkspace({
       return;
     }
     if (tool === "zoom-in") {
+      if (maskMode && (maskHasStrokes || maskCoverage > 0)) {
+        clearMaskPaint("Zoom changes the view — mask cleared. Repaint on the tooth.");
+      }
       viewerRef.current?.zoomIn();
       triggerSFX("tool-click");
       return;
     }
     if (tool === "zoom-out") {
+      if (maskMode && (maskHasStrokes || maskCoverage > 0)) {
+        clearMaskPaint("Zoom changes the view — mask cleared. Repaint on the tooth.");
+      }
       viewerRef.current?.zoomOut();
       triggerSFX("tool-click");
       return;
@@ -344,6 +397,19 @@ export function EditorWorkspace({
       return;
     }
     triggerSFX("tool-click");
+    const NAVIGATION_TOOLS: EditorTool[] = ["pan", "select", "zoom-in", "zoom-out"];
+    if (
+      tool !== "mask" &&
+      tool !== "mark" &&
+      NAVIGATION_TOOLS.includes(tool) &&
+      (maskHasStrokes || maskCoverage > 0)
+    ) {
+      clearMaskPaint(
+        tool === "pan"
+          ? "Pan moves the model — mask cleared. Switch back to Mask and repaint on the tooth."
+          : "Mask cleared — it was tied to the previous view. Repaint after moving the model."
+      );
+    }
     setActiveTool(tool);
     setViewerInteractionMode(tool === "pan" ? "pan" : "orbit");
   };
@@ -403,12 +469,12 @@ export function EditorWorkspace({
       if (payload.template.defaultOperation) setEditOperation(payload.template.defaultOperation);
       setActiveTool("select");
       setFloatingPanels({
-        maskContext: true,
-        workflow: true,
-        editActions: true,
-        maskToolbar: true,
-        presets: false,
-        caseContext: true,
+        maskContext: { minimized: false },
+        workflow: { minimized: true },
+        editActions: { minimized: false },
+        maskToolbar: { minimized: false },
+        presets: { minimized: false },
+        caseContext: { minimized: true },
       });
       setCaseWizardOpen(false);
       track("LEARNING_OBJECTIVE_CREATED", projectId, {
@@ -895,22 +961,30 @@ export function EditorWorkspace({
               className="absolute inset-0"
               onModelStatusChange={handleModelStatusChange}
               interactionMode={viewerInteractionMode}
+              onViewChange={handleViewChange}
             />
 
             <MaskPaintOverlay
               ref={maskOverlayRef}
               interactive={maskMode && hasModel && !navigateHeld}
-              visible={maskVisible}
+              visible={maskOverlayVisible}
               brushSize={brushSize}
               brushMode={brushMode}
               onStrokeEnd={bumpMaskCoverage}
               onStrokesChange={setMaskHasStrokes}
             />
 
+            {maskNotice && (
+              <div className="pointer-events-none absolute bottom-4 left-1/2 z-30 max-w-md -translate-x-1/2 rounded-lg border border-amber-300/60 bg-amber-50/95 px-4 py-2 text-center text-[11px] leading-snug text-amber-950 shadow-md backdrop-blur-sm">
+                {maskNotice}
+              </div>
+            )}
+
             <EditorMaskContextPanel
               visible={maskVisible}
-              open={floatingPanels.maskContext}
-              onClose={() => closeFloatingPanel("maskContext")}
+              minimized={floatingPanels.maskContext.minimized}
+              onMinimize={() => minimizeFloatingPanel("maskContext")}
+              onRestore={() => restoreFloatingPanel("maskContext")}
               coveragePercent={maskCoverage}
               revisionLabel={`v${revisionVersion}`}
               operation={editOperation}
@@ -919,8 +993,9 @@ export function EditorWorkspace({
 
             <EditorEditWorkflowPanel
               visible={maskVisible}
-              open={floatingPanels.workflow}
-              onClose={() => closeFloatingPanel("workflow")}
+              minimized={floatingPanels.workflow.minimized}
+              onMinimize={() => minimizeFloatingPanel("workflow")}
+              onRestore={() => restoreFloatingPanel("workflow")}
               selectedCase={selectedCase}
               activeTool={activeTool}
               editOperation={editOperation}
@@ -931,8 +1006,9 @@ export function EditorWorkspace({
 
             <EditorCaseContextPanel
               visible={maskVisible && Boolean(selectedCase)}
-              open={floatingPanels.caseContext}
-              onClose={() => closeFloatingPanel("caseContext")}
+              minimized={floatingPanels.caseContext.minimized}
+              onMinimize={() => minimizeFloatingPanel("caseContext")}
+              onRestore={() => restoreFloatingPanel("caseContext")}
               selectedCase={selectedCase}
               caseRecipe={caseRecipe}
             />
@@ -949,17 +1025,24 @@ export function EditorWorkspace({
 
             <EditorEditPresetsBar
               visible={showEditPresets}
-              open={floatingPanels.presets}
-              onClose={() => closeFloatingPanel("presets")}
+              minimized={floatingPanels.presets.minimized}
+              onMinimize={() => minimizeFloatingPanel("presets")}
+              onRestore={() => restoreFloatingPanel("presets")}
               context={editPresetContext}
+              selectedCase={selectedCase}
               activePresetId={activePresetId}
+              selectedSuggestedPrompt={selectedSuggestedPrompt ?? (aiPrompt.trim() || null)}
+              activeOperation={editOperation}
+              maskCoverage={maskCoverage}
               onSelect={handlePresetSelect}
+              onSelectSuggestedPrompt={handleSelectSuggestedPrompt}
             />
 
             <EditorEditActions
               visible={maskVisible}
-              open={floatingPanels.editActions}
-              onClose={() => closeFloatingPanel("editActions")}
+              minimized={floatingPanels.editActions.minimized}
+              onMinimize={() => minimizeFloatingPanel("editActions")}
+              onRestore={() => restoreFloatingPanel("editActions")}
               previewLoading={previewLoading}
               generateLoading={editJobLoading}
               canPreview={Boolean(aiPrompt.trim()) && hasSpatialEditTarget}
@@ -971,8 +1054,9 @@ export function EditorWorkspace({
             {maskVisible && (
               <EditorMaskToolbar
                 visible
-                open={floatingPanels.maskToolbar}
-                onClose={() => closeFloatingPanel("maskToolbar")}
+                minimized={floatingPanels.maskToolbar.minimized}
+                onMinimize={() => minimizeFloatingPanel("maskToolbar")}
+                onRestore={() => restoreFloatingPanel("maskToolbar")}
                 brushMode={brushMode}
                 onBrushModeChange={setBrushMode}
                 brushSize={brushSize}
@@ -1048,6 +1132,7 @@ export function EditorWorkspace({
           onStartMaskEdit={() => {
             if (selectedCase?.defaultOperation) setEditOperation(selectedCase.defaultOperation);
             setActiveTool("mask");
+            openMaskEditPanels();
           }}
         />
       </div>

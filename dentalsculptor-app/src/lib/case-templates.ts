@@ -14,6 +14,7 @@ import type {
 } from "@/lib/clinical-case-params";
 import {
   ANATOMY_CLINICAL_FIELDS,
+  PATHOLOGY_CLINICAL_FIELDS,
   CARIES_CLINICAL_FIELDS,
   CROWN_PREP_CLINICAL_FIELDS,
   ENDO_ACCESS_CLINICAL_FIELDS,
@@ -409,7 +410,7 @@ export const CASE_TEMPLATES: CaseTemplate[] = [
     shortDescription: "Add a fractured cusp for emergency and restorative teaching.",
     workflow: "from-existing-model",
     studentYearLevels: [3, 4, 5],
-    clinicalParameterFields: ANATOMY_CLINICAL_FIELDS,
+    clinicalParameterFields: PATHOLOGY_CLINICAL_FIELDS,
     defaultAnatomyRoles: [
       { partLabel: "Fractured cusp", role: "target" },
       { partLabel: "Remaining tooth", role: "context" },

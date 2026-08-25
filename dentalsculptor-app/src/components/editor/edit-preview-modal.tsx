@@ -129,8 +129,9 @@ export function EditPreviewModal({
 
 interface EditorEditActionsProps {
   visible: boolean;
-  open: boolean;
-  onClose: () => void;
+  minimized: boolean;
+  onMinimize: () => void;
+  onRestore: () => void;
   previewLoading?: boolean;
   generateLoading?: boolean;
   canPreview: boolean;
@@ -141,8 +142,9 @@ interface EditorEditActionsProps {
 
 export function EditorEditActions({
   visible,
-  open,
-  onClose,
+  minimized,
+  onMinimize,
+  onRestore,
   previewLoading,
   generateLoading,
   canPreview,
@@ -156,8 +158,10 @@ export function EditorEditActions({
     <FloatingEditorPanel
       id="edit-actions"
       title="Edit actions"
-      open={open}
-      onClose={onClose}
+      open
+      minimized={minimized}
+      onMinimize={onMinimize}
+      onRestore={onRestore}
       defaultPosition={{ x: 720, y: 16 }}
       bodyClassName="flex w-44 flex-col gap-2 p-2"
     >
@@ -188,8 +192,9 @@ export function EditorEditActions({
 
 interface EditorMaskContextPanelProps {
   visible: boolean;
-  open: boolean;
-  onClose: () => void;
+  minimized: boolean;
+  onMinimize: () => void;
+  onRestore: () => void;
   coveragePercent: number;
   revisionLabel?: string;
   operation?: EditOperation;
@@ -198,8 +203,9 @@ interface EditorMaskContextPanelProps {
 
 export function EditorMaskContextPanel({
   visible,
-  open,
-  onClose,
+  minimized,
+  onMinimize,
+  onRestore,
   coveragePercent,
   revisionLabel = "v1",
   operation = "remove",
@@ -213,8 +219,10 @@ export function EditorMaskContextPanel({
     <FloatingEditorPanel
       id="mask-context"
       title={`Mask edit · ${revisionLabel}`}
-      open={open}
-      onClose={onClose}
+      open
+      minimized={minimized}
+      onMinimize={onMinimize}
+      onRestore={onRestore}
       defaultPosition={{ x: 16, y: 16 }}
       bodyClassName="w-56 space-y-0 p-3"
     >
@@ -235,10 +243,10 @@ export function EditorMaskContextPanel({
           style={{ width: `${Math.min(100, coveragePercent)}%` }}
         />
       </div>
-      <p className="text-xs text-on-surface-variant">
+      <p className="text-xs leading-relaxed text-on-surface-variant">
         Paint the region to {operation}, then preview the 2D change before running the 3D edit.
-        Hold <kbd className="rounded bg-surface-container-high px-1">Space</kbd> or use middle-mouse to
-        rotate the model.
+        Hold <kbd className="rounded bg-surface-container-high px-1">Space</kbd> to rotate without clearing
+        the mask, or use middle-mouse. Pan/select clears the mask when the view moves.
       </p>
     </FloatingEditorPanel>
   );

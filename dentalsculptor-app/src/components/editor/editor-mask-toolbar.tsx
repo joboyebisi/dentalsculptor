@@ -9,8 +9,9 @@ import { operationLabel } from "@/lib/edit-workflow-steps";
 
 interface EditorMaskToolbarProps {
   visible: boolean;
-  open: boolean;
-  onClose: () => void;
+  minimized: boolean;
+  onMinimize: () => void;
+  onRestore: () => void;
   brushMode: MaskBrushMode;
   onBrushModeChange: (mode: MaskBrushMode) => void;
   brushSize: number;
@@ -25,8 +26,9 @@ const OPERATIONS: EditOperation[] = ["add", "remove", "replace"];
 
 export function EditorMaskToolbar({
   visible,
-  open,
-  onClose,
+  minimized,
+  onMinimize,
+  onRestore,
   brushMode,
   onBrushModeChange,
   brushSize,
@@ -42,8 +44,10 @@ export function EditorMaskToolbar({
     <FloatingEditorPanel
       id="mask-toolbar"
       title="Mask brush"
-      open={open}
-      onClose={onClose}
+      open
+      minimized={minimized}
+      onMinimize={onMinimize}
+      onRestore={onRestore}
       defaultPosition={{ x: 200, y: 560 }}
       bodyClassName="p-1.5"
     >
@@ -98,13 +102,16 @@ export function EditorMaskToolbar({
 
         <input
           type="range"
-          min={8}
-          max={64}
+          min={4}
+          max={40}
           value={brushSize}
           onChange={(e) => onBrushSizeChange(Number(e.target.value))}
-          className="h-1 w-16 cursor-pointer accent-primary-container"
+          className="h-1 w-14 cursor-pointer accent-primary-container"
           aria-label="Brush size"
         />
+        <span className="min-w-[2rem] font-mono text-[10px] tabular-nums text-on-surface-variant">
+          {brushSize}px
+        </span>
 
         <button type="button" title="Undo" onClick={onUndo} className="rounded-md p-1.5 text-on-surface-variant hover:bg-surface-container-high">
           <Undo2 className="h-3.5 w-3.5" />

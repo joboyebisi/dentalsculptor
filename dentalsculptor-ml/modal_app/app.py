@@ -68,6 +68,8 @@ cpu_image = modal.Image.debian_slim(python_version="3.11").pip_install(
     "boto3>=1.35.0",
     "pillow>=10.0.0",
     "numpy>=1.26.0",
+    "scipy>=1.11.0",
+    "networkx>=3.0",
     "trimesh>=4.0.0",
 ).env(modal_runtime_env())
 weights_image = cpu_image.pip_install("huggingface-hub>=0.34.0")

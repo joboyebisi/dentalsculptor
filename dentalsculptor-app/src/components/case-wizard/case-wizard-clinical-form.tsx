@@ -171,5 +171,10 @@ export function defaultClinicalValues(fields: ClinicalParameterField[]): Clinica
     else if (field.type === "multiselect") values[field.id] = [];
     else values[field.id] = "";
   }
+  const fdi = typeof values.fdiTooth === "string" ? values.fdiTooth : undefined;
+  if (fdi && fields.some((f) => f.id === "toothType")) {
+    const inferred = fdiToothType(fdi);
+    if (inferred) values.toothType = inferred;
+  }
   return values;
 }

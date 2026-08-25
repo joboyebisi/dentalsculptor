@@ -1,14 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { GripVertical, X } from "lucide-react";
+import { ChevronUp, GripVertical, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface FloatingEditorPanelProps {
   id: string;
   title: string;
+  /** Expanded panel body visible. */
   open: boolean;
-  onClose: () => void;
+  /** Collapsed to title bar only — use X to minimize, not remove. */
+  minimized?: boolean;
+  onMinimize: () => void;
+  onRestore: () => void;
   defaultPosition?: { x: number; y: number };
   className?: string;
   bodyClassName?: string;
@@ -32,12 +36,14 @@ function loadPosition(id: string, fallback: { x: number; y: number }) {
   return fallback;
 }
 
-/** Draggable, closeable overlay panel for the editor viewport. */
+/** Draggable floating panel — close (X) minimizes; click minimized bar to expand. */
 export function FloatingEditorPanel({
   id,
   title,
   open,
-  onClose,
+  minimized = false,
+  onMinimize,
+  onRestore,
   defaultPosition = { x: 16, y: 16 },
   className,
   bodyClassName,
@@ -99,35 +105,49 @@ export function FloatingEditorPanel({
       className={cn(
         "absolute z-20 max-w-[min(100%,760px)] rounded-lg border border-outline-variant bg-surface/95 shadow-md backdrop-blur-md",
         interactive ? "pointer-events-auto" : "pointer-events-none",
+        minimized && "opacity-95",
         className
       )}
       style={{ left: pos.x, top: pos.y }}
     >
       <div
         className={cn(
-          "flex items-center justify-between gap-2 border-b border-outline-variant/50 px-2 py-1.5",
+          "flex items-center justify-between gap-2 border-outline-variant/50 px-2 py-1.5",
+          !minimized && "border-b",
           interactive && "cursor-grab active:cursor-grabbing"
         )}
         onPointerDown={interactive ? onHeaderPointerDown : undefined}
         onPointerMove={interactive ? onHeaderPointerMove : undefined}
         onPointerUp={interactive ? onHeaderPointerUp : undefined}
       >
-        <div className="flex min-w-0 items-center gap-1 font-mono text-[10px] uppercase tracking-wider text-on-surface-variant">
+        <button
+          type="button"
+          onClick={minimized ? onRestore : undefined}
+          className={cn(
+            "flex min-w-0 flex-1 items-center gap-1 font-mono text-[10px] uppercase tracking-wider text-on-surface-variant",
+            minimized && interactive && "cursor-pointer hover:text-on-surface"
+          )}
+        >
           {interactive && <GripVertical className="h-3 w-3 shrink-0" aria-hidden />}
           <span className="truncate">{title}</span>
-        </div>
+        </button>
         {interactive && (
           <button
             type="button"
-            onClick={onClose}
+            onClick={minimized ? onRestore : onMinimize}
             className="shrink-0 rounded p-1 text-on-surface-variant transition-colors hover:bg-surface-container-high"
-            aria-label={`Close ${title}`}
+            aria-label={minimized ? `Expand ${title}` : `Minimize ${title}`}
+            title={minimized ? "Expand panel" : "Minimize panel"}
           >
-            <X className="h-3.5 w-3.5" />
+            {minimized ? (
+              <ChevronUp className="h-3.5 w-3.5" />
+            ) : (
+              <X className="h-3.5 w-3.5" />
+            )}
           </button>
         )}
       </div>
-      <div className={cn("p-3", bodyClassName)}>{children}</div>
+      {!minimized && <div className={cn("p-3", bodyClassName)}>{children}</div>}
     </div>
   );
 }

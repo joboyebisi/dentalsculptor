@@ -8,8 +8,9 @@ import { toothTypeLabel, fdiToothType } from "@/lib/tooth-taxonomy";
 
 interface EditorCaseContextPanelProps {
   visible: boolean;
-  open: boolean;
-  onClose: () => void;
+  minimized: boolean;
+  onMinimize: () => void;
+  onRestore: () => void;
   selectedCase: CaseTemplate | null;
   caseRecipe: CaseRecipe | null;
 }
@@ -17,8 +18,9 @@ interface EditorCaseContextPanelProps {
 /** Shows the active teaching case — edit instructions come from the case wizard, not ad-hoc presets. */
 export function EditorCaseContextPanel({
   visible,
-  open,
-  onClose,
+  minimized,
+  onMinimize,
+  onRestore,
   selectedCase,
   caseRecipe,
 }: EditorCaseContextPanelProps) {
@@ -34,8 +36,10 @@ export function EditorCaseContextPanel({
     <FloatingEditorPanel
       id="case-context"
       title="Teaching case"
-      open={open}
-      onClose={onClose}
+      open
+      minimized={minimized}
+      onMinimize={onMinimize}
+      onRestore={onRestore}
       defaultPosition={{ x: 16, y: 200 }}
       bodyClassName="w-64 space-y-2 p-3"
     >

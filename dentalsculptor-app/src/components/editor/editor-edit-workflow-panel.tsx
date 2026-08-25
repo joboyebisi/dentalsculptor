@@ -8,8 +8,9 @@ import { FloatingEditorPanel } from "@/components/editor/floating-editor-panel";
 
 interface EditorEditWorkflowPanelProps {
   visible: boolean;
-  open: boolean;
-  onClose: () => void;
+  minimized: boolean;
+  onMinimize: () => void;
+  onRestore: () => void;
   selectedCase: CaseTemplate | null;
   activeTool: string;
   editOperation: EditOperation;
@@ -70,8 +71,9 @@ function stepActive(
 
 export function EditorEditWorkflowPanel({
   visible,
-  open,
-  onClose,
+  minimized,
+  onMinimize,
+  onRestore,
   selectedCase,
   activeTool,
   editOperation,
@@ -94,8 +96,10 @@ export function EditorEditWorkflowPanel({
     <FloatingEditorPanel
       id="edit-workflow"
       title="Edit workflow"
-      open={open}
-      onClose={onClose}
+      open
+      minimized={minimized}
+      onMinimize={onMinimize}
+      onRestore={onRestore}
       defaultPosition={{ x: 16, y: 280 }}
       bodyClassName={cn("w-64 p-3", className)}
     >
