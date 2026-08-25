@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Check, Download, X, AlertTriangle, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,14 @@ import {
 import type { ExportValidationReport } from "@/lib/export-mesh";
 import type { ExportScope, MeshExportFormat } from "@/lib/export-mesh";
 import { cn } from "@/lib/utils";
+import type { CaseRecipe } from "@/lib/clinical-case-params";
+import type { CaseTemplate } from "@/lib/case-templates";
+import { getExportPreset } from "@/lib/export-presets";
+import {
+  listExportAssetOptions,
+  type ExportAssetId,
+} from "@/lib/export-asset-options";
+import { buildExportReadme, downloadTextFile } from "@/lib/export-readme";
 
 const DIRECT_FORMATS: { id: MeshExportFormat; label: string; hint: string }[] = [
   { id: "stl", label: "STL", hint: "Simulators, 3D print (mm)" },
@@ -29,6 +37,9 @@ interface ExportWizardDialogProps {
   defaultTarget?: ExportTarget;
   hasPartSelection?: boolean;
   selectedPartCount?: number;
+  selectedCase?: CaseTemplate | null;
+  caseRecipe?: CaseRecipe | null;
+  sourceImageUrl?: string | null;
   onExportComplete?: (target: ExportTarget) => void;
 }
 
@@ -43,12 +54,16 @@ export function ExportWizardDialog({
   modelUrl,
   hasPartSelection = false,
   selectedPartCount = 0,
+  selectedCase = null,
+  caseRecipe = null,
+  sourceImageUrl = null,
   onExportComplete,
 }: ExportWizardDialogProps) {
   const [step, setStep] = useState<WizardStep>(1);
   const [target, setTarget] = useState<ExportTarget>(defaultTarget);
   const [outputFormat, setOutputFormat] = useState<MeshExportFormat>("stl");
   const [scope, setScope] = useState<ExportScope>("full");
+  const [selectedAssets, setSelectedAssets] = useState<ExportAssetId[]>([]);
   const [exporting, setExporting] = useState(false);
   const [validating, setValidating] = useState(false);
   const [validation, setValidation] = useState<ExportValidationReport | null>(null);
@@ -57,11 +72,31 @@ export function ExportWizardDialog({
   const [done, setDone] = useState(false);
 
   const preset = listExportPresets().find((p) => p.id === target)!;
+  const exportPreset = getExportPreset(target);
+  const allowedFormats = DIRECT_FORMATS.filter(
+    (f) =>
+      f.id === "obj" ||
+      exportPreset.formats.includes(f.id as "stl" | "ply" | "glb" | "zip")
+  );
+  const assetOptions = useMemo(
+    () =>
+      listExportAssetOptions({
+        target,
+        outputFormat,
+        hasModel: Boolean(modelUrl),
+        sourceImageUrl,
+        selectedCase,
+        caseRecipe,
+        jawPlaced: false,
+      }),
+    [target, outputFormat, modelUrl, sourceImageUrl, selectedCase, caseRecipe]
+  );
 
   useEffect(() => {
     if (open) {
       setTarget(defaultTarget);
-      setOutputFormat(defaultTarget === "meta-quest" ? "glb" : "stl");
+      const defFmt = defaultTarget === "meta-quest" ? "glb" : "stl";
+      setOutputFormat(defFmt);
       setScope("full");
       setStep(1);
       setValidation(null);
@@ -70,6 +105,12 @@ export function ExportWizardDialog({
       setDone(false);
     }
   }, [open, defaultTarget]);
+
+  useEffect(() => {
+    setSelectedAssets(
+      assetOptions.filter((a) => a.defaultSelected && a.available).map((a) => a.id)
+    );
+  }, [assetOptions]);
 
   useEffect(() => {
     const preset = listExportPresets().find((p) => p.id === target);
@@ -147,6 +188,20 @@ export function ExportWizardDialog({
       a.download = `${safeName}-${target}.${ext}`;
       a.click();
       URL.revokeObjectURL(a.href);
+
+      if (selectedAssets.includes("readme")) {
+        downloadTextFile(
+          `${safeName}-README.txt`,
+          buildExportReadme({
+            projectTitle,
+            target,
+            outputFormat,
+            caseRecipe,
+            selectedCase,
+          })
+        );
+      }
+
       setDone(true);
       setStep(3);
       onExportComplete?.(target);
@@ -236,10 +291,70 @@ export function ExportWizardDialog({
 
               <div>
                 <p className="mb-2 text-label-caps font-semibold text-on-surface-variant">
+                  Include in download
+                </p>
+                <div className="space-y-2">
+                  {assetOptions.map((asset) => {
+                    const checked = selectedAssets.includes(asset.id);
+                    const recommended = asset.recommendedFor?.includes(target);
+                    return (
+                      <label
+                        key={asset.id}
+                        className={cn(
+                          "flex cursor-pointer gap-3 rounded-lg border p-3",
+                          !asset.available && "cursor-not-allowed opacity-50",
+                          checked
+                            ? "border-primary-container bg-primary-container/5"
+                            : "border-outline-variant"
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          className="mt-1"
+                          disabled={!asset.available || asset.id === "mesh-primary"}
+                          checked={asset.id === "mesh-primary" ? true : checked}
+                          onChange={() => {
+                            if (asset.id === "mesh-primary") return;
+                            setSelectedAssets((prev) =>
+                              checked
+                                ? prev.filter((id) => id !== asset.id)
+                                : [...prev, asset.id]
+                            );
+                          }}
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-center gap-2 text-body-sm font-medium text-on-surface">
+                            {asset.label}
+                            {recommended && (
+                              <Badge variant="outline" className="text-[9px]">
+                                Recommended
+                              </Badge>
+                            )}
+                          </span>
+                          <span className="mt-0.5 block text-[11px] text-on-surface-variant">
+                            {asset.available
+                              ? asset.description
+                              : (asset.unavailableReason ?? "Not available")}
+                          </span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+                {["simodont", "simtocare", "virteasy"].includes(target) && (
+                  <p className="mt-2 text-[11px] text-on-surface-variant">
+                    Simulators typically need only the watertight STL/PLY mesh — skip GLB and source photo unless
+                    your LMS also needs them.
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <p className="mb-2 text-label-caps font-semibold text-on-surface-variant">
                   File format
                 </p>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {DIRECT_FORMATS.map((f) => (
+                  {(allowedFormats.length ? allowedFormats : DIRECT_FORMATS).map((f) => (
                     <button
                       key={f.id}
                       type="button"

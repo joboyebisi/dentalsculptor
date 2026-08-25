@@ -2,11 +2,27 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { expandDentalPrompt } from "@/lib/dental-prompt-glossary";
 import { isFalInpaintConfigured, runFalMaskedInpaint } from "@/lib/fal-inpaint";
+import { isModalInpaintConfigured, runModalMaskedInpaint } from "@/lib/modal-inpaint";
 import { trackResearchEvent } from "@/lib/research-events";
 import { prisma } from "@/lib/prisma";
 import type { EditOperation } from "@/lib/edit-types";
 
 export const maxDuration = 120;
+
+async function trackInpaint(
+  userId: string,
+  projectId: string,
+  provider: string,
+  operation: string,
+  prompt: string
+) {
+  await trackResearchEvent({
+    userId,
+    projectId,
+    eventType: "AI_PROMPT_SUBMITTED",
+    metadata: { stage: "2d-inpaint", provider, operation, prompt },
+  });
+}
 
 export async function POST(
   req: NextRequest,
@@ -46,53 +62,52 @@ export async function POST(
   }
 
   const expanded = expandDentalPrompt(instruction);
+  const op = operation as EditOperation;
 
-  if (!isFalInpaintConfigured()) {
-    return NextResponse.json({
-      fallback: true,
-      reason: "FAL_KEY not configured — use client stub preview.",
-    });
-  }
-
-  try {
-    const { imageUrl, prompt } = await runFalMaskedInpaint({
-      referenceBlob: referenceImage,
-      maskBlob: maskImage,
-      instruction: expanded.expanded,
-      operation: operation as EditOperation,
-    });
-
-    const imageRes = await fetch(imageUrl);
-    if (!imageRes.ok) {
-      throw new Error("Could not download inpaint result.");
+  // 1) Self-hosted Modal SDXL (preferred — no fal token burn)
+  if (isModalInpaintConfigured()) {
+    try {
+      const result = await runModalMaskedInpaint({
+        referenceBlob: referenceImage,
+        maskBlob: maskImage,
+        instruction: expanded.expanded,
+        operation: op,
+      });
+      await trackInpaint(user.id, projectId, "modal-sdxl", operation, expanded.original);
+      return NextResponse.json({ provider: "modal-sdxl", ...result });
+    } catch (err) {
+      console.error("[edit-preview] Modal inpaint failed, trying fal:", err);
     }
-    const buffer = Buffer.from(await imageRes.arrayBuffer());
-    const previewBase64 = buffer.toString("base64");
-    const contentType = imageRes.headers.get("content-type") ?? "image/png";
-
-    await trackResearchEvent({
-      userId: user.id,
-      projectId,
-      eventType: "AI_PROMPT_SUBMITTED",
-      metadata: {
-        stage: "2d-inpaint-fal",
-        provider: "fal",
-        operation,
-        prompt: expanded.original,
-      },
-    });
-
-    return NextResponse.json({
-      provider: "fal",
-      previewBase64,
-      contentType,
-      promptUsed: prompt,
-    });
-  } catch (err) {
-    console.error("[edit-preview] fal inpaint failed:", err);
-    return NextResponse.json({
-      fallback: true,
-      reason: err instanceof Error ? err.message : "Inpaint failed.",
-    });
   }
+
+  // 2) fal.ai pay-per-use fallback (~$0.03–0.04 per 1024² preview)
+  if (isFalInpaintConfigured()) {
+    try {
+      const { imageUrl, prompt } = await runFalMaskedInpaint({
+        referenceBlob: referenceImage,
+        maskBlob: maskImage,
+        instruction: expanded.expanded,
+        operation: op,
+      });
+      const imageRes = await fetch(imageUrl);
+      if (!imageRes.ok) throw new Error("Could not download inpaint result.");
+      const buffer = Buffer.from(await imageRes.arrayBuffer());
+      await trackInpaint(user.id, projectId, "fal", operation, expanded.original);
+      return NextResponse.json({
+        provider: "fal",
+        previewBase64: buffer.toString("base64"),
+        contentType: imageRes.headers.get("content-type") ?? "image/png",
+        promptUsed: prompt,
+      });
+    } catch (err) {
+      console.error("[edit-preview] fal inpaint failed:", err);
+    }
+  }
+
+  // 3) Client-side stub (free, instant)
+  return NextResponse.json({
+    fallback: true,
+    reason:
+      "No inpaint worker configured — set MODAL_INPAINT_URL (self-hosted) or FAL_KEY (paid fallback). Using client stub.",
+  });
 }

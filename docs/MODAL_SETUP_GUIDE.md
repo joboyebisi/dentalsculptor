@@ -83,6 +83,7 @@ MODAL_TOKEN_ID=ak-...
 MODAL_TOKEN_SECRET=as-...
 MODAL_GENERATE_URL=https://YOUR-WORKSPACE--dentalsculptor-generate.modal.run
 MODAL_EDIT_URL=https://YOUR-WORKSPACE--dentalsculptor-edit.modal.run
+MODAL_INPAINT_URL=https://YOUR-WORKSPACE--dentalsculptor-inpaint.modal.run
 MODAL_JOB_STATUS_URL=https://YOUR-WORKSPACE--dentalsculptor-job-status.modal.run
 MODAL_WEBHOOK_SECRET=choose-a-long-random-string
 ```
@@ -123,6 +124,68 @@ modal volume create trellis-weights-v1
 3. GPU: `gpu="A100-40GB"` for generation.
 4. Replace stub in `modal_app/workers/generate.py` with real inference.
 5. Benchmark: cold start, seconds/job, credits/job.
+
+---
+
+2D inpaint uses the **self-hosted SDXL endpoint** (`inpaint`) — no fal tokens required when `MODAL_INPAINT_URL` is set. fal remains optional fallback.
+
+---
+
+## Where to get `MODAL_INPAINT_URL`
+
+The inpaint URL is **not** a separate service — it is printed when you deploy the same Modal app as your other endpoints.
+
+### Option A — CLI deploy output (recommended)
+
+```bash
+cd dentalsculptor-ml
+python -m modal deploy -m modal_app.app
+```
+
+Scroll the deploy output for a line like:
+
+```text
+├── 🔨 Created web endpoint inpaint => https://YOUR-WORKSPACE--dentalsculptor-inpaint.modal.run
+```
+
+Copy that full HTTPS URL into Vercel:
+
+```env
+MODAL_INPAINT_URL=https://YOUR-WORKSPACE--dentalsculptor-inpaint.modal.run
+```
+
+Use the **same** `MODAL_WEBHOOK_SECRET` you already set for `MODAL_EDIT_URL` and `MODAL_JOB_STATUS_URL`.
+
+### Option B — Modal dashboard
+
+1. Go to [modal.com/apps](https://modal.com/apps)
+2. Open app **`dentalsculptor`** (or your `MODAL_APP_NAME`)
+3. **Endpoints** tab → find **`inpaint`**
+4. Copy the **POST** URL
+
+### Option C — Local dev (`modal serve`)
+
+```bash
+cd dentalsculptor-ml
+modal serve -m modal_app.app
+```
+
+The terminal lists tunnel URLs including `inpaint` — paste into local `.env` for testing.
+
+### Verify
+
+```bash
+curl -X POST "$MODAL_INPAINT_URL" \
+  -H "Authorization: Bearer $MODAL_WEBHOOK_SECRET" \
+  -F "instruction=test" \
+  -F "operation=replace" \
+  -F "referenceImage=@reference.png" \
+  -F "maskImage=@mask.png"
+```
+
+Expect JSON with `previewBase64` (GPU cold start may take 1–2 min first time).
+
+**Note:** The `inpaint` endpoint requires GPU (L4). It deploys with the TRELLIS GPU image. If deploy fails on inpaint, ensure `huggingface` Modal secret exists (`HF_TOKEN`) for SDXL weights download.
 
 ---
 

@@ -631,6 +631,43 @@ async def edit(
     return {"jobId": job_id, "status": "queued"}
 
 
+inpaint_image = trellis_gpu_image.pip_install(
+    "diffusers>=0.30.0",
+    "transformers>=4.44.0",
+    "accelerate>=0.33.0",
+)
+
+
+@app.function(
+    image=inpaint_image,
+    gpu="L4",
+    timeout=300,
+    secrets=[webhook_secret, hf_secret],
+    volumes={HF_CACHE_PATH: hf_cache_volume},
+)
+@modal.fastapi_endpoint(method="POST", label=web_label("inpaint"))
+async def inpaint(
+    request: Request,
+    instruction: str = Form(""),
+    operation: str = Form("replace"),
+    referenceImage: UploadFile = File(...),
+    maskImage: UploadFile = File(...),
+):
+    """Self-hosted SDXL inpaint for 2D edit preview (HF diffusers model)."""
+    authorize(request)
+    from modal_app.workers.inpaint_worker import run_sdxl_inpaint
+
+    ref_bytes = await referenceImage.read()
+    mask_bytes = await maskImage.read()
+    result = run_sdxl_inpaint(ref_bytes, mask_bytes, instruction, operation)
+    return {
+        "previewBase64": base64.b64encode(result["pngBytes"]).decode("ascii"),
+        "contentType": "image/png",
+        "provider": result.get("provider", "modal-sdxl-inpaint"),
+        "prompt": result.get("prompt"),
+    }
+
+
 @app.function(image=cpu_image, secrets=[webhook_secret])
 @modal.fastapi_endpoint(method="GET", label=web_label("job-status"))
 def job_status(request: Request, jobId: str = ""):

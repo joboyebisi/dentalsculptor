@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import type { GeneratedMesh } from "@/lib/model-generator";
 import { EditorHeader, type EditorTab } from "@/components/editor/editor-header";
 import { EditorToolPalette, type EditorTool } from "@/components/editor/editor-tool-palette";
@@ -14,7 +14,9 @@ import { MaskPaintOverlay, type MaskPaintOverlayHandle, type MaskBrushMode } fro
 import { EditorMaskToolbar } from "@/components/editor/editor-mask-toolbar";
 import { EditorEditWorkflowPanel } from "@/components/editor/editor-edit-workflow-panel";
 import { EditorRevisionReview } from "@/components/editor/editor-revision-review";
-import { EditorEditPresetsBar } from "@/components/editor/editor-edit-presets-bar";
+import { EditorEditPresetsBar, EditPresetHapticNotice } from "@/components/editor/editor-edit-presets-bar";
+import { resolveEditPresetContext } from "@/lib/edit-preset-context";
+import { getEditPreset } from "@/lib/edit-presets";
 import {
   EditPreviewModal,
   EditorEditActions,
@@ -186,6 +188,12 @@ export function EditorWorkspace({
     regionAttachments.length > 0 || maskHasStrokes || maskCoverage > 0;
   const canApply =
     hasModel && (modelSelected || hasPartSelection || hasSpatialEditTarget);
+
+  const editPresetContext = useMemo(
+    () => resolveEditPresetContext(caseRecipe, selectedCase, null),
+    [caseRecipe, selectedCase]
+  );
+  const activeEditPreset = activePresetId ? getEditPreset(activePresetId) ?? null : null;
 
   const handleRectMarkComplete = useCallback(
     async (partial: Omit<RectMark, "id" | "index" | "label" | "text">) => {
@@ -751,6 +759,7 @@ export function EditorWorkspace({
 
             <EditorEditPresetsBar
               visible={maskVisible}
+              context={editPresetContext}
               activePresetId={activePresetId}
               onSelect={handlePresetSelect}
             />
@@ -788,6 +797,8 @@ export function EditorWorkspace({
               className="absolute right-4 top-1/2 z-20 -translate-y-1/2"
             />
           </div>
+
+          <EditPresetHapticNotice preset={activeEditPreset} className="mx-3 mb-1" />
 
           <EditorAiBar
             value={aiPrompt}
@@ -867,6 +878,9 @@ export function EditorWorkspace({
         projectTitle={title}
         modelUrl={modelUrl}
         defaultTarget={selectedCase?.exportRecommendation ?? DEFAULT_EXPORT_TARGET}
+        selectedCase={selectedCase}
+        caseRecipe={caseRecipe}
+        sourceImageUrl={sourcePreview}
         hasPartSelection={hasPartSelection}
         selectedPartCount={segmentParts.filter((p) => p.visible).length}
         onExportComplete={() => {
