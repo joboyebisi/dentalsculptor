@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { generateAssetKey, uploadAsset } from "@/lib/storage";
+import { updateEditJobProgress } from "@/lib/edit-jobs.server";
+import { prisma } from "@/lib/prisma";
 
 async function persistModalModelBase64(
   modelBase64: string,
@@ -13,25 +15,11 @@ async function persistModalModelBase64(
   return { modelUrl, format: "glb" };
 }
 
-async function persistEditedModelForProject(
-  projectId: string,
-  modelUrl: string,
-  format: string
-): Promise<void> {
-  const { prisma } = await import("@/lib/prisma");
-  const dentalModel = await prisma.dentalModel.findUnique({ where: { projectId } });
-  if (!dentalModel) return;
-  await prisma.dentalModel.update({
-    where: { projectId },
-    data: {
-      generated3DUrl: modelUrl,
-      processingStage: JSON.stringify({
-        format,
-        source: "nano3d",
-        editedAt: new Date().toISOString(),
-      }),
-    },
-  });
+function mapModalStatus(status?: string): "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED" {
+  if (status === "completed") return "COMPLETED";
+  if (status === "failed") return "FAILED";
+  if (status === "running") return "RUNNING";
+  return "QUEUED";
 }
 
 export async function GET(
@@ -44,7 +32,6 @@ export async function GET(
   }
 
   const { jobId } = await params;
-  const projectId = req.nextUrl.searchParams.get("projectId");
   const statusUrl = process.env.MODAL_JOB_STATUS_URL;
   if (!statusUrl) {
     return NextResponse.json({
@@ -70,9 +57,18 @@ export async function GET(
     error?: string;
     detail?: string;
     preview2dBase64?: string;
+    maskedVertexRatio?: number;
+    regionMarkCount?: number;
   };
 
   if (!res.ok) {
+    await updateEditJobProgress(jobId, {
+      status: "FAILED",
+      stage: "error",
+      progress: 100,
+      error: data.error ?? data.detail ?? "Edit job status is unavailable.",
+    }).catch(() => undefined);
+
     return NextResponse.json(
       {
         jobId,
@@ -85,28 +81,72 @@ export async function GET(
     );
   }
 
+  const dbJob = await prisma.editJob.findFirst({
+    where: { id: jobId, ownerId: user.id },
+    select: { revisionNumber: true, accepted: true },
+  });
+
+  if (data.status === "running" || data.status === "queued") {
+    await updateEditJobProgress(jobId, {
+      status: mapModalStatus(data.status),
+      stage: data.stage,
+      progress: data.progress,
+    }).catch(() => undefined);
+  }
+
   if (data.status === "completed" && data.modelBase64 && !data.modelUrl) {
     const persisted = await persistModalModelBase64(data.modelBase64, jobId, user.id);
-    if (projectId) {
-      await persistEditedModelForProject(projectId, persisted.modelUrl, persisted.format);
-    }
+    await updateEditJobProgress(jobId, {
+      status: "COMPLETED",
+      stage: data.stage ?? "completed",
+      progress: 100,
+      resultModelUrl: persisted.modelUrl,
+      resultFormat: persisted.format,
+      metadata: {
+        maskedVertexRatio: data.maskedVertexRatio,
+        regionMarkCount: data.regionMarkCount,
+      },
+    }).catch(() => undefined);
+
     return NextResponse.json({
       ...data,
+      status: "completed",
       modelUrl: persisted.modelUrl,
       format: persisted.format,
+      revisionNumber: dbJob?.revisionNumber,
       preview2dUrl: data.preview2dBase64
         ? `data:image/png;base64,${data.preview2dBase64}`
         : undefined,
     });
   }
 
-  if (data.status === "completed" && data.modelUrl && projectId) {
-    await persistEditedModelForProject(projectId, data.modelUrl, data.format ?? "glb");
+  if (data.status === "completed" && data.modelUrl) {
+    await updateEditJobProgress(jobId, {
+      status: "COMPLETED",
+      stage: data.stage ?? "completed",
+      progress: 100,
+      resultModelUrl: data.modelUrl,
+      resultFormat: data.format ?? "glb",
+      metadata: {
+        maskedVertexRatio: data.maskedVertexRatio,
+        regionMarkCount: data.regionMarkCount,
+      },
+    }).catch(() => undefined);
+  }
+
+  if (data.status === "failed") {
+    await updateEditJobProgress(jobId, {
+      status: "FAILED",
+      stage: "error",
+      progress: 100,
+      error: data.error ?? "Edit job failed.",
+    }).catch(() => undefined);
   }
 
   return NextResponse.json(
     {
       ...data,
+      revisionNumber: dbJob?.revisionNumber,
       preview2dUrl: data.preview2dBase64
         ? `data:image/png;base64,${data.preview2dBase64}`
         : undefined,

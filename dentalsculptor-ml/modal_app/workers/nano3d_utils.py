@@ -17,6 +17,8 @@ import json
 import urllib.request
 from typing import Any
 
+from modal_app.workers.nano3d_gpu import nano3d_gpu_enabled, run_nano3d_case3_gpu
+
 import numpy as np
 
 MASK_THRESHOLD = 128
@@ -185,6 +187,17 @@ def run_nano3d_edit(
     Accepts the same inputs the Next.js editor sends. Returns edited GLB bytes.
     Swap mesh deform + 2D stub for full Nano3D GPU pipeline when weights are ready.
     """
+    if nano3d_gpu_enabled():
+        return run_nano3d_case3_gpu(
+            source_model_url,
+            operation,
+            instruction,
+            mask_bytes,
+            reference_bytes,
+            camera_json,
+            region_marks_json,
+        )
+
     camera: dict[str, Any] | None = None
     if camera_json:
         try:

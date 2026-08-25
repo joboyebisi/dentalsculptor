@@ -13,6 +13,7 @@ import { EditorDashboardSidebar } from "@/components/editor/editor-dashboard-sid
 import { MaskPaintOverlay, type MaskPaintOverlayHandle, type MaskBrushMode } from "@/components/editor/mask-paint-overlay";
 import { EditorMaskToolbar } from "@/components/editor/editor-mask-toolbar";
 import { EditorEditWorkflowPanel } from "@/components/editor/editor-edit-workflow-panel";
+import { EditorRevisionReview } from "@/components/editor/editor-revision-review";
 import {
   EditPreviewModal,
   EditorEditActions,
@@ -136,6 +137,12 @@ export function EditorWorkspace({
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [editJobLoading, setEditJobLoading] = useState(false);
+  const [pendingRevision, setPendingRevision] = useState<{
+    jobId: string;
+    sourceModelUrl: string;
+    revisionNumber: number;
+  } | null>(null);
+  const [revisionActionLoading, setRevisionActionLoading] = useState(false);
   const [beforePreview, setBeforePreview] = useState<string | null>(null);
   const [afterPreview, setAfterPreview] = useState<string | null>(null);
   const [referenceImage, setReferenceImage] = useState<Blob | null>(null);
@@ -367,6 +374,7 @@ export function EditorWorkspace({
 
   const handleGenerate3dEdit = async () => {
     if (!modelUrl || !aiPrompt.trim()) return;
+    const sourceBeforeEdit = modelUrl;
     setEditJobLoading(true);
     const maskBlob = await maskOverlayRef.current?.toMaskBlob();
     const instruction = instructionWithRegionRefs(aiPrompt, rectMarks);
@@ -395,13 +403,33 @@ export function EditorWorkspace({
 
       track("AI_SUGGESTION_ACCEPTED", projectId, { jobId: data.jobId });
 
-      if (data.status === "completed" && data.modelUrl) {
-        setModelUrl(data.modelUrl);
-        setModelFormat(data.format ?? detectModelFormat(data.modelUrl));
+      const applyCompletedEdit = (
+        resultUrl: string,
+        fmt: string | undefined,
+        jobId: string,
+        revisionNumber?: number
+      ) => {
+        setModelUrl(resultUrl);
+        setModelFormat(fmt ?? detectModelFormat(resultUrl));
         setModelLoadStatus("loading");
         maskOverlayRef.current?.clear();
         setMaskCoverage(0);
+        setMaskHasStrokes(false);
+        setPendingRevision({
+          jobId,
+          sourceModelUrl: sourceBeforeEdit,
+          revisionNumber: revisionNumber ?? 1,
+        });
         triggerSFX("toggle");
+      };
+
+      if (data.status === "completed" && data.modelUrl) {
+        applyCompletedEdit(
+          data.modelUrl,
+          data.format,
+          data.jobId as string,
+          data.revisionNumber as number | undefined
+        );
         return;
       }
 
@@ -417,12 +445,12 @@ export function EditorWorkspace({
           setAfterPreview(status.preview2dUrl);
         }
         if (status.status === "completed" && status.modelUrl) {
-          setModelUrl(status.modelUrl);
-          setModelFormat(status.format ?? detectModelFormat(status.modelUrl));
-          setModelLoadStatus("loading");
-          maskOverlayRef.current?.clear();
-          setMaskCoverage(0);
-          triggerSFX("toggle");
+          applyCompletedEdit(
+            status.modelUrl,
+            status.format,
+            jobId,
+            status.revisionNumber as number | undefined
+          );
           return;
         }
         if (status.status === "failed") {
@@ -434,6 +462,49 @@ export function EditorWorkspace({
       alert(err instanceof Error ? err.message : "Edit job failed");
     } finally {
       setEditJobLoading(false);
+    }
+  };
+
+  const handleAcceptRevision = async () => {
+    if (!pendingRevision) return;
+    setRevisionActionLoading(true);
+    try {
+      const res = await fetch(`/api/edit-jobs/${pendingRevision.jobId}/resolve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "accept" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not accept revision.");
+      setPendingRevision(null);
+      track("AI_SUGGESTION_ACCEPTED", projectId, { editJobId: pendingRevision.jobId });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Could not accept revision.");
+    } finally {
+      setRevisionActionLoading(false);
+    }
+  };
+
+  const handleRejectRevision = async () => {
+    if (!pendingRevision) return;
+    setRevisionActionLoading(true);
+    try {
+      const res = await fetch(`/api/edit-jobs/${pendingRevision.jobId}/resolve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reject" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not revert revision.");
+      setModelUrl(pendingRevision.sourceModelUrl);
+      setModelFormat(detectModelFormat(pendingRevision.sourceModelUrl));
+      setModelLoadStatus("loading");
+      setPendingRevision(null);
+      track("AI_SUGGESTION_REJECTED", projectId, { editJobId: pendingRevision.jobId });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Could not revert revision.");
+    } finally {
+      setRevisionActionLoading(false);
     }
   };
 
@@ -616,6 +687,15 @@ export function EditorWorkspace({
               hasInstruction={Boolean(aiPrompt.trim())}
               regionMarkCount={rectMarks.length}
             />
+
+            {pendingRevision && (
+              <EditorRevisionReview
+                revisionNumber={pendingRevision.revisionNumber}
+                loading={revisionActionLoading}
+                onAccept={() => void handleAcceptRevision()}
+                onReject={() => void handleRejectRevision()}
+              />
+            )}
 
             <EditorEditActions
               visible={maskVisible}

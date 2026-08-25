@@ -133,6 +133,24 @@ Add explicit policies, e.g. users read their own `User` row where `"supabaseId" 
 
 See [Supabase RLS docs](https://supabase.com/docs/guides/database/postgres/row-level-security).
 
+### EditJob table (Nano3D revision history)
+
+After pulling schema changes that add `EditJob`, apply once per environment:
+
+**Option A — Supabase SQL Editor (production)**
+
+1. Dashboard → **SQL** → New query  
+2. Paste contents of `dentalsculptor-app/prisma/sql/add_edit_job.sql`  
+3. Run  
+
+**Option B — CLI**
+
+```bash
+cd dentalsculptor-app
+npm run db:edit-job
+# or: npm run db:push
+```
+
 ---
 
 ## 8. Verify upload

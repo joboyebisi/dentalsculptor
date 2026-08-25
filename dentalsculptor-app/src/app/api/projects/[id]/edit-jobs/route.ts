@@ -4,38 +4,24 @@ import { expandDentalPrompt } from "@/lib/dental-prompt-glossary";
 import { trackResearchEvent } from "@/lib/research-events";
 import { generateAssetKey, uploadAsset } from "@/lib/storage";
 import { prisma } from "@/lib/prisma";
+import { createEditJobRecord, updateEditJobProgress } from "@/lib/edit-jobs.server";
 
 export const maxDuration = 300;
 
 function isAllowedSourceModelUrl(url: string, storedUrl: string | null | undefined): boolean {
   if (!url) return false;
   if (storedUrl && url === storedUrl) return true;
-  // Allow revised models uploaded to our asset storage between DB updates.
   if (url.includes("supabase.co/storage") || url.includes(".amazonaws.com/")) return true;
   return false;
 }
 
-async function persistEditedModel(
-  projectId: string,
-  modelUrl: string,
-  format: string
-): Promise<void> {
-  const dentalModel = await prisma.dentalModel.findUnique({ where: { projectId } });
-  if (!dentalModel) return;
-
-  const stage = {
-    format,
-    source: "nano3d",
-    editedAt: new Date().toISOString(),
-  };
-
-  await prisma.dentalModel.update({
-    where: { projectId },
-    data: {
-      generated3DUrl: modelUrl,
-      processingStage: JSON.stringify(stage),
-    },
-  });
+function parseJsonField(raw: string): unknown | undefined {
+  if (!raw) return undefined;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -82,7 +68,7 @@ export async function POST(
   }
 
   const expanded = expandDentalPrompt(instruction);
-  const jobId = `edit_${Date.now()}`;
+  const stubJobId = `edit_${Date.now()}`;
 
   const modalEditUrl = process.env.MODAL_EDIT_URL;
   if (modalEditUrl) {
@@ -110,30 +96,55 @@ export async function POST(
       return NextResponse.json({ error: data.error ?? "Edit job failed." }, { status: 502 });
     }
 
+    const jobId = (data.jobId as string | undefined) ?? stubJobId;
+
+    const editJob = await createEditJobRecord({
+      id: jobId,
+      projectId,
+      ownerId: user.id,
+      operation,
+      instruction: expanded.expanded,
+      sourceModelUrl,
+      camera: parseJsonField(camera),
+      regionMarks: parseJsonField(regionMarks),
+      selectedPartIds: parseJsonField(selectedPartIds),
+      provider: "modal",
+    });
+
     let modelUrl = data.modelUrl as string | undefined;
     let format = (data.format as string | undefined) ?? "glb";
     if (data.status === "completed" && data.modelBase64 && !modelUrl) {
       const buffer = Buffer.from(data.modelBase64, "base64");
-      const key = generateAssetKey(user.id, `edit-${data.jobId ?? jobId}.glb`);
+      const key = generateAssetKey(user.id, `edit-${jobId}.glb`);
       modelUrl = await uploadAsset(key, buffer, "model/gltf-binary");
       format = "glb";
     }
 
     if (modelUrl) {
-      await persistEditedModel(projectId, modelUrl, format);
+      await updateEditJobProgress(jobId, {
+        status: "COMPLETED",
+        stage: "completed",
+        progress: 100,
+        resultModelUrl: modelUrl,
+        resultFormat: format,
+      });
+    } else if (data.status === "queued") {
+      await updateEditJobProgress(jobId, { status: "QUEUED", stage: "queued", progress: 0 });
     }
 
     await trackResearchEvent({
       userId: user.id,
       projectId,
       eventType: "AI_PROMPT_SUBMITTED",
-      metadata: { jobId: data.jobId ?? jobId, provider: "modal", operation },
+      metadata: { jobId, provider: "modal", operation },
     });
+
     return NextResponse.json({
-      jobId: data.jobId ?? jobId,
-      status: data.status ?? "queued",
+      jobId,
+      status: modelUrl ? "completed" : (data.status ?? "queued"),
       modelUrl,
       format,
+      revisionNumber: editJob.revisionNumber,
       preview2dBase64: data.preview2dBase64 as string | undefined,
     });
   }
@@ -142,11 +153,17 @@ export async function POST(
     userId: user.id,
     projectId,
     eventType: "AI_PROMPT_SUBMITTED",
-    metadata: { jobId, provider: "stub", operation, prompt: expanded.original, regionMarks: regionMarks || undefined },
+    metadata: {
+      jobId: stubJobId,
+      provider: "stub",
+      operation,
+      prompt: expanded.original,
+      regionMarks: regionMarks || undefined,
+    },
   });
 
   return NextResponse.json({
-    jobId,
+    jobId: stubJobId,
     status: "queued",
     message: "Modal Nano3D not deployed — set MODAL_EDIT_URL in Vercel. See docs/MODAL_SETUP_GUIDE.md",
   });

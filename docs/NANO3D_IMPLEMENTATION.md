@@ -39,9 +39,12 @@ See [EDITOR_INTERACTION_FRAMEWORK.md](./EDITOR_INTERACTION_FRAMEWORK.md).
 | Editor UI | `editor-workspace.tsx` | Collects mask, camera, regions, instruction |
 | 2D preview | `edit-2d-preview.ts` | Client masked preview before 3D |
 | Edit API | `edit-jobs/route.ts` | Auth, prompt expansion, proxy to Modal, persist GLB |
-| Poll API | `edit-jobs/[jobId]/route.ts` | Poll Modal job-status, upload result |
+| Poll API | `edit-jobs/[jobId]/route.ts` | Poll Modal job-status, upload GLB to storage, update `EditJob` |
+| Resolve API | `edit-jobs/[jobId]/resolve/route.ts` | Accept or reject revision → update `DentalModel` |
+| EditJob DB | `edit-jobs.server.ts` + `EditJob` model | Revision numbers, accept/reject audit trail |
+| Revision UI | `editor-revision-review.tsx` | Accept / Revert banner after 3D edit completes |
 | Modal endpoint | `modal_app/app.py` → `edit` | Queue async edit job |
-| Worker | `nano3d_utils.py` | **v1:** masked 2D stub + vertex deform; **v2:** full Case 3 GPU |
+| Worker | `nano3d_utils.py` | **v1:** masked 2D stub + vertex deform; **v2:** `nano3d_gpu.py` Case 3 |
 
 ---
 
@@ -61,15 +64,26 @@ See [EDITOR_INTERACTION_FRAMEWORK.md](./EDITOR_INTERACTION_FRAMEWORK.md).
 
 ## Implementation phases
 
-### Phase 1 — Done (this sprint)
+### Phase 1 — Done
 
 - Editor mask + region attachments + 2D preview
 - Edit job API proxy to Modal
 - Modal CPU worker: masked 2D stub + camera-projected vertex deform
-- Job status polling + GLB upload + DB persist
+- Job status polling + GLB upload to storage
+
+### Phase 1b — Done (revision workflow)
+
+- `EditJob` Prisma model with revision numbers
+- Poll route updates job progress without overwriting project model until accept
+- Accept → persist `resultModelUrl` to `DentalModel.generated3DUrl`
+- Reject → restore `sourceModelUrl`
+- Editor banner: `EditorRevisionReview`
+
+Apply DB migration: `npm run db:edit-job` or paste `prisma/sql/add_edit_job.sql` in Supabase SQL Editor.
 
 ### Phase 2 — Next (GPU Case 3)
 
+- `nano3d_gpu.py` scaffold + `NANO3D_GPU=1` feature flag
 - Modal image: CUDA + Nano3D repo + TRELLIS weights volume
 - Replace vertex deform with Case 3 inference path
 - Optional Qwen-Image worker on A100-80GB for true inpaint

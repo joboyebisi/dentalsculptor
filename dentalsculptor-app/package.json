@@ -11,6 +11,7 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:rls": "prisma db execute --file prisma/sql/enable_rls.sql",
+    "db:edit-job": "prisma db execute --file prisma/sql/add_edit_job.sql",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts"
   },

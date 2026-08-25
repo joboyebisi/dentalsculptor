@@ -45,6 +45,14 @@ enum GenerationJobStatus {
   CANCELLED
 }
 
+enum EditJobStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
 enum ResearchEventType {
   PROJECT_CREATED
   IMAGE_UPLOADED
@@ -100,6 +108,7 @@ model User {
   bookmarks             Bookmark[]
   likes                 Like[]
   generationJobs        GenerationJob[]
+  editJobs              EditJob[]
 }
 
 model Project {
@@ -128,6 +137,7 @@ model Project {
   hints           String?
   feedback        String?
   generationJobs  GenerationJob[]
+  editJobs        EditJob[]
 
   @@index([ownerId])
   @@index([status])
@@ -176,6 +186,41 @@ model GenerationJob {
 
   @@index([ownerId])
   @@index([projectId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model EditJob {
+  id              String        @id
+  projectId       String
+  ownerId         String
+  status          EditJobStatus @default(QUEUED)
+  stage           String        @default("queued")
+  progress        Int           @default(0)
+  operation       String
+  instruction     String
+  sourceModelUrl  String
+  resultModelUrl  String?
+  resultFormat    String?
+  provider        String        @default("modal")
+  revisionNumber  Int           @default(1)
+  accepted        Boolean?
+  camera          Json?
+  regionMarks     Json?
+  selectedPartIds Json?
+  metadata        Json?
+  error           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  completedAt     DateTime?
+  acceptedAt      DateTime?
+  rejectedAt      DateTime?
+
+  owner   User    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([ownerId])
   @@index([status])
   @@index([createdAt])
 }
