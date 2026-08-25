@@ -180,6 +180,7 @@ def run_nano3d_edit(
     reference_bytes: bytes | None = None,
     camera_json: str | None = None,
     region_marks_json: str | None = None,
+    reference_edited: bool = False,
 ) -> dict[str, Any]:
     """
     Case 3-compatible edit worker (CPU v1).
@@ -208,9 +209,14 @@ def run_nano3d_edit(
     width = int((camera or {}).get("width") or 512)
     height = int((camera or {}).get("height") or 512)
 
-    edited_2d = _apply_masked_2d_edit(
-        reference_bytes, mask_bytes, operation, instruction, width, height
-    )
+    if reference_edited and reference_bytes:
+        edited_2d = reference_bytes
+        source_tag_2d = "modal-nano3d-v1-reference-edited"
+    else:
+        edited_2d = _apply_masked_2d_edit(
+            reference_bytes, mask_bytes, operation, instruction, width, height
+        )
+        source_tag_2d = "modal-nano3d-v1-masked"
 
     mesh = _load_mesh_from_url(source_model_url)
     mask_arr = _mask_array(mask_bytes, width, height)
@@ -218,7 +224,7 @@ def run_nano3d_edit(
 
     if weights.max() > 0:
         edited_mesh = _apply_masked_mesh_deform(mesh, weights, operation)
-        source_tag = "modal-nano3d-v1-masked"
+        source_tag = source_tag_2d if reference_edited else "modal-nano3d-v1-masked"
     else:
         edited_mesh = _apply_fallback_operation(mesh, operation)
         source_tag = "modal-nano3d-v1-fallback"

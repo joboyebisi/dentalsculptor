@@ -42,7 +42,7 @@ Upload image → store in Supabase → generate 3D → login → edit:
 | `NEXT_PUBLIC_UI_PREVIEW_MODE` | `false` |
 | Clerk keys (6 vars) | Yes |
 | Supabase (5 vars above) | Yes |
-| `FAL_KEY` | Yes (3D generation) |
+| `FAL_KEY` | Yes (3D generation + masked 2D inpaint preview) |
 | `NEXT_PUBLIC_APP_URL` | Yes |
 
 ### Generation speed (fal.ai)
@@ -55,6 +55,8 @@ Optional server vars in `.env`:
 |----------|--------|
 | `FAL_ENABLE_GEOMETRY=true` | Geometry-only white **GLB** — faster previews, no textures |
 | `FAL_ENABLE_PBR=false` | Skip PBR material pass — slightly faster, lower quality |
+
+**2D edit preview:** `POST /api/projects/[id]/edit-preview` uses the same `FAL_KEY` with fal SDXL inpainting. Without it, the editor falls back to the client-side stub preview.
 
 The app also resizes large photos client-side before upload (max 1536px) to reduce upload + queue time.
 

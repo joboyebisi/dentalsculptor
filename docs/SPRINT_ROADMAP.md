@@ -64,11 +64,11 @@ Test after each phase. Update checkboxes as you go.
 |----|------|--------|-------|
 | 3.1 | Mask paint UI | ✅ | `mask-paint-overlay.tsx` |
 | 3.2 | 2D preview approve modal | ✅ | Stub after-image (same as before) |
-| 3.3 | Real 2D masked inpaint worker | ⬜ | Qwen-Image or fal fallback |
+| 3.3 | Real 2D masked inpaint worker | ✅ | fal SDXL inpaint + client stub fallback |
 | 3.4 | Replace CPU trimesh stub with real Nano3D Case 3 | ⬜ | `nano3d_gpu.py` scaffold + `NANO3D_GPU` flag |
 | 3.5 | Wire reference image + camera through API → Modal | ✅ | `edit-jobs/route.ts` + Modal `edit` |
 | 3.6 | EditJob Prisma model + revision history | ✅ | `EditJob` model + `edit-jobs.server.ts` |
-| 3.7 | Edit presets (add/remove/replace cusp, smooth, etc.) | ⬜ | UX quick wins |
+| 3.7 | Edit presets (add/remove/replace cusp, smooth, etc.) | ✅ | `edit-presets.ts` + presets bar |
 | 3.8 | Before/after 3D compare + accept/reject | ✅ | `EditorRevisionReview` + `/resolve` |
 | 3.9 | Protected-region metrics | ⬜ | Research auditability |
 

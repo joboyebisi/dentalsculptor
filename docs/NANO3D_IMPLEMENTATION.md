@@ -37,7 +37,9 @@ See [EDITOR_INTERACTION_FRAMEWORK.md](./EDITOR_INTERACTION_FRAMEWORK.md).
 | Layer | File | Role |
 |-------|------|------|
 | Editor UI | `editor-workspace.tsx` | Collects mask, camera, regions, instruction |
-| 2D preview | `edit-2d-preview.ts` | Client masked preview before 3D |
+| 2D preview | `edit-2d-preview.ts` + `fal-inpaint.ts` | Client stub fallback; fal SDXL when `FAL_KEY` set |
+| Edit preview API | `edit-preview/route.ts` | Server masked inpaint before 3D submit |
+| Edit presets | `edit-presets.ts` | Quick dental modifiers in editor |
 | Edit API | `edit-jobs/route.ts` | Auth, prompt expansion, proxy to Modal, persist GLB |
 | Poll API | `edit-jobs/[jobId]/route.ts` | Poll Modal job-status, upload GLB to storage, update `EditJob` |
 | Resolve API | `edit-jobs/[jobId]/resolve/route.ts` | Accept or reject revision → update `DentalModel` |

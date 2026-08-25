@@ -44,6 +44,7 @@ export async function POST(
   const camera = (formData.get("camera") as string) || "";
   const selectedPartIds = (formData.get("selectedPartIds") as string) || "[]";
   const regionMarks = (formData.get("regionMarks") as string) || "";
+  const referenceEdited = (formData.get("referenceEdited") as string) === "true";
   const referenceImage = formData.get("referenceImage");
 
   if (!instruction.trim()) {
@@ -80,6 +81,7 @@ export async function POST(
     if (camera) proxyForm.append("camera", camera);
     proxyForm.append("selectedPartIds", selectedPartIds);
     if (regionMarks) proxyForm.append("regionMarks", regionMarks);
+    if (referenceEdited) proxyForm.append("referenceEdited", "true");
     const mask = formData.get("maskImage");
     if (mask instanceof File) proxyForm.append("maskImage", mask);
     if (referenceImage instanceof File) {

@@ -557,6 +557,7 @@ def run_edit_job(
     reference_bytes: bytes | None = None,
     camera_json: str | None = None,
     region_marks_json: str | None = None,
+    reference_edited: bool = False,
 ):
     jobs_dict[job_id] = {"jobId": job_id, "status": "running", "progress": 20, "stage": "preprocessing"}
     try:
@@ -569,6 +570,7 @@ def run_edit_job(
             reference_bytes,
             camera_json,
             region_marks_json,
+            reference_edited=reference_edited,
         )
         jobs_dict[job_id] = {**jobs_dict[job_id], "progress": 80, "stage": "extracting_mesh"}
         payload = {
@@ -607,11 +609,13 @@ async def edit(
     regionMarks: str = Form(""),
     maskImage: UploadFile | None = File(None),
     referenceImage: UploadFile | None = File(None),
+    referenceEdited: str = Form(""),
 ):
     authorize(request)
     job_id = str(uuid.uuid4())
     mask_bytes = await maskImage.read() if maskImage else None
     reference_bytes = await referenceImage.read() if referenceImage else None
+    ref_edited = referenceEdited.strip().lower() in ("1", "true", "yes")
     jobs_dict[job_id] = {"jobId": job_id, "status": "queued", "progress": 0, "stage": "queued"}
     run_edit_job.spawn(
         job_id,
@@ -622,6 +626,7 @@ async def edit(
         reference_bytes,
         camera or None,
         regionMarks or None,
+        ref_edited,
     )
     return {"jobId": job_id, "status": "queued"}
 

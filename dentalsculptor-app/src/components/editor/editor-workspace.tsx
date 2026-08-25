@@ -14,6 +14,7 @@ import { MaskPaintOverlay, type MaskPaintOverlayHandle, type MaskBrushMode } fro
 import { EditorMaskToolbar } from "@/components/editor/editor-mask-toolbar";
 import { EditorEditWorkflowPanel } from "@/components/editor/editor-edit-workflow-panel";
 import { EditorRevisionReview } from "@/components/editor/editor-revision-review";
+import { EditorEditPresetsBar } from "@/components/editor/editor-edit-presets-bar";
 import {
   EditPreviewModal,
   EditorEditActions,
@@ -145,6 +146,8 @@ export function EditorWorkspace({
   const [revisionActionLoading, setRevisionActionLoading] = useState(false);
   const [beforePreview, setBeforePreview] = useState<string | null>(null);
   const [afterPreview, setAfterPreview] = useState<string | null>(null);
+  const [editedReferenceBlob, setEditedReferenceBlob] = useState<Blob | null>(null);
+  const [activePresetId, setActivePresetId] = useState<string | null>(null);
   const [referenceImage, setReferenceImage] = useState<Blob | null>(null);
   const [referenceCamera, setReferenceCamera] = useState<SerializedCameraState | null>(null);
   const [maskCoverage, setMaskCoverage] = useState(0);
@@ -344,6 +347,7 @@ export function EditorWorkspace({
     if (!hasModel) return;
     setPreviewLoading(true);
     setPreviewOpen(true);
+    setEditedReferenceBlob(null);
     try {
       const capture = await viewerRef.current?.captureView();
       if (!capture) throw new Error("Could not capture the current model view.");
@@ -357,12 +361,42 @@ export function EditorWorkspace({
       setBeforePreview(previewUrl);
 
       const maskBlob = await maskOverlayRef.current?.toMaskBlob();
-      const previewBlob = await applyMasked2dPreview(capture.image, maskBlob ?? null, editOperation);
+      const instruction = instructionWithRegionRefs(aiPrompt, rectMarks);
+      let previewBlob: Blob | null = null;
+
+      if (maskBlob) {
+        const previewForm = new FormData();
+        previewForm.append("instruction", instruction);
+        previewForm.append("operation", editOperation);
+        previewForm.append("referenceImage", capture.image, "reference.png");
+        previewForm.append("maskImage", maskBlob, "mask.png");
+
+        const previewRes = await fetch(`/api/projects/${projectId}/edit-preview`, {
+          method: "POST",
+          body: previewForm,
+        });
+        const previewData = await previewRes.json();
+
+        if (previewRes.ok && previewData.previewBase64) {
+          const bytes = Uint8Array.from(atob(previewData.previewBase64 as string), (c) =>
+            c.charCodeAt(0)
+          );
+          previewBlob = new Blob([bytes], {
+            type: (previewData.contentType as string) ?? "image/png",
+          });
+        }
+      }
+
+      if (!previewBlob) {
+        previewBlob = await applyMasked2dPreview(capture.image, maskBlob ?? null, editOperation);
+      }
+
+      setEditedReferenceBlob(previewBlob);
       if (afterPreview?.startsWith("blob:") && afterPreview !== beforePreview) {
         URL.revokeObjectURL(afterPreview);
       }
       setAfterPreview(URL.createObjectURL(previewBlob));
-      const expanded = expandDentalPrompt(aiPrompt);
+      const expanded = expandDentalPrompt(instruction);
       track("AI_PROMPT_SUBMITTED", projectId, {
         stage: "2d-mask-approval",
         prompt: expanded.original,
@@ -370,6 +404,20 @@ export function EditorWorkspace({
     } finally {
       setPreviewLoading(false);
     }
+  };
+
+  const handlePresetSelect = (preset: {
+    id: string;
+    operation: EditOperation;
+    prompt: string;
+  }) => {
+    setActivePresetId(preset.id);
+    setEditOperation(preset.operation);
+    setAiPrompt(preset.prompt);
+    if (activeTool !== "mask" && activeTool !== "mark") {
+      setActiveTool("mask");
+    }
+    triggerSFX("toggle");
   };
 
   const handleGenerate3dEdit = async () => {
@@ -383,7 +431,11 @@ export function EditorWorkspace({
     formData.append("operation", editOperation);
     formData.append("sourceModelUrl", modelUrl);
     if (maskBlob) formData.append("maskImage", maskBlob, "mask.png");
-    if (referenceImage) formData.append("referenceImage", referenceImage, "reference.png");
+    const refFor3d = editedReferenceBlob ?? referenceImage;
+    if (refFor3d) {
+      formData.append("referenceImage", refFor3d, "reference.png");
+      if (editedReferenceBlob) formData.append("referenceEdited", "true");
+    }
     if (referenceCamera) formData.append("camera", JSON.stringify(referenceCamera));
     if (rectMarks.length > 0) {
       formData.append("regionMarks", JSON.stringify(buildRegionMarksPayload(rectMarks)));
@@ -696,6 +748,12 @@ export function EditorWorkspace({
                 onReject={() => void handleRejectRevision()}
               />
             )}
+
+            <EditorEditPresetsBar
+              visible={maskVisible}
+              activePresetId={activePresetId}
+              onSelect={handlePresetSelect}
+            />
 
             <EditorEditActions
               visible={maskVisible}
