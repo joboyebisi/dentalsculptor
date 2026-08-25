@@ -8,18 +8,23 @@ import {
   type EditPresetContext,
 } from "@/lib/edit-preset-context";
 import { toothTypeLabel } from "@/lib/tooth-taxonomy";
+import { FloatingEditorPanel } from "@/components/editor/floating-editor-panel";
 
 interface EditorEditPresetsBarProps {
   visible: boolean;
+  open: boolean;
+  onClose: () => void;
   context: EditPresetContext;
   activePresetId?: string | null;
   onSelect: (preset: EditPreset) => void;
   className?: string;
 }
 
-/** Quick dental edit presets — filtered by FDI tooth type from the active case. */
+/** Quick dental edit presets — for custom cases only (teaching cases use the case wizard). */
 export function EditorEditPresetsBar({
   visible,
+  open,
+  onClose,
   context,
   activePresetId,
   onSelect,
@@ -32,15 +37,17 @@ export function EditorEditPresetsBar({
   const incompatible = filtered.filter((f) => !f.compatible);
 
   return (
-    <div
-      className={cn(
-        "pointer-events-auto absolute left-1/2 bottom-36 z-20 flex max-w-[min(760px,calc(100%-2rem))] -translate-x-1/2 flex-col gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest/95 px-3 py-2 shadow-md backdrop-blur-md",
-        className
-      )}
+    <FloatingEditorPanel
+      id="edit-presets"
+      title="Edit presets"
+      open={open}
+      onClose={onClose}
+      defaultPosition={{ x: 200, y: 460 }}
+      bodyClassName={cn("max-w-[min(760px,calc(100vw-2rem))] space-y-2 p-2", className)}
     >
-      <div className="flex flex-wrap items-center justify-between gap-2 px-0.5">
-        <p className="font-mono text-[10px] uppercase tracking-wider text-on-surface-variant">
-          Edit presets
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[10px] text-on-surface-variant">
+          Filtered for your case tooth · click to fill instruction + operation
         </p>
         <ContextBadge context={context} />
       </div>
@@ -71,7 +78,7 @@ export function EditorEditPresetsBar({
           </ul>
         </details>
       )}
-    </div>
+    </FloatingEditorPanel>
   );
 }
 
@@ -123,9 +130,9 @@ function PresetChip({
       onClick={onSelect}
       title={[preset.prompt, hint, preset.hapticNote].filter(Boolean).join(" — ")}
       className={cn(
-        "shrink-0 rounded-lg border px-2.5 py-1.5 text-left text-[11px] font-medium transition-colors",
+        "shrink-0 rounded-lg border px-2.5 py-1.5 text-left text-[11px] font-medium transition-all",
         active
-          ? "border-primary-container bg-primary-container/15 text-on-surface"
+          ? "border-primary-container bg-primary-container/15 text-on-surface ring-2 ring-primary-container/30"
           : "border-outline-variant bg-surface-container-highest text-on-surface hover:border-outline"
       )}
     >

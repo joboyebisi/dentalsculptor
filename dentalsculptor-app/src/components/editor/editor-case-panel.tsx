@@ -1,8 +1,11 @@
 "use client";
 
-import { BookOpen, Target, Shield } from "lucide-react";
+import { BookOpen, Target, Shield, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { CaseRecipe } from "@/lib/clinical-case-params";
 import type { CaseTemplate } from "@/lib/case-templates";
+import type { EditOperation } from "@/lib/edit-types";
+import { operationLabel } from "@/lib/edit-workflow-steps";
 
 interface EditorCasePanelProps {
   open: boolean;
@@ -12,6 +15,8 @@ interface EditorCasePanelProps {
   instructions: string | null;
   learningObjectives: Array<{ id: string; title: string }>;
   onSelectPrompt?: (prompt: string) => void;
+  selectedPrompt?: string | null;
+  activeOperation?: EditOperation;
   onStartMaskEdit?: () => void;
 }
 
@@ -23,6 +28,8 @@ export function EditorCasePanel({
   instructions,
   learningObjectives,
   onSelectPrompt,
+  selectedPrompt,
+  activeOperation,
   onStartMaskEdit,
 }: EditorCasePanelProps) {
   if (!open) {
@@ -106,19 +113,42 @@ export function EditorCasePanel({
             <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant">
               Suggested edits
             </p>
-            <ul className="space-y-1">
-              {selectedCase.suggestedPrompts.map((prompt) => (
-                <li key={prompt}>
-                  <button
-                    type="button"
-                    onClick={() => onSelectPrompt?.(prompt)}
-                    className="w-full rounded-md border border-outline-variant bg-surface-container-low px-2 py-1.5 text-left text-[11px] text-on-surface hover:border-primary-container/40 hover:bg-surface-container"
-                  >
-                    {prompt}
-                  </button>
-                </li>
-              ))}
+            <ul className="space-y-1.5">
+              {selectedCase.suggestedPrompts.map((prompt) => {
+                const selected = selectedPrompt === prompt;
+                return (
+                  <li key={prompt}>
+                    <button
+                      type="button"
+                      onClick={() => onSelectPrompt?.(prompt)}
+                      className={cn(
+                        "flex w-full items-start gap-2 rounded-md border px-2 py-1.5 text-left text-[11px] transition-all",
+                        selected
+                          ? "border-primary-container bg-primary-container/10 text-on-surface ring-2 ring-primary-container/25"
+                          : "border-outline-variant bg-surface-container-low text-on-surface hover:border-primary-container/40 hover:bg-surface-container"
+                      )}
+                    >
+                      <Check
+                        className={cn(
+                          "mt-0.5 h-3.5 w-3.5 shrink-0",
+                          selected ? "text-primary-container" : "text-transparent"
+                        )}
+                        aria-hidden
+                      />
+                      <span>{prompt}</span>
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
+            {activeOperation && (
+              <p className="mt-2 text-[10px] text-on-surface-variant">
+                Operation:{" "}
+                <span className="font-semibold uppercase text-tertiary">
+                  {operationLabel(activeOperation)}
+                </span>
+              </p>
+            )}
           </div>
         )}
 

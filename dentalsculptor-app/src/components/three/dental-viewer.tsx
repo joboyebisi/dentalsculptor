@@ -7,6 +7,7 @@ import * as THREE from "three";
 import type { GeneratedMesh } from "@/lib/model-generator";
 import { RemoteModelMesh } from "@/components/three/remote-model-mesh";
 import type { RemoteModelFormat } from "@/lib/model-format";
+import { VIEWPORT_THEME } from "@/lib/constants";
 
 export interface AnnotationMarker {
   id: string;
@@ -133,6 +134,7 @@ function SceneContent(props: DentalModelProps) {
   return (
     <>
       <PerspectiveCamera makeDefault position={[2.5, 1.5, 2.5]} fov={45} />
+      <color attach="background" args={[VIEWPORT_THEME.background]} />
       <Environment preset="studio" environmentIntensity={0.55} />
       <ambientLight intensity={0.65} />
       <hemisphereLight args={["#ffffff", "#d1d5db", 0.55]} />
@@ -142,10 +144,10 @@ function SceneContent(props: DentalModelProps) {
         args={[10, 10]}
         cellSize={0.5}
         cellThickness={0.5}
-        cellColor="#E2E8F0"
+        cellColor={VIEWPORT_THEME.grid}
         sectionSize={2}
         sectionThickness={1}
-        sectionColor="#CBD5E1"
+        sectionColor={VIEWPORT_THEME.gridSection}
         fadeDistance={12}
         position={[0, -1.2, 0]}
       />
@@ -194,7 +196,7 @@ export function DentalViewer({
   ...props
 }: DentalViewerProps) {
   return (
-    <div className={`relative bg-surface-container-low ${className}`}>
+    <div className={`relative ${className}`} style={{ backgroundColor: VIEWPORT_THEME.background }}>
       <Canvas
         shadows
         gl={{ antialias: true, alpha: true }}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useMemo } from "react";
+import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import type { GeneratedMesh } from "@/lib/model-generator";
 import { EditorHeader, type EditorTab } from "@/components/editor/editor-header";
 import { EditorToolPalette, type EditorTool } from "@/components/editor/editor-tool-palette";
@@ -16,7 +16,9 @@ import { EditorEditWorkflowPanel } from "@/components/editor/editor-edit-workflo
 import { EditorRevisionReview } from "@/components/editor/editor-revision-review";
 import { EditorEditPresetsBar, EditPresetHapticNotice } from "@/components/editor/editor-edit-presets-bar";
 import { resolveEditPresetContext } from "@/lib/edit-preset-context";
-import { getEditPreset } from "@/lib/edit-presets";
+import { getEditPreset, EDIT_PRESETS } from "@/lib/edit-presets";
+import { readJsonResponse, jsonResponseError } from "@/lib/safe-json-response";
+import { resolveEditWorkflowStep } from "@/lib/edit-workflow-steps";
 import {
   EditPreviewModal,
   EditorEditActions,
@@ -24,6 +26,7 @@ import {
 } from "@/components/editor/edit-preview-modal";
 import { ExportWizardDialog } from "@/components/export/export-wizard-dialog";
 import { EditorCasePanel } from "@/components/editor/editor-case-panel";
+import { EditorCaseContextPanel } from "@/components/editor/editor-case-context-panel";
 import { CaseWizardDialog, type CaseWizardContinuePayload } from "@/components/case-wizard/case-wizard-dialog";
 import type { CaseTemplate } from "@/lib/case-templates";
 import { getCaseTemplate } from "@/lib/case-templates";
@@ -133,7 +136,7 @@ export function EditorWorkspace({
   const [learningObjectives, setLearningObjectives] = useState(project.learningObjectives);
   const [instructions, setInstructions] = useState(project.instructions);
   const [brushMode, setBrushMode] = useState<MaskBrushMode>("paint");
-  const [brushSize, setBrushSize] = useState(32);
+  const [brushSize, setBrushSize] = useState(20);
   const [editOperation, setEditOperation] = useState<EditOperation>(
     initialTemplate?.defaultOperation ?? "remove"
   );
@@ -150,6 +153,7 @@ export function EditorWorkspace({
   const [afterPreview, setAfterPreview] = useState<string | null>(null);
   const [editedReferenceBlob, setEditedReferenceBlob] = useState<Blob | null>(null);
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
+  const [selectedSuggestedPrompt, setSelectedSuggestedPrompt] = useState<string | null>(null);
   const [referenceImage, setReferenceImage] = useState<Blob | null>(null);
   const [referenceCamera, setReferenceCamera] = useState<SerializedCameraState | null>(null);
   const [maskCoverage, setMaskCoverage] = useState(0);
@@ -161,6 +165,20 @@ export function EditorWorkspace({
   const [markRedoStack, setMarkRedoStack] = useState<RectMark[]>([]);
   const [maskHasStrokes, setMaskHasStrokes] = useState(false);
   const [viewerInteractionMode, setViewerInteractionMode] = useState<ViewerInteractionMode>("orbit");
+  const [navigateHeld, setNavigateHeld] = useState(false);
+  const [floatingPanels, setFloatingPanels] = useState({
+    maskContext: true,
+    workflow: true,
+    editActions: true,
+    maskToolbar: true,
+    presets: true,
+    caseContext: true,
+  });
+  const closeFloatingPanel = useCallback(
+    (key: keyof typeof floatingPanels) =>
+      setFloatingPanels((prev) => ({ ...prev, [key]: false })),
+    []
+  );
   const [modelSelected, setModelSelected] = useState(false);
   const [activePartId, setActivePartId] = useState<string | null>(null);
   const [modelLoadStatus, setModelLoadStatus] = useState<ModelLoadStatus>(
@@ -194,6 +212,31 @@ export function EditorWorkspace({
     [caseRecipe, selectedCase]
   );
   const activeEditPreset = activePresetId ? getEditPreset(activePresetId) ?? null : null;
+  const showEditPresets = maskVisible;
+  const editWorkflowStep = resolveEditWorkflowStep({
+    hasMask: maskHasStrokes || maskCoverage > 0 || rectMarks.length > 0,
+    hasInstruction: Boolean(aiPrompt.trim()),
+    hasPreview: Boolean(afterPreview),
+  });
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.code !== "Space" || e.repeat) return;
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      e.preventDefault();
+      setNavigateHeld(true);
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code === "Space") setNavigateHeld(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+    };
+  }, []);
 
   const handleRectMarkComplete = useCallback(
     async (partial: Omit<RectMark, "id" | "index" | "label" | "text">) => {
@@ -338,7 +381,15 @@ export function EditorWorkspace({
       );
       if (data.editPrompt) setAiPrompt(data.editPrompt);
       if (payload.template.defaultOperation) setEditOperation(payload.template.defaultOperation);
-      setActiveTool("mask");
+      setActiveTool("select");
+      setFloatingPanels({
+        maskContext: true,
+        workflow: true,
+        editActions: true,
+        maskToolbar: true,
+        presets: false,
+        caseContext: true,
+      });
       setCaseWizardOpen(false);
       track("LEARNING_OBJECTIVE_CREATED", projectId, {
         caseTemplateId: payload.template.id,
@@ -420,8 +471,25 @@ export function EditorWorkspace({
     prompt: string;
   }) => {
     setActivePresetId(preset.id);
+    setSelectedSuggestedPrompt(preset.prompt);
     setEditOperation(preset.operation);
     setAiPrompt(preset.prompt);
+    if (activeTool !== "mask" && activeTool !== "mark") {
+      setActiveTool("mask");
+    }
+    triggerSFX("toggle");
+  };
+
+  const handleSelectSuggestedPrompt = (prompt: string) => {
+    setSelectedSuggestedPrompt(prompt);
+    setAiPrompt(prompt);
+    const matchingPreset = EDIT_PRESETS.find((p) => p.prompt === prompt);
+    if (matchingPreset) {
+      setActivePresetId(matchingPreset.id);
+      setEditOperation(matchingPreset.operation);
+    } else if (selectedCase?.defaultOperation) {
+      setEditOperation(selectedCase.defaultOperation);
+    }
     if (activeTool !== "mask" && activeTool !== "mark") {
       setActiveTool("mask");
     }
@@ -458,8 +526,22 @@ export function EditorWorkspace({
         method: "POST",
         body: formData,
       });
-      const data = await res.json();
+      const { data, raw } = await readJsonResponse<{
+        error?: string;
+        jobId?: string;
+        status?: string;
+        modelUrl?: string;
+        format?: string;
+        revisionNumber?: number;
+        message?: string;
+      }>(res);
+      if (!data) {
+        throw new Error(jsonResponseError(res, raw, "Edit service returned an empty response."));
+      }
       if (!res.ok) throw new Error(data.error ?? "Edit failed");
+      if (data.message && data.status === "queued" && !data.modelUrl) {
+        throw new Error(data.message);
+      }
 
       track("AI_SUGGESTION_ACCEPTED", projectId, { jobId: data.jobId });
 
@@ -480,6 +562,8 @@ export function EditorWorkspace({
           sourceModelUrl: sourceBeforeEdit,
           revisionNumber: revisionNumber ?? 1,
         });
+        setPreviewOpen(false);
+        setActiveTool("select");
         triggerSFX("toggle");
       };
 
@@ -499,7 +583,17 @@ export function EditorWorkspace({
         const statusRes = await fetch(
           `/api/edit-jobs/${encodeURIComponent(jobId)}?projectId=${encodeURIComponent(projectId)}`
         );
-        const status = await statusRes.json();
+        const { data: status, raw: statusRaw } = await readJsonResponse<{
+          status?: string;
+          modelUrl?: string;
+          format?: string;
+          revisionNumber?: number;
+          preview2dUrl?: string;
+          error?: string;
+        }>(statusRes);
+        if (!status) {
+          throw new Error(jsonResponseError(statusRes, statusRaw, "Edit status unavailable."));
+        }
         if (status.preview2dUrl && typeof status.preview2dUrl === "string") {
           if (afterPreview?.startsWith("blob:")) URL.revokeObjectURL(afterPreview);
           setAfterPreview(status.preview2dUrl);
@@ -724,7 +818,7 @@ export function EditorWorkspace({
 
             <MaskPaintOverlay
               ref={maskOverlayRef}
-              interactive={maskMode && hasModel}
+              interactive={maskMode && hasModel && !navigateHeld}
               visible={maskVisible}
               brushSize={brushSize}
               brushMode={brushMode}
@@ -734,18 +828,32 @@ export function EditorWorkspace({
 
             <EditorMaskContextPanel
               visible={maskVisible}
+              open={floatingPanels.maskContext}
+              onClose={() => closeFloatingPanel("maskContext")}
               coveragePercent={maskCoverage}
               revisionLabel={`v${revisionVersion}`}
               operation={editOperation}
+              workflowStep={editWorkflowStep}
             />
 
             <EditorEditWorkflowPanel
+              visible={maskVisible}
+              open={floatingPanels.workflow}
+              onClose={() => closeFloatingPanel("workflow")}
               selectedCase={selectedCase}
               activeTool={activeTool}
               editOperation={editOperation}
               maskCoverage={maskCoverage}
               hasInstruction={Boolean(aiPrompt.trim())}
               regionMarkCount={rectMarks.length}
+            />
+
+            <EditorCaseContextPanel
+              visible={maskVisible && Boolean(selectedCase)}
+              open={floatingPanels.caseContext}
+              onClose={() => closeFloatingPanel("caseContext")}
+              selectedCase={selectedCase}
+              caseRecipe={caseRecipe}
             />
 
             {pendingRevision && (
@@ -758,7 +866,9 @@ export function EditorWorkspace({
             )}
 
             <EditorEditPresetsBar
-              visible={maskVisible}
+              visible={showEditPresets}
+              open={floatingPanels.presets}
+              onClose={() => closeFloatingPanel("presets")}
               context={editPresetContext}
               activePresetId={activePresetId}
               onSelect={handlePresetSelect}
@@ -766,6 +876,8 @@ export function EditorWorkspace({
 
             <EditorEditActions
               visible={maskVisible}
+              open={floatingPanels.editActions}
+              onClose={() => closeFloatingPanel("editActions")}
               previewLoading={previewLoading}
               generateLoading={editJobLoading}
               canPreview={Boolean(aiPrompt.trim()) && hasSpatialEditTarget}
@@ -776,6 +888,9 @@ export function EditorWorkspace({
 
             {maskVisible && (
               <EditorMaskToolbar
+                visible
+                open={floatingPanels.maskToolbar}
+                onClose={() => closeFloatingPanel("maskToolbar")}
                 brushMode={brushMode}
                 onBrushModeChange={setBrushMode}
                 brushSize={brushSize}
@@ -802,14 +917,18 @@ export function EditorWorkspace({
 
           <EditorAiBar
             value={aiPrompt}
-            onChange={setAiPrompt}
+            onChange={(v) => {
+              setAiPrompt(v);
+              if (v.trim() !== selectedSuggestedPrompt) setSelectedSuggestedPrompt(null);
+            }}
             onApply={handleApplyAi}
-            loading={aiLoading || previewLoading}
+            loading={aiLoading || previewLoading || editJobLoading}
             canApply={canApply}
             maskMode={maskMode}
             regionAttachments={regionAttachments}
             onRemoveAttachment={handleRemoveRegionAttachment}
             hasMask={maskHasStrokes || maskCoverage > 0}
+            workflowStep={editWorkflowStep}
           />
         </section>
 
@@ -841,10 +960,9 @@ export function EditorWorkspace({
           selectedCase={selectedCase}
           instructions={instructions}
           learningObjectives={learningObjectives}
-          onSelectPrompt={(prompt) => {
-            setAiPrompt(prompt);
-            setActiveTool("mask");
-          }}
+          onSelectPrompt={handleSelectSuggestedPrompt}
+          selectedPrompt={selectedSuggestedPrompt ?? (aiPrompt.trim() || null)}
+          activeOperation={editOperation}
           onStartMaskEdit={() => {
             if (selectedCase?.defaultOperation) setEditOperation(selectedCase.defaultOperation);
             setActiveTool("mask");

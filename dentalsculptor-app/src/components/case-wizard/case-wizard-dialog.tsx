@@ -12,6 +12,12 @@ import {
   type CaseTemplate,
   type StudentYearLevel,
 } from "@/lib/case-templates";
+import {
+  EDUCATOR_CASE_PICKS,
+  type EducatorCaseCategory,
+  getEducatorCasePick,
+  templatesForEducatorPick,
+} from "@/lib/educator-case-picks";
 import type { ClinicalParameterValues } from "@/lib/case-recipe-utils";
 import { validateClinicalParameters } from "@/lib/case-recipe-utils";
 import {
@@ -43,7 +49,7 @@ const PROCEDURE_FILTERS = [
   "Pathology",
 ] as const;
 
-type WizardStep = "pick" | "params";
+type WizardStep = "category" | "pick" | "params";
 
 function matchesProcedureFilter(template: CaseTemplate, filter: string): boolean {
   if (filter === "All") return true;
@@ -59,8 +65,9 @@ function matchesProcedureFilter(template: CaseTemplate, filter: string): boolean
 }
 
 export function CaseWizardDialog({ open, onClose, onContinue, applying = false }: CaseWizardDialogProps) {
-  const [step, setStep] = useState<WizardStep>("pick");
-  const [years, setYears] = useState<StudentYearLevel[]>([3]);
+  const [step, setStep] = useState<WizardStep>("category");
+  const [years, setYears] = useState<StudentYearLevel[]>([1, 2, 3]);
+  const [educatorCategory, setEducatorCategory] = useState<EducatorCaseCategory | null>(null);
   const [procedureFilter, setProcedureFilter] = useState<string>("All");
   const [selectedId, setSelectedId] = useState<string | null>(
     listPrimaryCaseTemplates()[0]?.id ?? CASE_TEMPLATES[0]?.id ?? null
@@ -75,15 +82,20 @@ export function CaseWizardDialog({ open, onClose, onContinue, applying = false }
   );
 
   const filtered = useMemo(() => {
+    if (educatorCategory) {
+      const pick = getEducatorCasePick(educatorCategory);
+      if (pick) return templatesForEducatorPick(pick);
+    }
     return listCaseTemplates().filter((t) => {
       const yearOk = years.length === 0 || t.studentYearLevels.some((y) => years.includes(y));
       return yearOk && matchesProcedureFilter(t, procedureFilter);
     });
-  }, [years, procedureFilter]);
+  }, [years, procedureFilter, educatorCategory]);
 
   useEffect(() => {
     if (!open) {
-      setStep("pick");
+      setStep("category");
+      setEducatorCategory(null);
       setFormError(null);
     }
   }, [open]);
@@ -98,6 +110,14 @@ export function CaseWizardDialog({ open, onClose, onContinue, applying = false }
 
   const toggleYear = (y: StudentYearLevel) => {
     setYears((prev) => (prev.includes(y) ? prev.filter((x) => x !== y) : [...prev, y]));
+  };
+
+  const pickEducatorCategory = (category: EducatorCaseCategory) => {
+    const pick = getEducatorCasePick(category);
+    setEducatorCategory(category);
+    setYears(pick?.studentYearLevels ?? [1, 2, 3]);
+    setSelectedId(pick?.primaryTemplateId ?? null);
+    setStep("pick");
   };
 
   const goToParams = () => {
@@ -135,6 +155,16 @@ export function CaseWizardDialog({ open, onClose, onContinue, applying = false }
               <X className="h-5 w-5" />
             </button>
           </div>
+
+          {step === "category" && (
+            <div className="space-y-4 text-body-sm text-on-surface-variant">
+              <p className="font-medium text-on-surface">Educator quick picks</p>
+              <p>
+                We do not auto-detect tooth number from photos yet — you will confirm FDI in the next
+                step so presets match your model.
+              </p>
+            </div>
+          )}
 
           {step === "pick" && (
             <>
@@ -235,7 +265,34 @@ export function CaseWizardDialog({ open, onClose, onContinue, applying = false }
           </div>
 
           <div className="flex-1 overflow-y-auto p-6">
-            {step === "pick" ? (
+            {step === "category" ? (
+              <>
+                <h1 className="mb-2 text-headline-md font-semibold text-on-surface">
+                  Choose a teaching case
+                </h1>
+                <p className="mb-6 max-w-2xl text-body-sm text-on-surface-variant">
+                  For BDS Years 1–3: pick a case type, confirm the FDI tooth matches your uploaded
+                  photo, then export to simulators, Meta Quest, or PowerPoint-friendly bundles.
+                </p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {EDUCATOR_CASE_PICKS.map((pick) => (
+                    <button
+                      key={pick.id}
+                      type="button"
+                      onClick={() => pickEducatorCategory(pick.id)}
+                      className="rounded-xl border border-outline-variant bg-surface-container-lowest p-5 text-left transition-all hover:border-primary-container/40 hover:shadow-md"
+                    >
+                      <h3 className="font-semibold text-on-surface">{pick.label}</h3>
+                      <p className="mt-1 text-body-sm text-on-surface-variant">{pick.subtitle}</p>
+                      <p className="mt-3 text-[11px] text-on-surface-variant">
+                        Years {pick.studentYearLevels.join(", ")} ·{" "}
+                        {pick.exportTargets.map((t) => t.replace(/-/g, " ")).join(" · ")}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : step === "pick" ? (
               <>
                 <h1 className="mb-2 text-headline-md font-semibold text-on-surface">Choose a clinical case</h1>
                 <p className="mb-6 max-w-2xl text-body-sm text-on-surface-variant">
@@ -337,6 +394,12 @@ export function CaseWizardDialog({ open, onClose, onContinue, applying = false }
 
           <div className="flex justify-between gap-2 border-t border-outline-variant bg-surface-container-lowest px-6 py-4">
             <div>
+              {step === "pick" && (
+                <Button type="button" variant="ghost" onClick={() => setStep("category")} disabled={applying}>
+                  <ChevronLeft className="mr-1 h-4 w-4" />
+                  Back
+                </Button>
+              )}
               {step === "params" && (
                 <Button type="button" variant="ghost" onClick={() => setStep("pick")} disabled={applying}>
                   <ChevronLeft className="mr-1 h-4 w-4" />

@@ -3,7 +3,7 @@
 import {
   MousePointerClick,
   BoxSelect,
-  PencilLine,
+  Layers,
   Hand,
   Paintbrush,
   ZoomIn,
@@ -30,7 +30,7 @@ const tools: { id: EditorTool; icon: typeof MousePointerClick; label: string; di
   { id: "select", icon: MousePointerClick, label: "Select" },
   { id: "mark", icon: BoxSelect, label: "Region mark" },
   { id: "mask", icon: Paintbrush, label: "Mask paint" },
-  { id: "edit", icon: PencilLine, label: "Wireframe" },
+  { id: "edit", icon: Layers, label: "Mesh view" },
   { id: "pan", icon: Hand, label: "Pan", dividerAfter: true },
   { id: "zoom-in", icon: ZoomIn, label: "Zoom in" },
   { id: "zoom-out", icon: ZoomOut, label: "Zoom out" },

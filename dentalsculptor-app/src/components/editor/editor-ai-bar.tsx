@@ -4,6 +4,8 @@ import { Wand2, ArrowUp, X } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { EditRegionAttachment } from "@/lib/edit-region-attachments";
+import type { EditWorkflowStep } from "@/lib/edit-workflow-steps";
+import { editWorkflowStepCopy } from "@/lib/edit-workflow-steps";
 
 const MAX_PROMPT_CHARS = 500;
 
@@ -17,6 +19,7 @@ interface EditorAiBarProps {
   regionAttachments?: EditRegionAttachment[];
   onRemoveAttachment?: (id: string) => void;
   hasMask?: boolean;
+  workflowStep?: EditWorkflowStep;
 }
 
 export function EditorAiBar({
@@ -29,6 +32,7 @@ export function EditorAiBar({
   regionAttachments = [],
   onRemoveAttachment,
   hasMask = false,
+  workflowStep,
 }: EditorAiBarProps) {
   const remaining = MAX_PROMPT_CHARS - value.length;
   const hasSpatialTarget = regionAttachments.length > 0 || hasMask;
@@ -42,6 +46,18 @@ export function EditorAiBar({
   };
 
   const statusMessage = (() => {
+    if (workflowStep === "submit" && ready) {
+      return "Ready — click Send ↑ to preview or run the 3D edit";
+    }
+    if (workflowStep === "preview" && hasSpatialTarget && value.trim()) {
+      return 'Click Send ↑ to open the 2D preview, or use "Preview 2D" above';
+    }
+    if (workflowStep === "instruction" && hasSpatialTarget) {
+      return "Pick a suggested edit or type below, then Send ↑";
+    }
+    if (workflowStep) {
+      return editWorkflowStepCopy(workflowStep).cta;
+    }
     if (maskMode && hasMask) return "Mask painted — ready to preview or apply";
     if (regionAttachments.length > 0) {
       return `${regionAttachments.length} region${regionAttachments.length === 1 ? "" : "s"} attached — describe the edit`;

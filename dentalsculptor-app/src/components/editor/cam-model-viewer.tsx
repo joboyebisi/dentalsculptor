@@ -402,10 +402,10 @@ function SceneContent({
         args={[10, 10]}
         cellSize={0.5}
         cellThickness={0.5}
-        cellColor="#D1D5DB"
+        cellColor={VIEWPORT_THEME.grid}
         sectionSize={2}
         sectionThickness={1}
-        sectionColor="#9CA3AF"
+        sectionColor={VIEWPORT_THEME.gridSection}
         fadeDistance={14}
         position={[0, -0.01, 0]}
       />

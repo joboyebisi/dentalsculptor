@@ -93,29 +93,67 @@ export async function POST(
       headers: { Authorization: `Bearer ${process.env.MODAL_WEBHOOK_SECRET ?? ""}` },
       body: proxyForm,
     });
-    const data = await res.json();
+    const raw = await res.text();
+    let data: Record<string, unknown> = {};
+    if (raw.trim()) {
+      try {
+        data = JSON.parse(raw) as Record<string, unknown>;
+      } catch {
+        return NextResponse.json(
+          { error: "Modal edit worker returned invalid JSON.", detail: raw.slice(0, 200) },
+          { status: 502 }
+        );
+      }
+    } else if (!res.ok) {
+      return NextResponse.json(
+        { error: "Modal edit worker returned an empty response.", detail: `HTTP ${res.status}` },
+        { status: 502 }
+      );
+    }
     if (!res.ok) {
-      return NextResponse.json({ error: data.error ?? "Edit job failed." }, { status: 502 });
+      return NextResponse.json(
+        { error: (data.error as string) ?? "Edit job failed." },
+        { status: 502 }
+      );
     }
 
     const jobId = (data.jobId as string | undefined) ?? stubJobId;
 
-    const editJob = await createEditJobRecord({
-      id: jobId,
-      projectId,
-      ownerId: user.id,
-      operation,
-      instruction: expanded.expanded,
-      sourceModelUrl,
-      camera: parseJsonField(camera),
-      regionMarks: parseJsonField(regionMarks),
-      selectedPartIds: parseJsonField(selectedPartIds),
-      provider: "modal",
-    });
+    let editJob: { revisionNumber: number };
+    try {
+      editJob = await createEditJobRecord({
+        id: jobId,
+        projectId,
+        ownerId: user.id,
+        operation,
+        instruction: expanded.expanded,
+        sourceModelUrl,
+        camera: parseJsonField(camera),
+        regionMarks: parseJsonField(regionMarks),
+        selectedPartIds: parseJsonField(selectedPartIds),
+        provider: "modal",
+      });
+    } catch (dbErr) {
+      console.error("[edit-jobs] EditJob DB write failed — run prisma/sql/add_edit_job.sql", dbErr);
+      return NextResponse.json(
+        {
+          error:
+            "Edit job could not be saved. Ask your admin to run add_edit_job.sql in Supabase.",
+          jobId,
+          status: "failed",
+        },
+        { status: 503 }
+      );
+    }
 
     let modelUrl = data.modelUrl as string | undefined;
     let format = (data.format as string | undefined) ?? "glb";
-    if (data.status === "completed" && data.modelBase64 && !modelUrl) {
+    if (
+      data.status === "completed" &&
+      typeof data.modelBase64 === "string" &&
+      data.modelBase64 &&
+      !modelUrl
+    ) {
       const buffer = Buffer.from(data.modelBase64, "base64");
       const key = generateAssetKey(user.id, `edit-${jobId}.glb`);
       modelUrl = await uploadAsset(key, buffer, "model/gltf-binary");

@@ -4,8 +4,12 @@ import { Check, Circle, Paintbrush, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { EditOperation } from "@/lib/edit-types";
 import type { CaseTemplate } from "@/lib/case-templates";
+import { FloatingEditorPanel } from "@/components/editor/floating-editor-panel";
 
 interface EditorEditWorkflowPanelProps {
+  visible: boolean;
+  open: boolean;
+  onClose: () => void;
   selectedCase: CaseTemplate | null;
   activeTool: string;
   editOperation: EditOperation;
@@ -65,6 +69,9 @@ function stepActive(
 }
 
 export function EditorEditWorkflowPanel({
+  visible,
+  open,
+  onClose,
   selectedCase,
   activeTool,
   editOperation,
@@ -73,6 +80,8 @@ export function EditorEditWorkflowPanel({
   regionMarkCount = 0,
   className,
 }: EditorEditWorkflowPanelProps) {
+  if (!visible) return null;
+
   const ctx = {
     hasCase: Boolean(selectedCase),
     maskCoverage,
@@ -82,15 +91,14 @@ export function EditorEditWorkflowPanel({
   };
 
   return (
-    <div
-      className={cn(
-        "pointer-events-none absolute left-4 bottom-28 z-20 w-64 rounded-lg border border-outline-variant bg-surface/95 p-3 shadow-sm backdrop-blur",
-        className
-      )}
+    <FloatingEditorPanel
+      id="edit-workflow"
+      title="Edit workflow"
+      open={open}
+      onClose={onClose}
+      defaultPosition={{ x: 16, y: 280 }}
+      bodyClassName={cn("w-64 p-3", className)}
     >
-      <p className="mb-2 font-mono text-[10px] uppercase tracking-wider text-on-surface-variant">
-        Edit workflow
-      </p>
       <ol className="space-y-2">
         {STEPS.map((step) => {
           const done = stepComplete(step.id, ctx);
@@ -131,6 +139,6 @@ export function EditorEditWorkflowPanel({
           Suggested: &ldquo;{selectedCase.suggestedPrompts[0]}&rdquo;
         </p>
       )}
-    </div>
+    </FloatingEditorPanel>
   );
 }

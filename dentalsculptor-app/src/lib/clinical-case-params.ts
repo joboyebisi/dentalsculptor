@@ -84,6 +84,8 @@ export const CARIES_CLINICAL_FIELDS: ClinicalParameterField[] = [
     type: "fdi-tooth",
     required: true,
     mapsTo: "anatomy-label",
+    helpText:
+      "Confirm the FDI number matches the tooth in your uploaded photo. We do not auto-detect tooth identity from images yet.",
   },
   {
     id: "surface",
@@ -154,6 +156,8 @@ export const ANATOMY_CLINICAL_FIELDS: ClinicalParameterField[] = [
     type: "fdi-tooth",
     required: true,
     mapsTo: "anatomy-label",
+    helpText:
+      "Confirm the FDI number matches the tooth in your uploaded photo. We do not auto-detect tooth identity from images yet.",
   },
   {
     id: "toothType",
@@ -190,6 +194,8 @@ export const CROWN_PREP_CLINICAL_FIELDS: ClinicalParameterField[] = [
     type: "fdi-tooth",
     required: true,
     mapsTo: "anatomy-label",
+    helpText:
+      "Confirm the FDI number matches the tooth in your uploaded photo. We do not auto-detect tooth identity from images yet.",
   },
   {
     id: "archContext",
@@ -235,6 +241,30 @@ export const CROWN_PREP_CLINICAL_FIELDS: ClinicalParameterField[] = [
   },
 ];
 
+export const ENDO_ACCESS_INTRO_FIELDS: ClinicalParameterField[] = [
+  {
+    id: "fdiTooth",
+    label: "Tooth (FDI)",
+    type: "fdi-tooth",
+    required: true,
+    mapsTo: "anatomy-label",
+    helpText:
+      "Confirm the FDI number matches the tooth in your uploaded photo. We do not auto-detect tooth identity from images yet.",
+  },
+  {
+    id: "accessType",
+    label: "Access type",
+    type: "select",
+    required: true,
+    options: [
+      { value: "molars", label: "Molar (trapezoidal)" },
+      { value: "premolars", label: "Premolar" },
+      { value: "anterior", label: "Anterior" },
+    ],
+    mapsTo: "pathology",
+  },
+];
+
 export const ENDO_ACCESS_CLINICAL_FIELDS: ClinicalParameterField[] = [
   {
     id: "fdiTooth",
@@ -242,6 +272,8 @@ export const ENDO_ACCESS_CLINICAL_FIELDS: ClinicalParameterField[] = [
     type: "fdi-tooth",
     required: true,
     mapsTo: "anatomy-label",
+    helpText:
+      "Confirm the FDI number matches the tooth in your uploaded photo. We do not auto-detect tooth identity from images yet.",
   },
   {
     id: "accessType",

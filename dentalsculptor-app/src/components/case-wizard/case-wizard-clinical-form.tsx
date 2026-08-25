@@ -5,6 +5,7 @@ import type { ClinicalParameterField } from "@/lib/clinical-case-params";
 import type { ClinicalParameterValues } from "@/lib/case-recipe-utils";
 import { cn } from "@/lib/utils";
 import { FdiOdontogramPicker } from "@/components/case-wizard/fdi-odontogram-picker";
+import { fdiToothType } from "@/lib/tooth-taxonomy";
 
 interface CaseWizardClinicalFormProps {
   fields: ClinicalParameterField[];
@@ -45,7 +46,13 @@ export function CaseWizardClinicalForm({
           <FieldLabel field={field} />
           <FdiOdontogramPicker
             value={typeof values[field.id] === "string" ? (values[field.id] as string) : undefined}
-            onChange={(fdi) => setValue(field.id, fdi)}
+            onChange={(fdi) => {
+              setValue(field.id, fdi);
+              const inferred = fdiToothType(fdi);
+              if (inferred && fields.some((f) => f.id === "toothType")) {
+                setValue("toothType", inferred);
+              }
+            }}
           />
           {field.helpText && (
             <p className="mt-1 text-[11px] text-on-surface-variant">{field.helpText}</p>

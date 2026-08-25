@@ -199,15 +199,24 @@ export const MaskPaintOverlay = forwardRef<MaskPaintOverlayHandle, MaskPaintOver
     if (!visible) return null;
 
     return (
-      <div ref={containerRef} className="absolute inset-0 z-10 touch-none">
+      <div ref={containerRef} className="absolute inset-0 z-10 touch-none pointer-events-none">
         <canvas
           ref={canvasRef}
           className={cn(
             "h-full w-full",
-            interactive ? "cursor-crosshair" : "pointer-events-none cursor-default"
+            interactive ? "pointer-events-auto cursor-crosshair" : "pointer-events-none cursor-default"
           )}
           onPointerDown={(e) => {
             if (!interactive) return;
+            if (e.button !== 0 || e.altKey) {
+              const root = containerRef.current;
+              if (root) root.style.pointerEvents = "none";
+              const restore = () => {
+                if (root) root.style.pointerEvents = "";
+              };
+              window.addEventListener("pointerup", restore, { once: true });
+              return;
+            }
             e.currentTarget.setPointerCapture(e.pointerId);
             drawingRef.current = true;
             pushHistory();

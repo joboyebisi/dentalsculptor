@@ -17,6 +17,7 @@ import {
   CARIES_CLINICAL_FIELDS,
   CROWN_PREP_CLINICAL_FIELDS,
   ENDO_ACCESS_CLINICAL_FIELDS,
+  ENDO_ACCESS_INTRO_FIELDS,
 } from "@/lib/clinical-case-params";
 
 export type StudentYearLevel = 1 | 2 | 3 | 4 | 5;
@@ -340,6 +341,36 @@ export const CASE_TEMPLATES: CaseTemplate[] = [
     assessmentPrompts: ["Document margin location and occlusal clearance achieved."],
     difficulty: "advanced",
     tags: ["prosthodontics", "crown", "year-4", "year-5"],
+  },
+  {
+    id: "endo-access-intro",
+    procedure: "endo-access",
+    title: "Endodontic access — introductory",
+    shortDescription: "Year 2–3 intro: open pulp chamber roof and locate orifices on a single tooth.",
+    workflow: "single-tooth-clinical",
+    primaryTemplate: true,
+    studentYearLevels: [2, 3],
+    clinicalParameterFields: ENDO_ACCESS_INTRO_FIELDS,
+    defaultAnatomyRoles: [
+      { partLabel: "Access cavity", role: "target" },
+      { partLabel: "Canal orifices", role: "target", tissue: "pulp" },
+      { partLabel: "Peripheral dentin", role: "protected", tissue: "dentin" },
+    ],
+    caseAssets: caseAssets("none"),
+    learningObjectives: [
+      "Outline an endodontic access cavity on a 3D tooth model.",
+      "Relate occlusal anatomy to pulp chamber orientation.",
+    ],
+    suggestedPrompts: [
+      "Open pulp chamber roof through occlusal surface, expose canal orifices",
+      "remove pulp chamber roof to create endodontic access opening",
+    ],
+    defaultOperation: "remove",
+    exportRecommendation: "simodont",
+    studentHints: ["Use mesial-distal and buccal-lingual views to confirm chamber exposure."],
+    assessmentPrompts: ["Which orifices should be visible after access?"],
+    difficulty: "introductory",
+    tags: ["endo", "access", "year-2", "year-3"],
   },
   {
     id: "endo-access-molar",
