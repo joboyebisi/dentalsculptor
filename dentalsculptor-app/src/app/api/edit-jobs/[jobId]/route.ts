@@ -3,6 +3,7 @@ import { getAuthUser } from "@/lib/auth";
 import { generateAssetKey, uploadAsset } from "@/lib/storage";
 import { updateEditJobProgress } from "@/lib/edit-jobs.server";
 import { prisma } from "@/lib/prisma";
+import { logEdit } from "@/lib/edit-log";
 
 async function persistModalModelBase64(
   modelBase64: string,
@@ -107,6 +108,7 @@ export async function GET(
     try {
       data = JSON.parse(raw) as typeof data;
     } catch {
+      logEdit({ phase: "failed", jobId, error: "invalid JSON from Modal job-status", detail: raw.slice(0, 120) });
       return NextResponse.json(
         {
           jobId,
@@ -117,6 +119,16 @@ export async function GET(
         { status: 502 }
       );
     }
+  } else if (res.status === 404) {
+    logEdit({ phase: "poll", jobId, detail: "Modal job not in worker dict (404)" });
+    return NextResponse.json({
+      jobId,
+      status: dbJob ? mapDbStatus(dbJob.status) : "queued",
+      progress: dbJob?.progress ?? 0,
+      stage: dbJob?.stage ?? "queued",
+      revisionNumber: dbJob?.revisionNumber,
+      message: "Waiting for Nano3D worker…",
+    });
   } else if (!res.ok) {
     return NextResponse.json(
       {
@@ -170,6 +182,14 @@ export async function GET(
         regionMarkCount: data.regionMarkCount,
       },
     }).catch(() => undefined);
+
+    logEdit({
+      phase: "complete",
+      jobId,
+      provider: "modal",
+      maskedVertexRatio: data.maskedVertexRatio,
+      stage: data.stage,
+    });
 
     return NextResponse.json({
       ...data,

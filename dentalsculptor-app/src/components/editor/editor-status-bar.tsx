@@ -1,6 +1,6 @@
 "use client";
 
-import { Mouse, Cpu, Box } from "lucide-react";
+import { Mouse, Cpu, Box, Sparkles } from "lucide-react";
 import type { ModelLoadStatus } from "@/components/editor/cam-model-viewer";
 
 const MODEL_STATUS_LABEL: Record<ModelLoadStatus, string> = {
@@ -14,12 +14,14 @@ interface EditorStatusBarProps {
   modelStatus?: ModelLoadStatus;
   modelDetail?: string;
   hasSourceImage?: boolean;
+  editStatus?: string | null;
 }
 
 export function EditorStatusBar({
   modelStatus = "none",
   modelDetail,
   hasSourceImage,
+  editStatus,
 }: EditorStatusBarProps) {
   const now = new Date().toISOString().replace("T", " ").slice(0, 19);
 
@@ -33,9 +35,15 @@ export function EditorStatusBar({
             {modelDetail ? ` — ${modelDetail}` : ""}
           </span>
         </span>
+        {editStatus && (
+          <span className="flex min-w-0 max-w-[min(420px,50vw)] items-center gap-2 text-amber-100">
+            <Sparkles className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{editStatus}</span>
+          </span>
+        )}
         <span className="hidden items-center gap-2 sm:flex">
           <Mouse className="h-3.5 w-3.5" />
-          Left Click: Select · Right Click: Orbit · Alt+Click: Pan
+          Left: Select · Middle: Orbit · Space: Navigate while masking
         </span>
         <span className="hidden items-center gap-2 md:flex">
           <Cpu className="h-3.5 w-3.5" />

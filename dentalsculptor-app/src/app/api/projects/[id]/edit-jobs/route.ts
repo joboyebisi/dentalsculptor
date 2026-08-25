@@ -5,6 +5,7 @@ import { trackResearchEvent } from "@/lib/research-events";
 import { generateAssetKey, uploadAsset } from "@/lib/storage";
 import { prisma } from "@/lib/prisma";
 import { createEditJobRecord, updateEditJobProgress } from "@/lib/edit-jobs.server";
+import { logEdit } from "@/lib/edit-log";
 
 export const maxDuration = 300;
 
@@ -70,6 +71,14 @@ export async function POST(
 
   const expanded = expandDentalPrompt(instruction);
   const stubJobId = `edit_${Date.now()}`;
+  const t0 = Date.now();
+
+  logEdit({
+    phase: "start",
+    projectId,
+    operation,
+    detail: "edit-jobs POST",
+  });
 
   const modalEditUrl = process.env.MODAL_EDIT_URL;
   if (modalEditUrl) {
@@ -179,6 +188,17 @@ export async function POST(
       metadata: { jobId, provider: "modal", operation },
     });
 
+    logEdit({
+      phase: modelUrl ? "complete" : "submit",
+      projectId,
+      jobId,
+      operation,
+      provider: "modal",
+      durationMs: Date.now() - t0,
+      stage: modelUrl ? "completed" : String(data.status ?? "queued"),
+      maskedVertexRatio: data.maskedVertexRatio as number | undefined,
+    });
+
     return NextResponse.json({
       jobId,
       status: modelUrl ? "completed" : (data.status ?? "queued"),
@@ -186,6 +206,9 @@ export async function POST(
       format,
       revisionNumber: editJob.revisionNumber,
       preview2dBase64: data.preview2dBase64 as string | undefined,
+      maskedVertexRatio: data.maskedVertexRatio as number | undefined,
+      stage: data.stage as string | undefined,
+      regionMarkCount: data.regionMarkCount as number | undefined,
     });
   }
 

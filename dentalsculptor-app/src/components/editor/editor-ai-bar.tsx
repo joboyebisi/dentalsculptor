@@ -1,11 +1,16 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Wand2, ArrowUp, X } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { EditRegionAttachment } from "@/lib/edit-region-attachments";
 import type { EditWorkflowStep } from "@/lib/edit-workflow-steps";
-import { editWorkflowStepCopy } from "@/lib/edit-workflow-steps";
+import {
+  canHighlightSend,
+  editSendBlockReason,
+  editWorkflowStepCopy,
+} from "@/lib/edit-workflow-steps";
 
 const MAX_PROMPT_CHARS = 500;
 
@@ -36,34 +41,52 @@ export function EditorAiBar({
 }: EditorAiBarProps) {
   const remaining = MAX_PROMPT_CHARS - value.length;
   const hasSpatialTarget = regionAttachments.length > 0 || hasMask;
-  const ready = canApply && value.trim().length > 0 && !loading;
+  const hasInstruction = Boolean(value.trim());
+  const prerequisites = { hasMask, hasInstruction };
+  const highlightSend = canHighlightSend(prerequisites);
+  const ready = highlightSend && !loading;
+  const [blockFlash, setBlockFlash] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!blockFlash) return;
+    const id = window.setTimeout(() => setBlockFlash(null), 4000);
+    return () => window.clearTimeout(id);
+  }, [blockFlash]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && ready) {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
-      onApply();
+      handleSendClick();
     }
   };
 
+  const handleSendClick = () => {
+    const block = editSendBlockReason(prerequisites);
+    if (block) {
+      setBlockFlash(block);
+      return;
+    }
+    setBlockFlash(null);
+    onApply();
+  };
+
   const statusMessage = (() => {
-    if (workflowStep === "submit" && ready) {
-      return "Ready — click Send ↑ to preview or run the 3D edit";
+    if (blockFlash) return blockFlash;
+    if (highlightSend && !loading) {
+      return "Ready — click Send ↑ to preview your edit";
     }
-    if (workflowStep === "preview" && hasSpatialTarget && value.trim()) {
-      return 'Click Send ↑ to open the 2D preview, or use "Preview 2D" above';
-    }
-    if (workflowStep === "instruction" && hasSpatialTarget) {
-      return "Pick a suggested edit or type below, then Send ↑";
+    if (workflowStep === "preview" && hasSpatialTarget && hasInstruction) {
+      return 'Send ↑ opens 2D preview · or use "Preview 2D" above';
     }
     if (workflowStep) {
       return editWorkflowStepCopy(workflowStep).cta;
     }
-    if (maskMode && hasMask) return "Mask painted — ready to preview or apply";
+    if (maskMode && hasMask) return "Mask painted — add an instruction, then Send ↑";
     if (regionAttachments.length > 0) {
       return `${regionAttachments.length} region${regionAttachments.length === 1 ? "" : "s"} attached — describe the edit`;
     }
     if (canApply) return "Model or parts selected — ready to edit";
-    return "Mark a region, paint a mask, or select the model to enable Apply";
+    return "Mark a region, paint a mask, or select the model to enable Send";
   })();
 
   return (
@@ -74,9 +97,22 @@ export function EditorAiBar({
           <span className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">
             {maskMode || hasMask ? "Instruction for masked edit" : "Semantic edit"}
           </span>
+          {highlightSend && (
+            <span className="rounded-full bg-primary-container/15 px-2 py-0.5 text-[10px] font-semibold text-primary-container">
+              Send ready
+            </span>
+          )}
         </div>
 
-        <div className="relative rounded-xl border border-outline-variant bg-surface-container-low focus-within:border-primary-container/40 focus-within:ring-2 focus-within:ring-primary-container/15">
+        <div
+          className={cn(
+            "relative rounded-xl border bg-surface-container-low transition-shadow",
+            highlightSend
+              ? "border-primary-container/50 ring-2 ring-primary-container/20"
+              : "border-outline-variant",
+            blockFlash && "border-amber-500/50 ring-2 ring-amber-500/20"
+          )}
+        >
           {regionAttachments.length > 0 && (
             <div className="flex flex-wrap gap-2 border-b border-outline-variant/60 px-3 py-2">
               {regionAttachments.map((att) => (
@@ -123,37 +159,44 @@ export function EditorAiBar({
             onKeyDown={handleKeyDown}
             rows={3}
             placeholder={
-              regionAttachments.length > 0
-                ? "Describe what to change in the attached region(s)…"
-                : maskMode || hasMask
-                  ? "e.g. remove decay from the painted occlusal fossa…"
-                  : "Describe the edit — mark regions or paint a mask to target specific areas…"
+              !hasMask
+                ? "First paint a mask on the tooth…"
+                : !hasInstruction
+                  ? "Pick a suggested edit in the Case panel, or type here…"
+                  : "Instruction ready — click Send ↑ to preview"
             }
             className="editor-scrollbar min-h-[80px] w-full resize-none border-0 bg-transparent py-3 pl-3 pr-14 text-body-sm leading-relaxed shadow-none focus-visible:ring-0"
           />
 
           <button
             type="button"
-            onClick={onApply}
-            disabled={!ready}
+            onClick={handleSendClick}
+            disabled={loading}
             title={
-              hasSpatialTarget || canApply
-                ? "Apply semantic edit (Ctrl+Enter)"
-                : "Mark a region, paint a mask, or select the model first"
+              highlightSend
+                ? "Preview edit (Ctrl+Enter)"
+                : editSendBlockReason(prerequisites) ?? "Complete the steps above first"
             }
             className={cn(
-              "absolute bottom-2.5 right-2.5 flex h-8 w-8 items-center justify-center rounded-lg transition-all",
-              ready
-                ? "bg-primary-container text-on-primary shadow-sm hover:opacity-90"
-                : "bg-surface-container text-outline cursor-not-allowed"
+              "absolute bottom-2.5 right-2.5 flex h-9 w-9 items-center justify-center rounded-lg transition-all",
+              highlightSend && !loading
+                ? "animate-pulse bg-primary-container text-on-primary shadow-md ring-2 ring-primary-container/40 hover:opacity-90"
+                : loading
+                  ? "bg-primary-container/60 text-on-primary cursor-wait"
+                  : "bg-surface-container text-outline hover:bg-surface-container-high"
             )}
-            aria-label="Apply semantic edit"
+            aria-label="Send edit instruction"
           >
             <ArrowUp className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="mt-1.5 flex items-center justify-between px-0.5 text-[10px] text-on-surface-variant">
+        <div
+          className={cn(
+            "mt-1.5 flex items-center justify-between px-0.5 text-[10px]",
+            blockFlash ? "text-amber-800" : "text-on-surface-variant"
+          )}
+        >
           <span>{statusMessage}</span>
           <span>{remaining} left</span>
         </div>

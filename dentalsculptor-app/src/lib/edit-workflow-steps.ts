@@ -53,3 +53,27 @@ export function editWorkflowStepCopy(step: EditWorkflowStep): {
 export function operationLabel(op: EditOperation): string {
   return op.charAt(0).toUpperCase() + op.slice(1);
 }
+
+export interface EditPrerequisites {
+  hasMask: boolean;
+  hasInstruction: boolean;
+}
+
+/** True when Send ↑ should pulse — mask painted and instruction set. */
+export function canHighlightSend(input: EditPrerequisites): boolean {
+  return input.hasMask && input.hasInstruction;
+}
+
+/** User-facing blocker when Send is clicked too early. */
+export function editSendBlockReason(input: EditPrerequisites): string | null {
+  if (!input.hasMask && !input.hasInstruction) {
+    return "Paint a mask on the tooth, then pick a suggested edit or type an instruction.";
+  }
+  if (!input.hasMask) {
+    return "Paint a mask on the region to edit (Mask tool → brush on the tooth).";
+  }
+  if (!input.hasInstruction) {
+    return "Pick a suggested edit in the Case panel, or type what should change in the masked area.";
+  }
+  return null;
+}

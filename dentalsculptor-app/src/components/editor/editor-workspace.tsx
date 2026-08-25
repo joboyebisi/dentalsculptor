@@ -19,6 +19,7 @@ import { resolveEditPresetContext } from "@/lib/edit-preset-context";
 import { getEditPreset, EDIT_PRESETS } from "@/lib/edit-presets";
 import { readJsonResponse, jsonResponseError } from "@/lib/safe-json-response";
 import { resolveEditWorkflowStep } from "@/lib/edit-workflow-steps";
+import { formatEditProofDetail, logEditClient, editErrorMessage } from "@/lib/edit-log";
 import {
   EditPreviewModal,
   EditorEditActions,
@@ -127,7 +128,6 @@ export function EditorWorkspace({
       ? buildEditPromptFromRecipe(initialRecipe, initialTemplate)
       : ""
   );
-  const [aiLoading, setAiLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [segmenting, setSegmenting] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -143,6 +143,8 @@ export function EditorWorkspace({
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [editJobLoading, setEditJobLoading] = useState(false);
+  const [editStatus, setEditStatus] = useState<string | null>(null);
+  const [revisionProofDetail, setRevisionProofDetail] = useState<string | null>(null);
   const [pendingRevision, setPendingRevision] = useState<{
     jobId: string;
     sourceModelUrl: string;
@@ -218,6 +220,33 @@ export function EditorWorkspace({
     hasInstruction: Boolean(aiPrompt.trim()),
     hasPreview: Boolean(afterPreview),
   });
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/ml/edit-health");
+        const data = (await res.json()) as {
+          ready?: boolean;
+          jobStatusUrlHost?: string | null;
+          configured?: Record<string, boolean>;
+        };
+        if (cancelled) return;
+        logEditClient({
+          phase: "start",
+          detail: `edit-health ready=${Boolean(data.ready)} host=${data.jobStatusUrlHost ?? "none"}`,
+        });
+        if (!data.ready) {
+          console.warn("[edit] Nano3D pipeline not fully ready — open /api/ml/edit-health while signed in");
+        }
+      } catch {
+        // non-fatal — editor still works
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -327,18 +356,9 @@ export function EditorWorkspace({
   };
 
   const handleApplyAi = async () => {
-    if (!aiPrompt.trim()) return;
-    if (hasSpatialEditTarget || maskMode) {
-      if (!hasSpatialEditTarget && maskMode) return;
-      await handlePreview2d();
-      return;
-    }
-    if (!canApply) return;
-    setAiLoading(true);
-    track("AI_PROMPT_SUBMITTED", projectId, { prompt: aiPrompt });
-    await new Promise((r) => setTimeout(r, 1200));
-    track("AI_SUGGESTION_ACCEPTED", projectId, { prompt: aiPrompt });
-    setAiLoading(false);
+    const hasMask = maskHasStrokes || maskCoverage > 0;
+    if (!aiPrompt.trim() || !hasMask) return;
+    await handlePreview2d();
   };
 
   const handleExport = () => {
@@ -500,6 +520,8 @@ export function EditorWorkspace({
     if (!modelUrl || !aiPrompt.trim()) return;
     const sourceBeforeEdit = modelUrl;
     setEditJobLoading(true);
+    setEditStatus("Submitting Nano3D edit…");
+    logEditClient({ phase: "start", projectId, operation: editOperation, detail: "generate3d" });
     const maskBlob = await maskOverlayRef.current?.toMaskBlob();
     const instruction = instructionWithRegionRefs(aiPrompt, rectMarks);
     const formData = new FormData();
@@ -534,6 +556,9 @@ export function EditorWorkspace({
         format?: string;
         revisionNumber?: number;
         message?: string;
+        maskedVertexRatio?: number;
+        stage?: string;
+        regionMarkCount?: number;
       }>(res);
       if (!data) {
         throw new Error(jsonResponseError(res, raw, "Edit service returned an empty response."));
@@ -544,12 +569,20 @@ export function EditorWorkspace({
       }
 
       track("AI_SUGGESTION_ACCEPTED", projectId, { jobId: data.jobId });
+      logEditClient({
+        phase: data.status === "completed" ? "complete" : "submit",
+        projectId,
+        jobId: data.jobId,
+        stage: data.stage ?? data.status,
+        maskedVertexRatio: data.maskedVertexRatio,
+      });
 
       const applyCompletedEdit = (
         resultUrl: string,
         fmt: string | undefined,
         jobId: string,
-        revisionNumber?: number
+        revisionNumber?: number,
+        proof?: { maskedVertexRatio?: number; stage?: string; regionMarkCount?: number }
       ) => {
         setModelUrl(resultUrl);
         setModelFormat(fmt ?? detectModelFormat(resultUrl));
@@ -557,6 +590,7 @@ export function EditorWorkspace({
         maskOverlayRef.current?.clear();
         setMaskCoverage(0);
         setMaskHasStrokes(false);
+        setRevisionProofDetail(formatEditProofDetail(proof ?? {}));
         setPendingRevision({
           jobId,
           sourceModelUrl: sourceBeforeEdit,
@@ -564,6 +598,14 @@ export function EditorWorkspace({
         });
         setPreviewOpen(false);
         setActiveTool("select");
+        setEditStatus(null);
+        logEditClient({
+          phase: "complete",
+          projectId,
+          jobId,
+          maskedVertexRatio: proof?.maskedVertexRatio,
+          stage: proof?.stage,
+        });
         triggerSFX("toggle");
       };
 
@@ -572,12 +614,18 @@ export function EditorWorkspace({
           data.modelUrl,
           data.format,
           data.jobId as string,
-          data.revisionNumber as number | undefined
+          data.revisionNumber as number | undefined,
+          {
+            maskedVertexRatio: data.maskedVertexRatio,
+            stage: data.stage,
+            regionMarkCount: data.regionMarkCount,
+          }
         );
         return;
       }
 
       const jobId = data.jobId as string;
+      setEditStatus(`Nano3D queued (${jobId.slice(0, 8)}…) — waiting for worker`);
       for (let attempt = 0; attempt < 90; attempt++) {
         await new Promise((r) => setTimeout(r, 2000));
         const statusRes = await fetch(
@@ -590,10 +638,31 @@ export function EditorWorkspace({
           revisionNumber?: number;
           preview2dUrl?: string;
           error?: string;
+          progress?: number;
+          stage?: string;
+          message?: string;
+          maskedVertexRatio?: number;
+          regionMarkCount?: number;
         }>(statusRes);
         if (!status) {
           throw new Error(jsonResponseError(statusRes, statusRaw, "Edit status unavailable."));
         }
+
+        const progressLabel =
+          typeof status.progress === "number" ? ` (${status.progress}%)` : "";
+        setEditStatus(
+          status.message ??
+            `Nano3D ${status.stage ?? status.status ?? "running"}${progressLabel}`
+        );
+        logEditClient({
+          phase: "poll",
+          projectId,
+          jobId,
+          progress: status.progress,
+          stage: status.stage ?? status.status,
+          maskedVertexRatio: status.maskedVertexRatio,
+        });
+
         if (status.preview2dUrl && typeof status.preview2dUrl === "string") {
           if (afterPreview?.startsWith("blob:")) URL.revokeObjectURL(afterPreview);
           setAfterPreview(status.preview2dUrl);
@@ -603,7 +672,12 @@ export function EditorWorkspace({
             status.modelUrl,
             status.format,
             jobId,
-            status.revisionNumber as number | undefined
+            status.revisionNumber as number | undefined,
+            {
+              maskedVertexRatio: status.maskedVertexRatio,
+              stage: status.stage,
+              regionMarkCount: status.regionMarkCount,
+            }
           );
           return;
         }
@@ -613,7 +687,10 @@ export function EditorWorkspace({
       }
       throw new Error("Edit job timed out — check back later.");
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Edit job failed");
+      const message = editErrorMessage(err);
+      logEditClient({ phase: "failed", projectId, error: message });
+      setEditStatus(null);
+      alert(message);
     } finally {
       setEditJobLoading(false);
     }
@@ -630,7 +707,9 @@ export function EditorWorkspace({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not accept revision.");
+      logEditClient({ phase: "accept", projectId, jobId: pendingRevision.jobId });
       setPendingRevision(null);
+      setRevisionProofDetail(null);
       track("AI_SUGGESTION_ACCEPTED", projectId, { editJobId: pendingRevision.jobId });
     } catch (err) {
       alert(err instanceof Error ? err.message : "Could not accept revision.");
@@ -653,7 +732,9 @@ export function EditorWorkspace({
       setModelUrl(pendingRevision.sourceModelUrl);
       setModelFormat(detectModelFormat(pendingRevision.sourceModelUrl));
       setModelLoadStatus("loading");
+      logEditClient({ phase: "reject", projectId, jobId: pendingRevision.jobId });
       setPendingRevision(null);
+      setRevisionProofDetail(null);
       track("AI_SUGGESTION_REJECTED", projectId, { editJobId: pendingRevision.jobId });
     } catch (err) {
       alert(err instanceof Error ? err.message : "Could not revert revision.");
@@ -860,6 +941,7 @@ export function EditorWorkspace({
               <EditorRevisionReview
                 revisionNumber={pendingRevision.revisionNumber}
                 loading={revisionActionLoading}
+                proofDetail={revisionProofDetail}
                 onAccept={() => void handleAcceptRevision()}
                 onReject={() => void handleRejectRevision()}
               />
@@ -922,7 +1004,7 @@ export function EditorWorkspace({
               if (v.trim() !== selectedSuggestedPrompt) setSelectedSuggestedPrompt(null);
             }}
             onApply={handleApplyAi}
-            loading={aiLoading || previewLoading || editJobLoading}
+            loading={previewLoading || editJobLoading}
             canApply={canApply}
             maskMode={maskMode}
             regionAttachments={regionAttachments}
@@ -974,6 +1056,7 @@ export function EditorWorkspace({
         modelStatus={modelLoadStatus}
         modelDetail={modelLoadDetail}
         hasSourceImage={Boolean(sourcePreview)}
+        editStatus={editStatus}
       />
 
       <EditPreviewModal
