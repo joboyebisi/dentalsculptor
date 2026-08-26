@@ -160,6 +160,21 @@ Test after each phase. Update checkboxes as you go.
 
 ---
 
+## Phase E3 — Model quality & clinical finetuning (post-pilot)
+
+| ID | Task | Status | Notes |
+|----|------|--------|-------|
+| E3.1 | Curated caries / pathology image library for generation | ⬜ | University e-resources + `generation-library/` manifest |
+| E3.2 | Fine-tune TRELLIS / Hunyuan on carious vs sound tooth pairs | ⬜ | Observed: generators sometimes emit caries-like defects on clean photos — capture as training signal |
+| E3.3 | Control generation defects (avoid unwanted caries on sound teeth) | ⬜ | Negative prompts + post-gen QA gate |
+| E3.4 | Nano3D GPU Case 3 (real latent FlowEdit) | ⬜ | Replaces CPU vertex stub |
+| E3.5 | SDXL inpaint tuned for dental fractures / caries masks | ⬜ | 2D preview quality for educator approve step |
+| E3.6 | Dental benchmark set (20 cases, accept/reject rubric) | ⬜ | See `3D_EDITING_RESEARCH.md` validation gate |
+
+**Research note:** If source photos or reference GLBs include caries, finetuning can *produce* pathology on demand; if sources are sound, tune *out* spurious defects.
+
+---
+
 ## Success criteria (milestone E0–E2)
 
 From [MILESTONE_E0_E2.md](./MILESTONE_E0_E2.md):

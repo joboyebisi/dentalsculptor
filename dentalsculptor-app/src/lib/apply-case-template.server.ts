@@ -3,6 +3,7 @@
  */
 
 import { getCaseTemplate } from "@/lib/case-templates";
+import { buildCaseProjectTitle } from "@/lib/case-project-title";
 import {
   buildCaseRecipe,
   buildEditPromptFromRecipe,
@@ -39,6 +40,7 @@ export async function applyCaseTemplateToProject(
   const instructions = formatInstructionsFromRecipe(recipe, template);
   const hints = template.studentHints.join("\n• ");
   const description = template.shortDescription;
+  const projectTitle = buildCaseProjectTitle(template, input.clinicalParameters);
 
   const existing = await prisma.project.findFirst({
     where: { id: projectId, ownerId },
@@ -80,7 +82,7 @@ export async function applyCaseTemplateToProject(
     await tx.project.update({
       where: { id: projectId },
       data: {
-        title: template.title,
+        title: projectTitle,
         description,
         instructions,
         hints: hints ? `• ${hints}` : undefined,
@@ -98,5 +100,5 @@ export async function applyCaseTemplateToProject(
     });
   });
 
-  return { recipe, template, editPrompt: buildEditPromptFromRecipe(recipe, template) };
+  return { recipe, template, editPrompt: buildEditPromptFromRecipe(recipe, template), projectTitle };
 }

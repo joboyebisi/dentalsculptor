@@ -117,6 +117,11 @@ function mergeSceneMeshes(object: THREE.Object3D): THREE.BufferGeometry {
   return merged.toNonIndexed();
 }
 
+/** Target longest axis for a single exported tooth (mm). */
+const CLINICAL_TOOTH_TARGET_MM = 12;
+const MIN_TOOTH_AXIS_MM = 4;
+const MAX_TOOTH_AXIS_MM = 80;
+
 function normalizeToMm(geometry: THREE.BufferGeometry, preset: ExportPreset): THREE.BufferGeometry {
   const geo = geometry.clone();
   geo.computeBoundingBox();
@@ -125,23 +130,23 @@ function normalizeToMm(geometry: THREE.BufferGeometry, preset: ExportPreset): TH
   box.getSize(size);
   const maxDim = Math.max(size.x, size.y, size.z) || 1;
 
-  // Tooth-sized normalization: target ~12 mm longest axis if model is unitless or huge/tiny.
-  const targetMm = 12;
-  let scale = preset.scaleFactor;
-  if (maxDim > 0 && maxDim < 50) {
-    // Likely already mm-ish
+  let scale: number;
+  if (preset.units === "meters") {
+    // Meta Quest / glTF meters output
     scale = preset.scaleFactor;
-  } else if (maxDim <= 2) {
-    // Meters (glTF default) → mm
+  } else if (maxDim <= 0.05) {
+    // glTF default unit: meters → millimetres
     scale = 1000 * preset.scaleFactor;
+  } else if (maxDim < MIN_TOOTH_AXIS_MM) {
+    // Sub-millimetre or unitless tiny mesh — scale up to clinical tooth size
+    scale = (CLINICAL_TOOTH_TARGET_MM / maxDim) * preset.scaleFactor;
+  } else if (maxDim > MAX_TOOTH_AXIS_MM) {
+    scale = (CLINICAL_TOOTH_TARGET_MM / maxDim) * preset.scaleFactor;
   } else {
-    scale = (targetMm / maxDim) * preset.scaleFactor;
+    scale = preset.scaleFactor;
   }
 
   geo.scale(scale, scale, scale);
-  if (preset.upAxis === "Y") {
-    // Clinical Y-up — no rotation for most dental exports
-  }
   geo.computeVertexNormals();
   return geo;
 }
@@ -171,12 +176,18 @@ function decimateIfNeeded(geometry: THREE.BufferGeometry, maxTriangles: number):
 export function geometryToBinaryStl(geometry: THREE.BufferGeometry): Buffer {
   const geo = geometry.index ? geometry.toNonIndexed() : geometry;
   const pos = geo.getAttribute("position");
-  const triCount = pos.count / 3;
+  const triCount = Math.floor(pos.count / 3);
+  if (triCount === 0) {
+    throw new Error("Cannot export STL — mesh has no triangles.");
+  }
 
-  const buffer = Buffer.alloc(84 + 4 + triCount * 50);
-  buffer.writeUInt32LE(triCount, 80);
+  const HEADER_BYTES = 80;
+  const COUNT_BYTES = 4;
+  const TRIANGLE_BYTES = 50;
+  const buffer = Buffer.alloc(HEADER_BYTES + COUNT_BYTES + triCount * TRIANGLE_BYTES);
+  buffer.writeUInt32LE(triCount, HEADER_BYTES);
 
-  let offset = 84;
+  let offset = HEADER_BYTES + COUNT_BYTES;
   const a = new THREE.Vector3();
   const b = new THREE.Vector3();
   const c = new THREE.Vector3();
@@ -209,6 +220,28 @@ export function geometryToBinaryStl(geometry: THREE.BufferGeometry): Buffer {
   }
 
   return buffer;
+}
+
+/** Parse binary STL triangle count — for tests and post-export validation. */
+export function readBinaryStlTriangleCount(buffer: Buffer): number {
+  if (buffer.byteLength < 84) return 0;
+  return buffer.readUInt32LE(80);
+}
+
+export function validateBinaryStlBuffer(buffer: Buffer): { ok: boolean; triangleCount: number; error?: string } {
+  const triangleCount = readBinaryStlTriangleCount(buffer);
+  const expectedSize = 84 + triangleCount * 50;
+  if (triangleCount === 0) {
+    return { ok: false, triangleCount: 0, error: "STL contains zero triangles." };
+  }
+  if (buffer.byteLength < expectedSize) {
+    return {
+      ok: false,
+      triangleCount,
+      error: `STL truncated: expected ${expectedSize} bytes, got ${buffer.byteLength}.`,
+    };
+  }
+  return { ok: true, triangleCount };
 }
 
 export function validateGeometry(
@@ -362,7 +395,12 @@ async function encodeGeometry(
   }
 
   if (outputFormat === "stl") {
-    return { buffer: geometryToBinaryStl(geometry), extension: "stl" };
+    const buffer = geometryToBinaryStl(geometry);
+    const check = validateBinaryStlBuffer(buffer);
+    if (!check.ok) {
+      throw new Error(check.error ?? "STL export validation failed.");
+    }
+    return { buffer, extension: "stl" };
   }
   if (outputFormat === "obj") {
     return { buffer: Buffer.from(geometryToObj(geometry), "utf-8"), extension: "obj" };

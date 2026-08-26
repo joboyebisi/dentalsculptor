@@ -19,7 +19,7 @@ export const COLORS = {
 /** Light grey viewport — matches editor workspace surface. */
 export const VIEWPORT_THEME = {
   /** Mid-tone studio backdrop — white teeth read clearly against this. */
-  background: "#8b95a5",
+  background: "#a8b2c0",
   meshDefault: "#e8dcc8",
   meshHighlight: "#f5e6d3",
   grid: "#6b7280",

@@ -40,7 +40,7 @@ export async function POST(
       editPrompt: result.editPrompt,
       exportRecommendation: result.template.exportRecommendation,
       project: {
-        title: result.template.title,
+        title: result.projectTitle,
         description: result.template.shortDescription,
       },
     });

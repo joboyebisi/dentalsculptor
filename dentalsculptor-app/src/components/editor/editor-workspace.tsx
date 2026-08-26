@@ -40,6 +40,7 @@ import { parseModelProcessingStage } from "@/lib/model-processing-stage";
 import { detectModelFormat } from "@/lib/model-format";
 import type { SerializedCameraState } from "@/lib/camera-utils";
 import { prepareGenerationImage } from "@/lib/prepare-generation-image";
+import { rotateImageFile } from "@/lib/image-rotation";
 import {
   notifyGenerationComplete,
   prepareGenerationNotification,
@@ -142,6 +143,9 @@ export function EditorWorkspace({
   );
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewProgress, setPreviewProgress] = useState(0);
+  const [previewStage, setPreviewStage] = useState<string | null>(null);
+  const [previewProvider, setPreviewProvider] = useState<string | null>(null);
   const [editJobLoading, setEditJobLoading] = useState(false);
   const [editStatus, setEditStatus] = useState<string | null>(null);
   const [revisionProofDetail, setRevisionProofDetail] = useState<string | null>(null);
@@ -235,7 +239,7 @@ export function EditorWorkspace({
     [caseRecipe, selectedCase]
   );
   const activeEditPreset = activePresetId ? getEditPreset(activePresetId) ?? null : null;
-  const showEditPresets = maskVisible || (Boolean(selectedCase) && maskMode);
+  const showEditPresets = Boolean(selectedCase) || maskVisible;
   const editWorkflowStep = resolveEditWorkflowStep({
     hasMask: maskHasStrokes || maskCoverage > 0 || rectMarks.length > 0,
     hasInstruction: Boolean(aiPrompt.trim()),
@@ -457,7 +461,9 @@ export function EditorWorkspace({
 
       setSelectedCase(payload.template);
       setCaseRecipe(data.recipe as CaseRecipe);
-      setTitle(data.project?.title ?? payload.template.title);
+      const nextTitle = data.project?.title ?? payload.template.title;
+      setTitle(nextTitle);
+      await onSave({ title: nextTitle });
       setInstructions(formatInstructionsFromRecipe(data.recipe as CaseRecipe, payload.template));
       setLearningObjectives(
         payload.template.learningObjectives.map((title, i) => ({
@@ -477,6 +483,7 @@ export function EditorWorkspace({
         caseContext: { minimized: true },
       });
       setCaseWizardOpen(false);
+      openMaskEditPanels();
       track("LEARNING_OBJECTIVE_CREATED", projectId, {
         caseTemplateId: payload.template.id,
         usedTemplate: true,
@@ -493,6 +500,9 @@ export function EditorWorkspace({
     setPreviewLoading(true);
     setPreviewOpen(true);
     setEditedReferenceBlob(null);
+    setPreviewProgress(8);
+    setPreviewStage("Capturing 3D view…");
+    setPreviewProvider(null);
     try {
       const capture = await viewerRef.current?.captureView();
       if (!capture) throw new Error("Could not capture the current model view.");
@@ -504,12 +514,17 @@ export function EditorWorkspace({
       setReferenceImage(capture.image);
       setReferenceCamera(capture.camera);
       setBeforePreview(previewUrl);
+      setPreviewProgress(25);
+      setPreviewStage("Reading mask…");
 
       const maskBlob = await maskOverlayRef.current?.toMaskBlob();
       const instruction = instructionWithRegionRefs(aiPrompt, rectMarks);
       let previewBlob: Blob | null = null;
+      let providerLabel: string | null = null;
 
       if (maskBlob) {
+        setPreviewProgress(45);
+        setPreviewStage("Running AI inpaint…");
         const previewForm = new FormData();
         previewForm.append("instruction", instruction);
         previewForm.append("operation", editOperation);
@@ -529,13 +544,30 @@ export function EditorWorkspace({
           previewBlob = new Blob([bytes], {
             type: (previewData.contentType as string) ?? "image/png",
           });
+          providerLabel =
+            previewData.provider === "modal-sdxl"
+              ? "Modal SDXL"
+              : previewData.provider === "fal"
+                ? "fal.ai"
+                : "AI";
         }
       }
 
       if (!previewBlob) {
-        previewBlob = await applyMasked2dPreview(capture.image, maskBlob ?? null, editOperation);
+        setPreviewProgress(72);
+        setPreviewStage("Building local clinical preview…");
+        previewBlob = await applyMasked2dPreview(
+          capture.image,
+          maskBlob ?? null,
+          editOperation,
+          instruction
+        );
+        providerLabel = "Local preview";
       }
 
+      setPreviewProvider(providerLabel);
+      setPreviewProgress(100);
+      setPreviewStage(null);
       setEditedReferenceBlob(previewBlob);
       if (afterPreview?.startsWith("blob:") && afterPreview !== beforePreview) {
         URL.revokeObjectURL(afterPreview);
@@ -814,10 +846,38 @@ export function EditorWorkspace({
   };
 
   const handleSourceUpload = (file: File) => {
-    if (sourcePreview) URL.revokeObjectURL(sourcePreview);
+    if (sourcePreview?.startsWith("blob:")) URL.revokeObjectURL(sourcePreview);
     setSourceFile(file);
     setSourcePreview(URL.createObjectURL(file));
   };
+
+  const handleSourceClear = () => {
+    if (sourcePreview?.startsWith("blob:")) URL.revokeObjectURL(sourcePreview);
+    setSourceFile(null);
+    setSourcePreview(null);
+  };
+
+  const handleSourceRotate = async () => {
+    const file =
+      sourceFile ??
+      (await resolveSourceImageFile(sourcePreview ?? project.dentalModel?.sourceImageUrl ?? null));
+    if (!file || generating) return;
+    const rotated = await rotateImageFile(file, 90);
+    handleSourceUpload(rotated);
+  };
+
+  async function resolveSourceImageFile(url: string | null): Promise<File | null> {
+    if (sourceFile) return sourceFile;
+    if (!url) return null;
+    try {
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) return null;
+      const blob = await res.blob();
+      return new File([blob], "source-image.jpg", { type: blob.type || "image/jpeg" });
+    } catch {
+      return null;
+    }
+  }
 
   const runSegmentation = async () => {
     setSegmenting(true);
@@ -827,8 +887,11 @@ export function EditorWorkspace({
   };
 
   const handleGenerateModel = async () => {
-    if (!sourceFile) {
-      alert("Upload a scan or image in the Source panel first.");
+    const imageFile = await resolveSourceImageFile(
+      sourcePreview ?? project.dentalModel?.sourceImageUrl ?? null
+    );
+    if (!imageFile) {
+      alert("Select or upload a scan or image in the Source panel first.");
       return;
     }
 
@@ -840,7 +903,7 @@ export function EditorWorkspace({
 
     try {
       await prepareGenerationNotification();
-      const prepared = await prepareGenerationImage(sourceFile);
+      const prepared = await prepareGenerationImage(imageFile);
       const formData = new FormData();
       formData.append("image", prepared);
       formData.append("projectId", projectId);
@@ -932,7 +995,10 @@ export function EditorWorkspace({
           open={sourceOpen}
           onToggle={() => setSourceOpen((o) => !o)}
           sourcePreview={sourcePreview}
-          onSourceUpload={handleSourceUpload}
+          hasSourceFile={Boolean(sourceFile || sourcePreview || project.dentalModel?.sourceImageUrl)}
+          onSelectImage={handleSourceUpload}
+          onClearImage={handleSourceClear}
+          onRotateImage={handleSourceRotate}
           onGenerateModel={handleGenerateModel}
           generating={generating}
         />
@@ -1150,6 +1216,9 @@ export function EditorWorkspace({
         beforePreview={beforePreview}
         afterPreview={afterPreview}
         loading={previewLoading}
+        progress={previewProgress}
+        stageLabel={previewStage}
+        previewProvider={previewProvider}
         onRefineMask={() => setPreviewOpen(false)}
         onApprove={() => {
           setPreviewOpen(false);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { generateAssetKey, uploadAsset } from "@/lib/storage";
+import { isValidGlbBuffer, glbValidationError } from "@/lib/glb-utils";
 import { updateEditJobProgress } from "@/lib/edit-jobs.server";
 import { prisma } from "@/lib/prisma";
 import { logEdit } from "@/lib/edit-log";
@@ -11,6 +12,9 @@ async function persistModalModelBase64(
   userId: string
 ): Promise<{ modelUrl: string; format: string }> {
   const buffer = Buffer.from(modelBase64, "base64");
+  if (!isValidGlbBuffer(buffer)) {
+    throw new Error(glbValidationError(buffer));
+  }
   const key = generateAssetKey(userId, `edit-${jobId}.glb`);
   const modelUrl = await uploadAsset(key, buffer, "model/gltf-binary");
   return { modelUrl, format: "glb" };

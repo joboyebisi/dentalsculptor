@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "description": "Curated dental images for 3D generation. Add PNG/JPG files to public/generation-library/ and list them here.",
+  "items": [
+    {
+      "id": "sample-molar",
+      "title": "Sample molar (placeholder)",
+      "toothType": "molar",
+      "fdiHint": "36",
+      "path": "/generation-library/sample-molar.svg",
+      "credit": "Replace with your university e-resource images"
+    }
+  ]
+}

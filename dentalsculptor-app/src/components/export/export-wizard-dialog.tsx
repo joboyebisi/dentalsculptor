@@ -15,11 +15,7 @@ import { cn } from "@/lib/utils";
 import type { CaseRecipe } from "@/lib/clinical-case-params";
 import type { CaseTemplate } from "@/lib/case-templates";
 import { getExportPreset } from "@/lib/export-presets";
-import {
-  listExportAssetOptions,
-  type ExportAssetId,
-} from "@/lib/export-asset-options";
-import { buildExportReadme, downloadTextFile } from "@/lib/export-readme";
+import { listExportAssetOptions, type ExportAssetId } from "@/lib/export-asset-options";
 
 const DIRECT_FORMATS: { id: MeshExportFormat; label: string; hint: string }[] = [
   { id: "stl", label: "STL", hint: "Simulators, 3D print (mm)" },
@@ -166,6 +162,16 @@ export function ExportWizardDialog({
     setExporting(true);
     setExportError(null);
     try {
+      const assetsToSend = selectedAssets.includes("mesh-primary")
+        ? selectedAssets
+        : (["mesh-primary", ...selectedAssets] as ExportAssetId[]);
+      const needsBundle =
+        assetsToSend.length > 1 ||
+        assetsToSend.some((id) =>
+          ["source-photo", "reference-glb", "readme", "mesh-stl"].includes(id)
+        ) ||
+        target === "teaching-bundle";
+
       const res = await fetch(`/api/projects/${projectId}/export`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -174,6 +180,8 @@ export function ExportWizardDialog({
           outputFormat,
           scope,
           modelUrl: modelUrl ?? undefined,
+          assets: assetsToSend,
+          bundle: needsBundle,
         }),
       });
       if (!res.ok) {
@@ -181,26 +189,21 @@ export function ExportWizardDialog({
         throw new Error(data.error ?? "Export failed.");
       }
       const blob = await res.blob();
-      const ext = outputFormat;
+      const contentType = res.headers.get("Content-Type") ?? "";
+      const disposition = res.headers.get("Content-Disposition") ?? "";
+      const match = disposition.match(/filename="([^"]+)"/);
+      const ext = contentType.includes("zip")
+        ? "zip"
+        : contentType.includes("gltf")
+          ? "glb"
+          : outputFormat;
       const safeName = projectTitle.replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 64);
+      const downloadName = match?.[1] ?? `${safeName}-${target}.${ext}`;
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `${safeName}-${target}.${ext}`;
+      a.download = downloadName;
       a.click();
       URL.revokeObjectURL(a.href);
-
-      if (selectedAssets.includes("readme")) {
-        downloadTextFile(
-          `${safeName}-README.txt`,
-          buildExportReadme({
-            projectTitle,
-            target,
-            outputFormat,
-            caseRecipe,
-            selectedCase,
-          })
-        );
-      }
 
       setDone(true);
       setStep(3);

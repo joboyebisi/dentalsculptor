@@ -1,9 +1,12 @@
-/** Client-side masked 2D preview — mirrors Modal nano3d_utils stub inpaint. */
+/** Client-side masked 2D preview — mirrors Modal nano3d_utils stub inpaint with clinical cues. */
+
+export type Preview2dMode = "add" | "remove" | "replace";
 
 export async function applyMasked2dPreview(
   referenceBlob: Blob,
   maskBlob: Blob | null,
-  operation: "add" | "remove" | "replace"
+  operation: Preview2dMode,
+  instruction = ""
 ): Promise<Blob> {
   const refBitmap = await createImageBitmap(referenceBlob);
   const canvas = document.createElement("canvas");
@@ -35,37 +38,63 @@ export async function applyMasked2dPreview(
   const maskData = maskCtx.getImageData(0, 0, canvas.width, canvas.height);
   const px = imageData.data;
   const mx = maskData.data;
+  const lowerInstruction = instruction.toLowerCase();
+
+  const isFracture =
+    lowerInstruction.includes("fracture") ||
+    lowerInstruction.includes("cusp") ||
+    lowerInstruction.includes("chip");
+  const isCaries =
+    lowerInstruction.includes("caries") ||
+    lowerInstruction.includes("cavity") ||
+    lowerInstruction.includes("decay");
 
   for (let i = 0; i < px.length; i += 4) {
     if (mx[i]! < 128) continue;
-    if (operation === "remove") {
-      px[i] = Math.round(px[i]! * 0.45);
-      px[i + 1] = Math.round(px[i + 1]! * 0.45);
-      px[i + 2] = Math.round(px[i + 2]! * 0.45);
-      px[i] = Math.min(255, px[i]! + 8);
+    const x = (i / 4) % canvas.width;
+    const y = Math.floor(i / 4 / canvas.width);
+
+    if (operation === "remove" || isCaries) {
+      px[i] = Math.round(px[i]! * 0.35 + 18);
+      px[i + 1] = Math.round(px[i + 1]! * 0.32 + 12);
+      px[i + 2] = Math.round(px[i + 2]! * 0.28 + 8);
     } else if (operation === "add") {
-      px[i] = Math.min(255, Math.round(px[i]! * 1.08 + 42));
-      px[i + 1] = Math.min(255, Math.round(px[i + 1]! * 1.05 + 28));
-      px[i + 2] = Math.min(255, Math.round(px[i + 2]! * 0.92 + 12));
+      px[i] = Math.min(255, Math.round(px[i]! * 1.05 + 38));
+      px[i + 1] = Math.min(255, Math.round(px[i + 1]! * 1.02 + 22));
+      px[i + 2] = Math.min(255, Math.round(px[i + 2]! * 0.9 + 10));
     } else {
-      px[i] = Math.min(255, Math.round(px[i]! * 0.82 + 36));
-      px[i + 1] = Math.min(255, Math.round(px[i + 1]! * 0.88 + 24));
-      px[i + 2] = Math.min(255, Math.round(px[i + 2]! * 0.95 + 18));
+      px[i] = Math.min(255, Math.round(px[i]! * 0.78 + 42));
+      px[i + 1] = Math.min(255, Math.round(px[i + 1]! * 0.82 + 28));
+      px[i + 2] = Math.min(255, Math.round(px[i + 2]! * 0.88 + 18));
+    }
+
+    if (isFracture && y > canvas.height * 0.35) {
+      const edgeNoise = ((x * 7 + y * 13) % 5) - 2;
+      const fractureLine = Math.abs((x + edgeNoise) % 24 - 12) < 2;
+      if (fractureLine || y > canvas.height * 0.72) {
+        px[i] = Math.min(255, px[i]! + 35);
+        px[i + 1] = Math.min(255, px[i + 1]! + 28);
+        px[i + 2] = Math.min(255, px[i + 2]! + 22);
+      }
     }
   }
 
   ctx.putImageData(imageData, 0, 0);
 
-  // Light purple tint on the edited region so the preview difference is obvious.
-  const tinted = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const tx = tinted.data;
-  for (let i = 0; i < tx.length; i += 4) {
-    if (mx[i]! < 128) continue;
-    tx[i] = Math.min(255, Math.round(tx[i]! * 0.88 + 124 * 0.12));
-    tx[i + 1] = Math.min(255, Math.round(tx[i + 1]! * 0.88 + 58 * 0.12));
-    tx[i + 2] = Math.min(255, Math.round(tx[i + 2]! * 0.88 + 237 * 0.12));
+  // Fracture gap line across masked bbox
+  if (isFracture) {
+    ctx.save();
+    ctx.globalCompositeOperation = "source-over";
+    ctx.strokeStyle = "rgba(40, 30, 25, 0.75)";
+    ctx.lineWidth = Math.max(2, canvas.width * 0.004);
+    ctx.beginPath();
+    const startX = canvas.width * 0.42;
+    const startY = canvas.height * 0.55;
+    ctx.moveTo(startX, startY);
+    ctx.lineTo(canvas.width * 0.58, canvas.height * 0.78);
+    ctx.stroke();
+    ctx.restore();
   }
-  ctx.putImageData(tinted, 0, 0);
 
   return new Promise((resolve) => canvas.toBlob((b) => resolve(b ?? referenceBlob), "image/png"));
 }

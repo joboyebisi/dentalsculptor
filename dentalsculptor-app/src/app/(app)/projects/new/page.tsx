@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Upload, ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -13,7 +13,7 @@ import { prepareGenerationImageDetailed } from "@/lib/prepare-generation-image";
 import { rotateImageFile } from "@/lib/image-rotation";
 import { GENERATION_COPY } from "@/lib/generation-copy";
 import { GenerationNotifyOption } from "@/components/generation/generation-notify-option";
-import { GenerationImageControls } from "@/components/generation/generation-image-controls";
+import { GenerationImagePicker } from "@/components/generation/generation-image-picker";
 import { GenerationProgressDisplay } from "@/components/generation/generation-progress-display";
 import {
   notifyGenerationComplete,
@@ -25,7 +25,7 @@ import type { GeneratedMesh } from "@/lib/model-generator";
 
 export default function NewProjectPage() {
   const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewUrlRef = useRef<string | null>(null);
   const [step, setStep] = useState(1);
   const [description, setDescription] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -54,34 +54,29 @@ export default function NewProjectPage() {
     return () => clearInterval(id);
   }, [processing]);
 
-  const openFilePicker = useCallback(() => {
-    fileInputRef.current?.click();
+  const revokePreview = useCallback((url: string | null) => {
+    if (url?.startsWith("blob:")) URL.revokeObjectURL(url);
   }, []);
 
-  const applyImageFile = useCallback((file: File) => {
-    setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
+  const applyImageFile = useCallback(
+    (file: File) => {
+      revokePreview(previewUrlRef.current);
+      const nextUrl = URL.createObjectURL(file);
+      previewUrlRef.current = nextUrl;
+      setImageFile(file);
+      setImagePreview(nextUrl);
+      setError(null);
+    },
+    [revokePreview]
+  );
+
+  const clearImage = useCallback(() => {
+    revokePreview(previewUrlRef.current);
+    previewUrlRef.current = null;
+    setImageFile(null);
+    setImagePreview(null);
     setError(null);
-  }, []);
-
-  const handleFileDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      const file = e.dataTransfer.files[0];
-      if (file && file.type.startsWith("image/")) {
-        applyImageFile(file);
-      }
-    },
-    [applyImageFile]
-  );
-
-  const handleFileSelect = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) applyImageFile(file);
-    },
-    [applyImageFile]
-  );
+  }, [revokePreview]);
 
   const rotateImage = useCallback(
     async (direction: "cw" | "ccw") => {
@@ -182,8 +177,8 @@ export default function NewProjectPage() {
           <div>
             <h1 className="text-display-lg">New Project</h1>
             <p className="mt-1 text-body-md text-on-surface-variant">
-              Upload a dental image — your project will be named automatically. You can rename it
-              in the editor header.
+              Select or upload a dental image — same workflow as the landing page. Your project is
+              named automatically; rename it in the editor header.
             </p>
             <div className="mt-4">
               <Label htmlFor="description">Description (optional)</Label>
@@ -195,62 +190,21 @@ export default function NewProjectPage() {
                 className="mt-1.5"
               />
             </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleFileSelect}
-            />
-            <Card
-              className="mt-6 cursor-pointer border-dashed"
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={handleFileDrop}
-              onClick={openFilePicker}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  openFilePicker();
-                }
-              }}
-            >
-              <CardContent className="flex flex-col items-center py-12">
-                {imagePreview ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={imagePreview} alt="Preview" className="max-h-48 rounded-lg" />
-                ) : (
-                  <>
-                    <Upload className="mb-4 h-10 w-10 text-on-surface-variant" />
-                    <p className="font-medium">Drop your dental image here</p>
-                    <p className="mt-1 text-body-sm text-on-surface-variant">
-                      PNG, JPG, JPEG supported — or click anywhere to browse
-                    </p>
-                  </>
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-4"
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openFilePicker();
-                  }}
-                >
-                  Browse Files
-                </Button>
+
+            <Card className="mt-6 border-dashed">
+              <CardContent className="py-6">
+                <GenerationImagePicker
+                  previewUrl={imagePreview}
+                  hasFile={Boolean(imageFile)}
+                  disabled={processing}
+                  onSelectFile={applyImageFile}
+                  onClear={clearImage}
+                  onRotate={() => void rotateImage("cw")}
+                  emptyHint="Drop or select a single-tooth image"
+                />
               </CardContent>
             </Card>
-            {imageFile && (
-              <div className="mt-4">
-                <GenerationImageControls
-                  disabled={processing}
-                  onRotate={() => void rotateImage("cw")}
-                />
-              </div>
-            )}
+
             {error && (
               <p className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-body-sm text-destructive">
                 {error}
@@ -278,7 +232,8 @@ export default function NewProjectPage() {
           <div>
             <h1 className="text-display-lg">3D Preview Ready</h1>
             <p className="mt-1 text-body-md text-on-surface-variant">
-              Your model has been generated. Open the editor to annotate and author content.
+              Your model has been generated and saved to this project. Open the editor to annotate
+              and author content.
             </p>
             {lastGenerationSeconds != null && (
               <p className="mt-2 text-body-sm text-on-surface-variant">
@@ -289,10 +244,7 @@ export default function NewProjectPage() {
               <DentalViewer meshData={meshData} modelUrl={modelUrl} className="h-full" />
             </div>
             <div className="mt-8 flex gap-3">
-              <Button
-                className="flex-1"
-                onClick={() => router.push(`/editor/${projectId}`)}
-              >
+              <Button className="flex-1" onClick={() => router.push(`/editor/${projectId}`)}>
                 Open Editor
               </Button>
               <Button variant="outline" onClick={() => router.push("/projects")}>

@@ -65,6 +65,10 @@ export function listExportAssetOptions(input: {
       recommendedFor: ["simodont", "simtocare", "virteasy", "teaching-bundle"],
       defaultSelected: input.target === "teaching-bundle",
       available: input.hasModel && input.outputFormat !== "stl",
+      unavailableReason:
+        input.outputFormat === "stl"
+          ? "Primary export is already STL — included in the main download."
+          : "Generate or edit a model first.",
     },
     {
       id: "source-photo",

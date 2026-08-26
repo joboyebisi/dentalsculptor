@@ -3,6 +3,7 @@ import { getAuthUser } from "@/lib/auth";
 import { expandDentalPrompt } from "@/lib/dental-prompt-glossary";
 import { trackResearchEvent } from "@/lib/research-events";
 import { generateAssetKey, uploadAsset } from "@/lib/storage";
+import { isValidGlbBuffer, glbValidationError } from "@/lib/glb-utils";
 import { prisma } from "@/lib/prisma";
 import { createEditJobRecord, updateEditJobProgress } from "@/lib/edit-jobs.server";
 import { logEdit } from "@/lib/edit-log";
@@ -13,6 +14,13 @@ function isAllowedSourceModelUrl(url: string, storedUrl: string | null | undefin
   if (!url) return false;
   if (storedUrl && url === storedUrl) return true;
   if (url.includes("supabase.co/storage") || url.includes(".amazonaws.com/")) return true;
+  try {
+    const parsed = new URL(url);
+    const stored = storedUrl ? new URL(storedUrl) : null;
+    if (stored && parsed.pathname === stored.pathname) return true;
+  } catch {
+    return false;
+  }
   return false;
 }
 
@@ -164,6 +172,12 @@ export async function POST(
       !modelUrl
     ) {
       const buffer = Buffer.from(data.modelBase64, "base64");
+      if (!isValidGlbBuffer(buffer)) {
+        return NextResponse.json(
+          { error: glbValidationError(buffer), jobId, status: "failed" },
+          { status: 502 }
+        );
+      }
       const key = generateAssetKey(user.id, `edit-${jobId}.glb`);
       modelUrl = await uploadAsset(key, buffer, "model/gltf-binary");
       format = "glb";

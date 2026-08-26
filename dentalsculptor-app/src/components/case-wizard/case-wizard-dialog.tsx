@@ -353,7 +353,7 @@ export function CaseWizardDialog({ open, onClose, onContinue, applying = false }
                     fields={selectedTemplate.clinicalParameterFields}
                     values={clinicalParameters}
                     onChange={setClinicalParameters}
-                    className="max-w-2xl"
+                    className="relative z-10 max-w-2xl"
                   />
 
                   <div className="mt-8 max-w-2xl">

@@ -17,6 +17,7 @@ import { MTLLoader } from "three/examples/jsm/loaders/MTLLoader.js";
 import { detectModelFormat, type RemoteModelFormat } from "@/lib/model-format";
 
 import { resolveModelFetchUrl } from "@/lib/model-asset-url";
+import { glbValidationError, isValidGlbBuffer } from "@/lib/glb-utils";
 
 import { VIEWPORT_THEME } from "@/lib/constants";
 
@@ -238,6 +239,9 @@ async function fetchTextAsset(url: string): Promise<string> {
 
 function parseGlb(bytes: ArrayBuffer): Promise<THREE.Object3D> {
   const loader = new GLTFLoader();
+  if (!isValidGlbBuffer(bytes)) {
+    return Promise.reject(new Error(glbValidationError(bytes)));
+  }
   return loader.parseAsync(bytes, "").then((gltf) => gltf.scene);
 }
 

@@ -15,6 +15,9 @@ interface EditPreviewModalProps {
   beforePreview?: string | null;
   afterPreview?: string | null;
   loading?: boolean;
+  progress?: number;
+  stageLabel?: string | null;
+  previewProvider?: string | null;
   onRefineMask: () => void;
   onApprove: () => void;
 }
@@ -27,6 +30,9 @@ export function EditPreviewModal({
   beforePreview,
   afterPreview,
   loading,
+  progress = 0,
+  stageLabel,
+  previewProvider,
   onRefineMask,
   onApprove,
 }: EditPreviewModalProps) {
@@ -58,7 +64,7 @@ export function EditPreviewModal({
             <h3 className="text-center font-mono text-xs uppercase tracking-wider text-on-surface-variant">
               {beforeLabel}
             </h3>
-            <div className="relative min-h-[280px] flex-1 overflow-hidden rounded-lg border border-outline-variant bg-[#8b95a5]">
+            <div className="relative min-h-[280px] flex-1 overflow-hidden rounded-lg border border-outline-variant bg-[#a8b2c0]">
               {beforePreview ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={beforePreview} alt="Before edit" className="h-full w-full object-contain" />
@@ -84,10 +90,21 @@ export function EditPreviewModal({
               <Sparkles className="h-3 w-3" />
               {afterLabel}
             </h3>
-            <div className="relative min-h-[280px] flex-1 overflow-hidden rounded-lg border-2 border-tertiary-container/40 bg-[#8b95a5]">
+            <div className="relative min-h-[280px] flex-1 overflow-hidden rounded-lg border-2 border-tertiary-container/40 bg-[#a8b2c0]">
               {loading ? (
-                <div className="flex h-full items-center justify-center text-body-sm text-on-surface-variant">
-                  Generating 2D preview…
+                <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
+                  <p className="text-body-sm font-medium text-on-surface">
+                    {stageLabel ?? "Generating 2D preview…"}
+                  </p>
+                  <div className="h-2 w-full max-w-xs overflow-hidden rounded-full bg-surface/60">
+                    <div
+                      className="h-full rounded-full bg-primary-container transition-all duration-300"
+                      style={{ width: `${Math.min(100, Math.max(8, progress))}%` }}
+                    />
+                  </div>
+                  <p className="text-[11px] text-on-surface-variant">
+                    AI inpaint when configured; otherwise a local clinical preview stub runs instantly.
+                  </p>
                 </div>
               ) : afterPreview ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -99,7 +116,7 @@ export function EditPreviewModal({
               )}
               <span className="absolute bottom-3 left-3 flex items-center gap-1 rounded bg-tertiary-container px-2 py-0.5 font-mono text-[10px] text-on-tertiary">
                 <Check className="h-3 w-3" />
-                Preview
+                Preview{previewProvider ? ` · ${previewProvider}` : ""}
               </span>
             </div>
           </div>

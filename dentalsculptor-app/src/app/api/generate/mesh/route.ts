@@ -14,6 +14,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { generationErrorMessage, logGeneration } from "@/lib/generation-log";
 import { isModalAsyncDisabledError, modalAsyncDisabledHint } from "@/lib/generation-errors";
+import { persistGeneratedModelToProject } from "@/lib/persist-generated-model.server";
 
 /** Hobby plan max is 300s. Async path returns 202 quickly; sync fallback may still timeout on long cold starts. */
 export const maxDuration = 300;
@@ -79,6 +80,14 @@ export async function POST(req: NextRequest) {
 
   if (provider === "mock") {
     const meshData = generateDentalMeshFromImage(800, 600);
+    if (user && projectId && !isUiPreviewMode()) {
+      await persistGeneratedModelToProject({
+        projectId,
+        userId: user.id,
+        meshData: meshData as object,
+        format: "mock",
+      });
+    }
     return NextResponse.json({
       source: "mock",
       meshData,
@@ -201,6 +210,14 @@ export async function POST(req: NextRequest) {
             requestId: result.requestId,
           },
         });
+        await persistGeneratedModelToProject({
+          projectId,
+          userId: user.id,
+          modelUrl: result.modelUrl,
+          format: result.format,
+          mtlUrl: result.mtlUrl,
+          thumbnailUrl: result.thumbnailUrl,
+        });
       }
 
       return NextResponse.json({
@@ -234,6 +251,14 @@ export async function POST(req: NextRequest) {
           format: result.format,
           requestId: result.requestId,
         },
+      });
+      await persistGeneratedModelToProject({
+        projectId,
+        userId: user.id,
+        modelUrl: result.modelUrl,
+        format: result.format,
+        mtlUrl: result.mtlUrl,
+        thumbnailUrl: result.thumbnailUrl,
       });
     }
 

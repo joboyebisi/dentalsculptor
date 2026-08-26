@@ -54,6 +54,15 @@ export function CaseWizardClinicalForm({
               }
             }}
           />
+          {fields.some((f) => f.id === "toothType") && values.toothType && (
+            <p className="mt-2 text-body-sm text-on-surface">
+              Tooth type:{" "}
+              <span className="font-semibold capitalize text-primary-container">
+                {String(values.toothType)}
+              </span>{" "}
+              <span className="text-on-surface-variant">(from FDI chart)</span>
+            </p>
+          )}
           {field.helpText && (
             <p className="mt-1 text-[11px] text-on-surface-variant">{field.helpText}</p>
           )}
@@ -166,15 +175,9 @@ export function CaseWizardClinicalForm({
 export function defaultClinicalValues(fields: ClinicalParameterField[]): ClinicalParameterValues {
   const values: ClinicalParameterValues = {};
   for (const field of fields) {
-    if (field.id === "fdiTooth") values[field.id] = "36";
-    else if (field.type === "number" && field.id === "occlusalReductionMm") values[field.id] = 1.5;
+    if (field.type === "number" && field.id === "occlusalReductionMm") values[field.id] = 1.5;
     else if (field.type === "multiselect") values[field.id] = [];
     else values[field.id] = "";
-  }
-  const fdi = typeof values.fdiTooth === "string" ? values.fdiTooth : undefined;
-  if (fdi && fields.some((f) => f.id === "toothType")) {
-    const inferred = fdiToothType(fdi);
-    if (inferred) values.toothType = inferred;
   }
   return values;
 }
