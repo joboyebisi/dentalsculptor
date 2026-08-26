@@ -6,6 +6,10 @@ import type { ClinicalParameterValues } from "@/lib/case-recipe-utils";
 import { cn } from "@/lib/utils";
 import { FdiOdontogramPicker } from "@/components/case-wizard/fdi-odontogram-picker";
 import { fdiToothType } from "@/lib/tooth-taxonomy";
+import {
+  applyLibraryHintsToClinicalValues,
+  peekGenerationLibraryHints,
+} from "@/lib/generation-library-hints";
 
 interface CaseWizardClinicalFormProps {
   fields: ClinicalParameterField[];
@@ -179,5 +183,5 @@ export function defaultClinicalValues(fields: ClinicalParameterField[]): Clinica
     else if (field.type === "multiselect") values[field.id] = [];
     else values[field.id] = "";
   }
-  return values;
+  return applyLibraryHintsToClinicalValues(values, fields, peekGenerationLibraryHints());
 }

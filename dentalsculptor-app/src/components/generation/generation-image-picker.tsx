@@ -8,6 +8,10 @@ import { GenerationImageControls } from "@/components/generation/generation-imag
 import { GenerationLibraryDialog } from "@/components/generation/generation-library-dialog";
 import { cn } from "@/lib/utils";
 import type { GenerationLibraryItem } from "@/lib/generation-library";
+import {
+  clearGenerationLibraryHints,
+  setGenerationLibraryHints,
+} from "@/lib/generation-library-hints";
 
 export interface GenerationImagePickerProps {
   previewUrl: string | null;
@@ -71,6 +75,7 @@ export function GenerationImagePicker({
       setLibraryLoading(true);
       try {
         const file = await fetchLibraryItemAsFile(item);
+        setGenerationLibraryHints(item);
         await onSelectFile(file);
         setLibraryOpen(false);
       } finally {
@@ -171,7 +176,10 @@ export function GenerationImagePicker({
             variant="ghost"
             size="sm"
             disabled={disabled || preparing || libraryLoading}
-            onClick={onClear}
+            onClick={() => {
+              clearGenerationLibraryHints();
+              onClear();
+            }}
           >
             <X className="mr-1 h-4 w-4" />
             Clear

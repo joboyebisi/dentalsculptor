@@ -25,6 +25,7 @@ import {
   defaultClinicalValues,
 } from "@/components/case-wizard/case-wizard-clinical-form";
 import { cn } from "@/lib/utils";
+import { peekGenerationLibraryHints } from "@/lib/generation-library-hints";
 
 export interface CaseWizardContinuePayload {
   template: CaseTemplate | null;
@@ -108,6 +109,8 @@ export function CaseWizardDialog({ open, onClose, onContinue, applying = false }
 
   if (!open) return null;
 
+  const libraryHints = peekGenerationLibraryHints();
+
   const toggleYear = (y: StudentYearLevel) => {
     setYears((prev) => (prev.includes(y) ? prev.filter((x) => x !== y) : [...prev, y]));
   };
@@ -160,8 +163,15 @@ export function CaseWizardDialog({ open, onClose, onContinue, applying = false }
             <div className="space-y-4 text-body-sm text-on-surface-variant">
               <p className="font-medium text-on-surface">Educator quick picks</p>
               <p>
-                We do not auto-detect tooth number from photos yet — you will confirm FDI in the next
-                step so presets match your model.
+                We do not auto-detect tooth number from photos yet — confirm FDI in the next step.
+                {libraryHints?.libraryTitle ? (
+                  <>
+                    {" "}
+                    Your library image (
+                    <span className="font-medium text-on-surface">{libraryHints.libraryTitle}</span>
+                    ) may pre-fill tooth number — please verify.
+                  </>
+                ) : null}
               </p>
             </div>
           )}

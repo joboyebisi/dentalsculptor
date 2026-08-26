@@ -1,14 +1,126 @@
 {
   "version": 1,
-  "description": "Curated dental images for 3D generation. Add PNG/JPG files to public/generation-library/ and list them here.",
+  "description": "Curated extracted-tooth teaching images for 3D generation. FDI hints use a representative side (12, 13, 14…) — educators confirm in case wizard.",
   "items": [
     {
-      "id": "sample-molar",
-      "title": "Sample molar (placeholder)",
+      "id": "upper-lateral-incisor-labial",
+      "title": "Upper lateral incisor — labial view",
+      "toothType": "incisor",
+      "fdiHint": "12",
+      "path": "/generation-library/upper-lateral-incisor-labial.png",
+      "credit": "Extracted tooth specimen — teaching library"
+    },
+    {
+      "id": "upper-lateral-incisor-lingual",
+      "title": "Upper lateral incisor — lingual view",
+      "toothType": "incisor",
+      "fdiHint": "12",
+      "path": "/generation-library/upper-lateral-incisor-lingual.png",
+      "credit": "Extracted tooth specimen — teaching library"
+    },
+    {
+      "id": "upper-lateral-incisor-proximal-a",
+      "title": "Upper lateral incisor — proximal view",
+      "toothType": "incisor",
+      "fdiHint": "12",
+      "path": "/generation-library/upper-lateral-incisor-proximal-a.png",
+      "credit": "Extracted tooth specimen — teaching library"
+    },
+    {
+      "id": "upper-lateral-incisor-proximal-b",
+      "title": "Upper lateral incisor — side profile",
+      "toothType": "incisor",
+      "fdiHint": "12",
+      "path": "/generation-library/upper-lateral-incisor-proximal-b.png",
+      "credit": "Extracted tooth specimen — teaching library"
+    },
+    {
+      "id": "upper-canine-labial-a",
+      "title": "Upper canine — labial view",
+      "toothType": "canine",
+      "fdiHint": "13",
+      "path": "/generation-library/upper-canine-labial-a.png",
+      "credit": "Extracted tooth specimen — teaching library"
+    },
+    {
+      "id": "upper-canine-labial-b",
+      "title": "Upper canine — facial view",
+      "toothType": "canine",
+      "fdiHint": "13",
+      "path": "/generation-library/upper-canine-labial-b.png",
+      "credit": "Extracted tooth specimen — teaching library"
+    },
+    {
+      "id": "upper-canine-lingual",
+      "title": "Upper canine — lingual view",
+      "toothType": "canine",
+      "fdiHint": "13",
+      "path": "/generation-library/upper-canine-lingual.png",
+      "credit": "Extracted tooth specimen — teaching library"
+    },
+    {
+      "id": "upper-canine-proximal",
+      "title": "Upper canine — proximal view",
+      "toothType": "canine",
+      "fdiHint": "13",
+      "path": "/generation-library/upper-canine-proximal.png",
+      "credit": "Extracted tooth specimen — teaching library"
+    },
+    {
+      "id": "upper-first-premolar-two-roots-a",
+      "title": "Upper first premolar — two roots",
+      "toothType": "premolar",
+      "fdiHint": "14",
+      "path": "/generation-library/upper-first-premolar-two-roots-a.png",
+      "credit": "Extracted tooth specimen — teaching library"
+    },
+    {
+      "id": "upper-first-premolar-two-roots-b",
+      "title": "Upper first premolar — bifurcated roots",
+      "toothType": "premolar",
+      "fdiHint": "14",
+      "path": "/generation-library/upper-first-premolar-two-roots-b.png",
+      "credit": "Extracted tooth specimen — teaching library"
+    },
+    {
+      "id": "premolar-single-root-proximal",
+      "title": "Premolar — single root (proximal)",
+      "toothType": "premolar",
+      "fdiHint": "15",
+      "path": "/generation-library/premolar-single-root-proximal.png",
+      "credit": "Extracted tooth specimen — teaching library"
+    },
+    {
+      "id": "upper-molar-three-roots-a",
+      "title": "Upper molar — three roots",
+      "toothType": "molar",
+      "fdiHint": "16",
+      "path": "/generation-library/upper-molar-three-roots-a.png",
+      "credit": "Extracted tooth specimen — teaching library"
+    },
+    {
+      "id": "upper-molar-three-roots-b",
+      "title": "Upper molar — trifurcated roots",
+      "toothType": "molar",
+      "fdiHint": "16",
+      "path": "/generation-library/upper-molar-three-roots-b.png",
+      "credit": "Extracted tooth specimen — teaching library"
+    },
+    {
+      "id": "upper-molar-proximal",
+      "title": "Upper molar — proximal view",
+      "toothType": "molar",
+      "fdiHint": "16",
+      "path": "/generation-library/upper-molar-proximal.png",
+      "credit": "Extracted tooth specimen — teaching library"
+    },
+    {
+      "id": "lower-molar-two-roots",
+      "title": "Lower molar — two roots",
       "toothType": "molar",
       "fdiHint": "36",
-      "path": "/generation-library/sample-molar.svg",
-      "credit": "Replace with your university e-resource images"
+      "path": "/generation-library/lower-molar-two-roots.png",
+      "credit": "Extracted tooth specimen — teaching library"
     }
   ]
 }
