@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>DentalSculptor - Placement Studio</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Config from Brand Anchors -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "primary-fixed-dim": "#b2c5ff",
+                    "surface": "#faf8ff",
+                    "on-tertiary": "#ffffff",
+                    "on-primary-fixed": "#001848",
+                    "on-tertiary-fixed-variant": "#5a00c6",
+                    "surface-bright": "#faf8ff",
+                    "on-error": "#ffffff",
+                    "on-secondary-fixed": "#00201c",
+                    "primary": "#00286a",
+                    "on-error-container": "#93000a",
+                    "surface-container-highest": "#dae2fd",
+                    "secondary": "#006b5f",
+                    "on-secondary-container": "#006f64",
+                    "on-secondary-fixed-variant": "#005048",
+                    "on-tertiary-container": "#be9fff",
+                    "on-primary-container": "#8eadff",
+                    "inverse-on-surface": "#eef0ff",
+                    "error": "#ba1a1a",
+                    "surface-dim": "#d2d9f4",
+                    "surface-tint": "#365aaf",
+                    "tertiary": "#3a0084",
+                    "on-surface": "#131b2e",
+                    "tertiary-container": "#5500bb",
+                    "on-surface-variant": "#434652",
+                    "on-primary": "#ffffff",
+                    "surface-container-high": "#e2e7ff",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-container": "#eaedff",
+                    "outline": "#747783",
+                    "inverse-primary": "#b2c5ff",
+                    "on-tertiary-fixed": "#25005a",
+                    "primary-fixed": "#dae2ff",
+                    "on-background": "#131b2e",
+                    "on-primary-fixed-variant": "#174296",
+                    "secondary-container": "#6df5e1",
+                    "outline-variant": "#c4c6d3",
+                    "background": "#faf8ff",
+                    "primary-container": "#0f3d91",
+                    "surface-container-low": "#f2f3ff",
+                    "surface-variant": "#dae2fd",
+                    "on-secondary": "#ffffff",
+                    "secondary-fixed-dim": "#4fdbc8",
+                    "tertiary-fixed": "#eaddff",
+                    "secondary-fixed": "#71f8e4",
+                    "tertiary-fixed-dim": "#d2bbff",
+                    "inverse-surface": "#283044",
+                    "error-container": "#ffdad6"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "md": "16px",
+                    "gutter": "16px",
+                    "panel-width": "320px",
+                    "margin-page": "32px",
+                    "base": "4px",
+                    "lg": "24px",
+                    "xs": "4px",
+                    "xl": "40px",
+                    "sm": "8px"
+            },
+            "fontFamily": {
+                    "body-md": ["Inter"],
+                    "title-lg": ["Inter"],
+                    "display-lg": ["Inter"],
+                    "headline-md": ["Inter"],
+                    "label-sm": ["Inter"],
+                    "label-md": ["JetBrains Mono"],
+                    "body-lg": ["Inter"],
+                    "headline-lg": ["Inter"]
+            },
+            "fontSize": {
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "title-lg": ["18px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                    "label-sm": ["11px", {"lineHeight": "14px", "fontWeight": "600"}],
+                    "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        /* CSS Grid Pattern for Viewport */
+        .viewport-grid {
+            background-size: 40px 40px;
+            background-image: 
+                linear-gradient(to right, rgba(116, 119, 131, 0.15) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(116, 119, 131, 0.15) 1px, transparent 1px);
+        }
+        
+        /* Custom Scrollbar for sleek UI */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background-color: #c4c6d3;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background-color: #747783;
+        }
+
+        /* Glassmorphic Utilities */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md h-screen w-screen overflow-hidden flex selection:bg-primary-fixed selection:text-on-primary-fixed">
+<!-- Shared Component: SideNavBar -->
+<nav class="bg-surface-container-low flex flex-col h-full py-md border-r border-outline-variant docked left-0 w-panel-width flex-shrink-0 z-20">
+<!-- Header -->
+<div class="px-gutter mb-lg flex items-center gap-sm">
+<div class="w-10 h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold">
+                DS
+            </div>
+<div>
+<h1 class="text-headline-md font-headline-md font-bold text-primary">DentalSculptor</h1>
+<p class="text-label-sm font-label-sm text-on-surface-variant uppercase tracking-wider">Academic Edition</p>
+</div>
+</div>
+<!-- Main Navigation -->
+<div class="flex-1 flex flex-col gap-xs px-sm overflow-y-auto">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-highest transition-all duration-200 ease-in-out group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">dashboard</span>
+<span class="text-body-md font-body-md">Dashboard</span>
+</a>
+<!-- Active State Navigation based on context (CAD Tool is part of a Project) -->
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-primary border-l-4 border-primary bg-surface-container-high transition-all duration-200 ease-in-out font-medium" href="#">
+<span class="material-symbols-outlined text-[20px] font-variation-settings-'FILL' 1;">folder_open</span>
+<span class="text-body-md font-body-md">Projects</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-highest transition-all duration-200 ease-in-out group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">groups</span>
+<span class="text-body-md font-body-md">Community</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-highest transition-all duration-200 ease-in-out group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">school</span>
+<span class="text-body-md font-body-md">Students</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-highest transition-all duration-200 ease-in-out group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">analytics</span>
+<span class="text-body-md font-body-md">Analytics</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-highest transition-all duration-200 ease-in-out group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">science</span>
+<span class="text-body-md font-body-md">Research</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-highest transition-all duration-200 ease-in-out group mt-auto" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">settings</span>
+<span class="text-body-md font-body-md">Settings</span>
+</a>
+</div>
+<!-- Footer Navigation -->
+<div class="mt-md px-sm border-t border-outline-variant pt-md flex flex-col gap-xs">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-highest transition-all duration-200 ease-in-out group" href="#">
+<span class="material-symbols-outlined text-[20px]">contact_support</span>
+<span class="text-body-md font-body-md">Support</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-highest transition-all duration-200 ease-in-out group" href="#">
+<span class="material-symbols-outlined text-[20px]">menu_book</span>
+<span class="text-body-md font-body-md">Documentation</span>
+</a>
+</div>
+</nav>
+<!-- Main Workspace Area -->
+<main class="flex-1 flex flex-col relative h-full bg-surface-container-low/50">
+<!-- Shared Component: TopAppBar (Center-aligned Workbench style) -->
+<div class="absolute top-sm left-0 right-0 z-30 flex justify-center pointer-events-none">
+<div class="pointer-events-auto bg-surface-container-lowest/80 backdrop-blur-md rounded-full border border-outline-variant shadow-sm flex items-center gap-gutter px-md py-xs max-w-fit transition-transform scale-100 hover:bg-surface-container-lowest">
+<span class="text-label-sm font-label-sm text-on-surface-variant uppercase tracking-wider pr-md border-r border-outline-variant flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">view_in_ar</span>
+                    Workbench
+                </span>
+<div class="flex items-center gap-sm pl-sm">
+<button class="text-body-sm font-body-md text-on-surface-variant hover:text-primary hover:bg-surface-container-highest px-3 py-1.5 rounded-full transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">save</span>
+                        Save
+                    </button>
+<button class="text-body-sm font-body-md text-on-surface-variant hover:text-primary hover:bg-surface-container-highest px-3 py-1.5 rounded-full transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">history</span>
+                        Version History
+                    </button>
+</div>
+<div class="pl-gutter border-l border-outline-variant">
+<button class="bg-primary text-on-primary text-label-sm font-label-sm uppercase tracking-wider px-4 py-1.5 rounded-full hover:bg-primary-container hover:text-on-primary-container transition-colors shadow-sm font-bold flex items-center gap-2">
+                        Publish
+                        <span class="material-symbols-outlined text-[16px]">cloud_upload</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Split View Layout -->
+<div class="flex-1 flex gap-gutter p-gutter pt-xl overflow-hidden h-full">
+<!-- Left Area: 3D Viewport (60%) -->
+<section class="w-3/5 h-full bg-surface rounded-xl border border-outline-variant shadow-sm relative overflow-hidden flex flex-col">
+<!-- Viewport Toolbar (Glassmorphic) -->
+<div class="absolute top-4 left-4 z-10 glass-panel rounded-lg border border-outline-variant shadow-sm p-1 flex flex-col gap-1">
+<button class="p-2 rounded hover:bg-surface-container-highest text-on-surface-variant transition-colors" title="Perspective View">
+<span class="material-symbols-outlined text-[20px]">3d_rotation</span>
+</button>
+<button class="p-2 rounded hover:bg-surface-container-highest text-on-surface-variant transition-colors" title="Front View">
+<span class="material-symbols-outlined text-[20px]">grid_on</span>
+</button>
+<button class="p-2 rounded hover:bg-surface-container-highest text-on-surface-variant transition-colors" title="Top View">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+</div>
+<!-- View Info Badge -->
+<div class="absolute bottom-4 left-4 z-10 glass-panel px-3 py-1.5 rounded border border-outline-variant text-label-sm font-label-sm text-on-surface-variant flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-secondary-fixed-dim"></div>
+                    FDI Socket 46 - Active
+                </div>
+<!-- 3D Canvas Area -->
+<div class="flex-1 relative w-full h-full viewport-grid cursor-move">
+<!-- Placeholder for actual 3D render/canvas -->
+<img class="absolute inset-0 w-full h-full object-contain p-12 drop-shadow-2xl" data-alt="A highly detailed, ultra-realistic 3D rendering of a human lower jaw (mandible) in a clean, minimalist clinical CAD software viewport. The aesthetic is bright, high-key light mode with surgical precision. A translucent, ghostly white molar tooth model is positioned in FDI socket 46. Superimposed over the tooth is a crisp, bright neon transform gizmo featuring striking red (X), green (Y), and blue (Z) directional arrows and rotation rings. The background is a soft, clinical off-white with a faint, precise grid pattern." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDbyv_LH0XUNvOcLyun6lmnhJyxeYGl54j1Yc4oN6_WJfRZM8m9569ogBz8U85Mi6fGhFh4Xnd0wRi4aPeHMvEiLmNvp9XqRtXCE1KZPS0coeUw5V4Y_Y8oe3H7T9DK2Cw_UZrniVeOCtbJ3ZyagNqosZeN_IRgRDvMIFq-wvB8xtdqU245nXIk0WvlAWG_95b_FKFSR4jZpMGSuqzlR_fRDdb8I-SmCZ9KJhfPWsoBhMrebExDHLFtuw"/>
+<!-- Center Reticle (Aesthetic detail) -->
+<div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-8 h-8 border border-outline/30 rounded-full pointer-events-none flex items-center justify-center">
+<div class="w-1 h-1 bg-primary rounded-full"></div>
+</div>
+</div>
+</section>
+<!-- Right Area: Properties & Template Library (40%) -->
+<section class="w-2/5 h-full bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col overflow-hidden">
+<!-- Panel Header -->
+<header class="px-md py-3 border-b border-outline-variant bg-surface-container flex items-center justify-between shrink-0">
+<h2 class="text-title-lg font-title-lg text-on-surface">Placement Studio</h2>
+<span class="material-symbols-outlined text-on-surface-variant">tune</span>
+</header>
+<!-- Scrollable Content -->
+<div class="flex-1 overflow-y-auto p-md flex flex-col gap-lg">
+<!-- Section: Template Library -->
+<div>
+<h3 class="text-label-sm font-label-sm text-on-surface-variant uppercase tracking-wider mb-sm flex items-center justify-between">
+                            Template Library
+                            <span class="material-symbols-outlined text-[16px] cursor-pointer hover:text-primary">search</span>
+</h3>
+<!-- Bento Grid for Templates -->
+<div class="grid grid-cols-2 gap-sm">
+<!-- Template Card 1 (Active) -->
+<div class="group relative rounded-lg border-2 border-primary bg-primary-fixed/20 p-2 cursor-pointer transition-all">
+<div class="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary"></div>
+<div class="h-24 bg-surface rounded mb-2 border border-outline/20 flex items-center justify-center" data-alt="A small, minimalist 3D thumbnail rendering of a smooth, cylindrical titanium dental implant screw, presented on a pure white background in a sterile, clinical light-mode aesthetic. Soft, diffuse lighting highlights the threading details." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDEiiiRf8_efQSVpGIxe1sug-DlohYQpZzf3zMGbIxggnu6IcHJvCc6q6UwlIVAhyaRk6V-xelih9SMI6d-WvJSdnfvm5Xkxy1vgegJ1q3GGrqjkuZFFIDcn_jM-fcKgGXfBpi0bS7XeSX3KEdNSmq_6g4b0_k_onQRNo86xIGQ_C3lUxvLWUjoCCqThMGy2ApWpKpviIgIIVkDDU6gyNQZ1GubFmIiD0Bqd_T6AD5JWXHIJB98Z6Rvmg')">
+</div>
+<div class="text-label-sm font-label-sm text-on-surface">Standard Tapered</div>
+<div class="text-label-md font-label-md text-on-surface-variant opacity-70">Ø4.3 x 11.5mm</div>
+</div>
+<!-- Template Card 2 -->
+<div class="group relative rounded-lg border border-outline-variant bg-surface hover:border-outline p-2 cursor-pointer transition-all">
+<div class="h-24 bg-surface-container-low rounded mb-2 flex items-center justify-center" data-alt="A small, minimalist 3D thumbnail rendering of a wide, cylindrical titanium dental implant screw with aggressive threading, presented on a pure white background in a sterile, clinical light-mode aesthetic. Soft, diffuse lighting." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuA-XHIi219_6wID-nNXYLR3cybdVa1JfYW1hnjs3wPNDWrFe13hvJnwMArsQMltXmtZQOq47SgBPr5an5uDIwc8HN1Sr9LiSVarJ2OYi96-IuMxvcwFdFP3k8xyGrEKpdiLGrriCeTQRZwD-06rf9K2QdNaPshx4qoywJRWw4Fnvaupvxb-1gPyvP1PYebHQ40-QgF3kjgm69wcNH5nVfpz0TsNOECGh4t59R_ROvKK5cmJBR34B5coKg')">
+</div>
+<div class="text-label-sm font-label-sm text-on-surface">Wide Profile</div>
+<div class="text-label-md font-label-md text-on-surface-variant opacity-70">Ø5.0 x 10.0mm</div>
+</div>
+</div>
+</div>
+<!-- Divider -->
+<hr class="border-outline-variant"/>
+<!-- Section: Spatial Coordinates -->
+<div>
+<div class="flex items-center justify-between mb-md">
+<h3 class="text-label-sm font-label-sm text-on-surface-variant uppercase tracking-wider">Spatial Coordinates</h3>
+<!-- Snap Toggle -->
+<label class="flex items-center gap-2 cursor-pointer group">
+<span class="text-label-sm font-label-sm text-on-surface group-hover:text-primary transition-colors">Snap to Axis</span>
+<div class="relative">
+<input checked="" class="sr-only" type="checkbox"/>
+<div class="w-8 h-4 bg-primary rounded-full transition-colors"></div>
+<div class="absolute left-1 top-1 bg-white w-2 h-2 rounded-full transition-transform transform translate-x-4"></div>
+</div>
+</label>
+</div>
+<!-- Readouts Data Table (Dense) -->
+<div class="bg-surface border border-outline-variant rounded-lg overflow-hidden font-label-md">
+<!-- Header Row -->
+<div class="grid grid-cols-4 bg-surface-container-low border-b border-outline-variant px-3 py-2 text-label-sm font-label-sm text-on-surface-variant uppercase">
+<div>Axis</div>
+<div class="text-right">Trans (mm)</div>
+<div class="text-right">Rot (°)</div>
+<div class="text-center">Lock</div>
+</div>
+<!-- X Axis -->
+<div class="grid grid-cols-4 items-center px-3 py-2 border-b border-outline-variant hover:bg-surface-container-lowest transition-colors group">
+<div class="flex items-center gap-2 text-error font-bold"><span class="w-2 h-2 rounded-full bg-error"></span>X</div>
+<div class="text-right text-on-surface">14.52</div>
+<div class="text-right text-on-surface">12.40</div>
+<div class="text-center text-outline group-hover:text-on-surface-variant cursor-pointer">
+<span class="material-symbols-outlined text-[16px]">lock_open</span>
+</div>
+</div>
+<!-- Y Axis -->
+<div class="grid grid-cols-4 items-center px-3 py-2 border-b border-outline-variant hover:bg-surface-container-lowest transition-colors group">
+<div class="flex items-center gap-2 text-secondary font-bold"><span class="w-2 h-2 rounded-full bg-secondary"></span>Y</div>
+<div class="text-right text-on-surface">-2.30</div>
+<div class="text-right text-on-surface">0.00</div>
+<div class="text-center text-primary cursor-pointer">
+<span class="material-symbols-outlined text-[16px]">lock</span>
+</div>
+</div>
+<!-- Z Axis -->
+<div class="grid grid-cols-4 items-center px-3 py-2 hover:bg-surface-container-lowest transition-colors group">
+<div class="flex items-center gap-2 text-surface-tint font-bold"><span class="w-2 h-2 rounded-full bg-surface-tint"></span>Z</div>
+<div class="text-right text-on-surface">5.01</div>
+<div class="text-right text-on-surface">-5.20</div>
+<div class="text-center text-outline group-hover:text-on-surface-variant cursor-pointer">
+<span class="material-symbols-outlined text-[16px]">lock_open</span>
+</div>
+</div>
+</div>
+</div>
+<!-- AI Co-Creation Banner -->
+<div class="mt-auto rounded-lg border-l-4 border-tertiary-container bg-tertiary-fixed/30 p-sm flex items-start gap-3 backdrop-blur-sm">
+<span class="material-symbols-outlined text-tertiary-container text-[20px] mt-0.5">auto_awesome</span>
+<div>
+<h4 class="text-label-sm font-label-sm text-tertiary-container uppercase">AI Optimization Suggestion</h4>
+<p class="text-label-md font-label-md text-on-surface-variant mt-1 leading-relaxed">Adjust Z-axis rotation by +2.1° to clear mandibular nerve canal boundary (safety margin &lt; 1.5mm).</p>
+<button class="mt-2 text-label-sm font-label-sm text-primary hover:underline font-bold">Apply Correction</button>
+</div>
+</div>
+</div>
+<!-- Fixed Footer Actions -->
+<footer class="px-md py-sm border-t border-outline-variant bg-surface-container flex items-center justify-end gap-sm shrink-0">
+<button class="px-4 py-2 rounded text-body-md font-body-md text-on-surface-variant hover:bg-surface-container-highest transition-colors border border-transparent hover:border-outline-variant">
+                        Export
+                    </button>
+<button class="px-6 py-2 rounded bg-primary text-on-primary text-body-md font-body-md font-bold hover:bg-primary-container hover:text-on-primary-container transition-colors shadow-sm flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">check_circle</span>
+                        Save Placement
+                    </button>
+</footer>
+</section>
+</div>
+</main>
+</body></html>

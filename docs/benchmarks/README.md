@@ -64,3 +64,23 @@ Create the `dentalsculptor-aws` Modal secret with `AWS_ACCESS_KEY_ID`,
 `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` and `AWS_S3_BUCKET`. The bucket must keep
 Block Public Access enabled. Modal uploads use no public ACL and request
 SSE-S3 encryption.
+
+## Edit pilot benchmark (skeleton)
+
+After Modal deploy succeeds, see:
+
+- Smoke test checklist: `docs/benchmarks/CUSP_FRACTURE_SMOKE_TEST.md`
+- Edit probe script: `dentalsculptor-ml/scripts/benchmark_edit_pilot.py`
+
+```powershell
+$env:MODAL_WEBHOOK_SECRET = "<secret>"
+python .\scripts\benchmark_edit_pilot.py `
+  --source-image ..\research\validation\trellis-teeth\images\12-upper-molar-three-roots-a.png `
+  --edited-image <path-to-ai-edited-png> `
+  --endpoint https://dentalsculptor--edit.modal.run `
+  --job-status-url https://dentalsculptor--job-status.modal.run `
+  --operation remove `
+  --output ..\docs\benchmarks\edit-pilot-runs
+```
+
+Full six-case automated gate (mask + 2D + accept) is not scripted yet — use the smoke checklist in the app UI first.

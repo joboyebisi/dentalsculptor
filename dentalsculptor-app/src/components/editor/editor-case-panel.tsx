@@ -171,7 +171,9 @@ export function EditorCasePanel({
             onClick={onStartMaskEdit}
             className="mt-4 w-full rounded-lg bg-primary-container px-3 py-2 text-[11px] font-semibold text-on-primary hover:opacity-90"
           >
-            Start mask edit ({selectedCase.defaultOperation})
+            {selectedCase.requiresGeometryEdit === false
+              ? "Start annotations"
+              : `Start guided edit (${selectedCase.defaultOperation})`}
           </button>
         )}
 

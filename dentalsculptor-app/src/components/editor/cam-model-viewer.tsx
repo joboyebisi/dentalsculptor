@@ -332,8 +332,19 @@ function CameraRig({
   }, [camera, size, meshGroupRef, controlsRef, onReady]);
 
   useEffect(() => {
-    const t = setTimeout(fitCamera, fitGeneration > 0 ? 0 : 50);
-    return () => clearTimeout(t);
+    // Remote loaders report completion in the same React turn that mounts the
+    // parsed scene. Wait for two frames so Box3 sees the committed meshes, then
+    // repeat once after layout settles (panels can change the canvas aspect).
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(fitCamera);
+    });
+    const settle = window.setTimeout(fitCamera, fitGeneration > 0 ? 180 : 80);
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+      window.clearTimeout(settle);
+    };
   }, [fitCamera, fitGeneration]);
 
   useEffect(() => {

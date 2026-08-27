@@ -58,6 +58,7 @@ import {
 } from "@/lib/edit-region-attachments";
 import { DEFAULT_EXPORT_TARGET } from "@/lib/export-presets";
 import type { ViewerInteractionMode } from "@/components/editor/cam-model-viewer";
+import { ShareProjectDialog } from "@/components/editor/share-project-dialog";
 
 export interface EditorProject {
   id: string;
@@ -133,6 +134,7 @@ export function EditorWorkspace({
   const [segmenting, setSegmenting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [exportWizardOpen, setExportWizardOpen] = useState(false);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [casePanelOpen, setCasePanelOpen] = useState(true);
   const [learningObjectives, setLearningObjectives] = useState(project.learningObjectives);
   const [instructions, setInstructions] = useState(project.instructions);
@@ -146,8 +148,11 @@ export function EditorWorkspace({
   const [previewProgress, setPreviewProgress] = useState(0);
   const [previewStage, setPreviewStage] = useState<string | null>(null);
   const [previewProvider, setPreviewProvider] = useState<string | null>(null);
+  const [previewIsAi, setPreviewIsAi] = useState(false);
+  const [previewNotice, setPreviewNotice] = useState<string | null>(null);
   const [editJobLoading, setEditJobLoading] = useState(false);
   const [editStatus, setEditStatus] = useState<string | null>(null);
+  const [uiError, setUiError] = useState<string | null>(null);
   const [revisionProofDetail, setRevisionProofDetail] = useState<string | null>(null);
   const [pendingRevision, setPendingRevision] = useState<{
     jobId: string;
@@ -239,7 +244,8 @@ export function EditorWorkspace({
     [caseRecipe, selectedCase]
   );
   const activeEditPreset = activePresetId ? getEditPreset(activePresetId) ?? null : null;
-  const showEditPresets = Boolean(selectedCase) || maskVisible;
+  const caseAllowsEdit = selectedCase?.requiresGeometryEdit !== false;
+  const showEditPresets = caseAllowsEdit && (Boolean(selectedCase) || maskVisible);
   const editWorkflowStep = resolveEditWorkflowStep({
     hasMask: maskHasStrokes || maskCoverage > 0 || rectMarks.length > 0,
     hasInstruction: Boolean(aiPrompt.trim()),
@@ -503,6 +509,8 @@ export function EditorWorkspace({
     setPreviewProgress(8);
     setPreviewStage("Capturing 3D view…");
     setPreviewProvider(null);
+    setPreviewIsAi(false);
+    setPreviewNotice(null);
     try {
       const capture = await viewerRef.current?.captureView();
       if (!capture) throw new Error("Could not capture the current model view.");
@@ -550,6 +558,8 @@ export function EditorWorkspace({
               : previewData.provider === "fal"
                 ? "fal.ai"
                 : "AI";
+          setPreviewIsAi(true);
+          setPreviewNotice("AI inpaint completed. Confirm that the change is confined to the painted region before running the 3D edit.");
         }
       }
 
@@ -563,6 +573,8 @@ export function EditorWorkspace({
           instruction
         );
         providerLabel = "Local preview";
+        setPreviewIsAi(false);
+        setPreviewNotice("Illustrative local preview only — no configured AI inpaint provider produced this image. Configure Modal SDXL or fal.ai before running a real 3D edit.");
       }
 
       setPreviewProvider(providerLabel);
@@ -627,6 +639,12 @@ export function EditorWorkspace({
     formData.append("operation", editOperation);
     formData.append("sourceModelUrl", modelUrl);
     if (maskBlob) formData.append("maskImage", maskBlob, "mask.png");
+    if (referenceImage) {
+      formData.append("sourceImage", referenceImage, "source-view.png");
+    }
+    if (editedReferenceBlob) {
+      formData.append("editedImage", editedReferenceBlob, "edited-view.png");
+    }
     const refFor3d = editedReferenceBlob ?? referenceImage;
     if (refFor3d) {
       formData.append("referenceImage", refFor3d, "reference.png");
@@ -788,7 +806,7 @@ export function EditorWorkspace({
       const message = editErrorMessage(err);
       logEditClient({ phase: "failed", projectId, error: message });
       setEditStatus(null);
-      alert(message);
+      setUiError(message);
     } finally {
       setEditJobLoading(false);
     }
@@ -803,14 +821,15 @@ export function EditorWorkspace({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "accept" }),
       });
-      const data = await res.json();
+      const { data, raw } = await readJsonResponse<{ error?: string }>(res);
+      if (!data) throw new Error(jsonResponseError(res, raw, "Could not accept revision."));
       if (!res.ok) throw new Error(data.error ?? "Could not accept revision.");
       logEditClient({ phase: "accept", projectId, jobId: pendingRevision.jobId });
       setPendingRevision(null);
       setRevisionProofDetail(null);
       track("AI_SUGGESTION_ACCEPTED", projectId, { editJobId: pendingRevision.jobId });
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Could not accept revision.");
+      setUiError(err instanceof Error ? err.message : "Could not accept revision.");
     } finally {
       setRevisionActionLoading(false);
     }
@@ -825,7 +844,8 @@ export function EditorWorkspace({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "reject" }),
       });
-      const data = await res.json();
+      const { data, raw } = await readJsonResponse<{ error?: string }>(res);
+      if (!data) throw new Error(jsonResponseError(res, raw, "Could not revert revision."));
       if (!res.ok) throw new Error(data.error ?? "Could not revert revision.");
       setModelUrl(pendingRevision.sourceModelUrl);
       setModelFormat(detectModelFormat(pendingRevision.sourceModelUrl));
@@ -835,7 +855,7 @@ export function EditorWorkspace({
       setRevisionProofDetail(null);
       track("AI_SUGGESTION_REJECTED", projectId, { editJobId: pendingRevision.jobId });
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Could not revert revision.");
+      setUiError(err instanceof Error ? err.message : "Could not revert revision.");
     } finally {
       setRevisionActionLoading(false);
     }
@@ -891,10 +911,11 @@ export function EditorWorkspace({
       sourcePreview ?? project.dentalModel?.sourceImageUrl ?? null
     );
     if (!imageFile) {
-      alert("Select or upload a scan or image in the Source panel first.");
+      setUiError("Select or upload a scan or image in the Source panel first.");
       return;
     }
 
+    setUiError(null);
     setGenerating(true);
     setModelUrl(null);
     setMeshData(null);
@@ -914,7 +935,11 @@ export function EditorWorkspace({
         body: formData,
       });
 
-      let data = await res.json();
+      const parsed = await readJsonResponse<Record<string, any>>(res);
+      if (!parsed.data) {
+        throw new Error(jsonResponseError(res, parsed.raw, "Generation service returned an invalid response."));
+      }
+      let data = parsed.data;
       if (!res.ok) {
         throw new Error(data.error ?? "Generation failed");
       }
@@ -943,7 +968,7 @@ export function EditorWorkspace({
       notifyGenerationComplete(GENERATION_COPY.notifyReadyBodyEditor);
     } catch (err) {
       console.error(err);
-      alert(err instanceof Error ? err.message : "Could not generate 3D model.");
+      setUiError(err instanceof Error ? err.message : "Could not generate 3D model.");
     } finally {
       setGenerating(false);
     }
@@ -984,6 +1009,7 @@ export function EditorWorkspace({
         sidebarOpen={sidebarOpen}
         onToggleSidebar={() => setSidebarOpen((o) => !o)}
         onSave={handleSave}
+        onShare={() => setShareDialogOpen(true)}
         onExport={handleExport}
         onTitleChange={setTitle}
       />
@@ -1196,9 +1222,13 @@ export function EditorWorkspace({
           selectedPrompt={selectedSuggestedPrompt ?? (aiPrompt.trim() || null)}
           activeOperation={editOperation}
           onStartMaskEdit={() => {
-            if (selectedCase?.defaultOperation) setEditOperation(selectedCase.defaultOperation);
-            setActiveTool("mask");
-            openMaskEditPanels();
+            if (selectedCase?.requiresGeometryEdit === false) {
+              setActiveTool("mark");
+            } else {
+              if (selectedCase?.defaultOperation) setEditOperation(selectedCase.defaultOperation);
+              setActiveTool("mask");
+              openMaskEditPanels();
+            }
           }}
         />
       </div>
@@ -1208,6 +1238,7 @@ export function EditorWorkspace({
         modelDetail={modelLoadDetail}
         hasSourceImage={Boolean(sourcePreview)}
         editStatus={editStatus}
+        error={uiError}
       />
 
       <EditPreviewModal
@@ -1219,6 +1250,8 @@ export function EditorWorkspace({
         progress={previewProgress}
         stageLabel={previewStage}
         previewProvider={previewProvider}
+        previewIsAi={previewIsAi}
+        previewNotice={previewNotice}
         onRefineMask={() => setPreviewOpen(false)}
         onApprove={() => {
           setPreviewOpen(false);
@@ -1242,6 +1275,13 @@ export function EditorWorkspace({
           triggerSFX("toggle");
           track("EXPORT_REQUESTED", projectId, { target: selectedCase?.exportRecommendation ?? DEFAULT_EXPORT_TARGET });
         }}
+      />
+      <ShareProjectDialog
+        open={shareDialogOpen}
+        onClose={() => setShareDialogOpen(false)}
+        projectId={projectId}
+        projectTitle={title}
+        hasModel={hasModel}
       />
 
       <CaseWizardDialog

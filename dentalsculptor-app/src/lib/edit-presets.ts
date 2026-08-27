@@ -47,11 +47,12 @@ export const EDIT_PRESETS: EditPreset[] = [
   {
     id: "cusp-fracture",
     label: "Cusp fracture",
-    operation: "add",
+    operation: "remove",
     category: "pathology",
     editMode: "geometry",
     compatibleToothTypes: ["premolar", "molar"],
-    prompt: "Add an oblique cusp fracture with missing fragment in the masked region",
+    linkedTemplateIds: ["pathology-fracture-cusp"],
+    prompt: "Remove the masked cusp fragment and create an irregular oblique enamel fracture edge",
   },
   {
     id: "class1-prep",
@@ -72,7 +73,7 @@ export const EDIT_PRESETS: EditPreset[] = [
     editMode: "geometry",
     compatibleToothTypes: ["premolar", "molar"],
     preferredSurfaces: ["occlusal"],
-    linkedTemplateIds: ["endo-access-molar"],
+    linkedTemplateIds: ["endo-access-intro", "endo-access-molar"],
     prompt: "Open pulp chamber roof through occlusal surface, expose canal orifices",
   },
   {

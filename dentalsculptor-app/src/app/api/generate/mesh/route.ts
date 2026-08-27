@@ -15,6 +15,7 @@ import { prisma } from "@/lib/prisma";
 import { generationErrorMessage, logGeneration } from "@/lib/generation-log";
 import { isModalAsyncDisabledError, modalAsyncDisabledHint } from "@/lib/generation-errors";
 import { persistGeneratedModelToProject } from "@/lib/persist-generated-model.server";
+import { generateAssetKey, uploadAsset } from "@/lib/storage";
 
 /** Hobby plan max is 300s. Async path returns 202 quickly; sync fallback may still timeout on long cold starts. */
 export const maxDuration = 300;
@@ -65,6 +66,34 @@ export async function POST(req: NextRequest) {
 
   if (!image?.size) {
     return NextResponse.json({ error: "Image file is required." }, { status: 400 });
+  }
+
+  // Preserve the exact generation input. This is required for Nano3D's more
+  // consistent image-input edit path and keeps library images visible when a
+  // generated project is reopened in the editor.
+  if (user && projectId && !isUiPreviewMode()) {
+    const ownsProject = await prisma.project.count({
+      where: { id: projectId, ownerId: user.id },
+    });
+    if (!ownsProject) {
+      return NextResponse.json({ error: "Project not found." }, { status: 404 });
+    }
+    const sourceBuffer = Buffer.from(await image.arrayBuffer());
+    const sourceExt = image.type === "image/png" ? "png" : "jpg";
+    const sourceKey = generateAssetKey(
+      user.id,
+      `projects/${projectId}/generation-source-${Date.now()}.${sourceExt}`
+    );
+    const sourceImageUrl = await uploadAsset(
+      sourceKey,
+      sourceBuffer,
+      image.type || "image/jpeg"
+    );
+    await prisma.dentalModel.upsert({
+      where: { projectId },
+      create: { projectId, sourceImageUrl },
+      update: { sourceImageUrl },
+    });
   }
 
   const provider = getMlMeshProvider();

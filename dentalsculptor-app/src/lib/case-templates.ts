@@ -64,6 +64,12 @@ export interface CaseTemplate {
   workflow: AuthoringWorkflow;
   /** First four recommended templates for E0–E2 launch. */
   primaryTemplate?: boolean;
+  /** Ordered, evaluation-ready case journey shown first in the wizard. */
+  pilotOrder?: number;
+  /** False for annotation-only cases; suppresses the generative edit workflow. */
+  requiresGeometryEdit?: boolean;
+  /** Restricts editor chips to presets intentionally validated for this case. */
+  editPresetIds?: string[];
   studentYearLevels: StudentYearLevel[];
   /** Structured fields collected in case wizard before optional prompt refinement. */
   clinicalParameterFields: ClinicalParameterField[];
@@ -151,6 +157,9 @@ export const CASE_TEMPLATES: CaseTemplate[] = [
     shortDescription: "Generate or import a tooth; label cusps, fossae and ridges.",
     workflow: "single-tooth-clinical",
     primaryTemplate: true,
+    pilotOrder: 1,
+    requiresGeometryEdit: false,
+    editPresetIds: [],
     studentYearLevels: [1, 2],
     clinicalParameterFields: ANATOMY_CLINICAL_FIELDS,
     defaultAnatomyRoles: [
@@ -185,6 +194,9 @@ export const CASE_TEMPLATES: CaseTemplate[] = [
       "Define lesion site, depth and pulp proximity; shape cavity for operative practice. Uniform drill feel on Simodont import.",
     workflow: "single-tooth-clinical",
     primaryTemplate: true,
+    pilotOrder: 5,
+    requiresGeometryEdit: true,
+    editPresetIds: ["add-caries", "remove-caries"],
     studentYearLevels: [2, 3],
     clinicalParameterFields: CARIES_CLINICAL_FIELDS,
     defaultAnatomyRoles: [
@@ -256,6 +268,10 @@ export const CASE_TEMPLATES: CaseTemplate[] = [
     title: "Class I cavity preparation",
     shortDescription: "Ideal Class I prep form for amalgam or composite simulation.",
     workflow: "from-existing-model",
+    primaryTemplate: true,
+    pilotOrder: 3,
+    requiresGeometryEdit: true,
+    editPresetIds: ["class1-prep"],
     studentYearLevels: [3],
     clinicalParameterFields: CARIES_CLINICAL_FIELDS,
     defaultAnatomyRoles: [
@@ -319,6 +335,9 @@ export const CASE_TEMPLATES: CaseTemplate[] = [
     shortDescription: "Reduce axial and occlusal surfaces; place in arch context.",
     workflow: "arch-multi-tooth",
     primaryTemplate: true,
+    pilotOrder: 6,
+    requiresGeometryEdit: true,
+    editPresetIds: ["crown-prep"],
     studentYearLevels: [4, 5],
     clinicalParameterFields: CROWN_PREP_CLINICAL_FIELDS,
     defaultAnatomyRoles: [
@@ -350,6 +369,9 @@ export const CASE_TEMPLATES: CaseTemplate[] = [
     shortDescription: "Year 2–3 intro: open pulp chamber roof and locate orifices on a single tooth.",
     workflow: "single-tooth-clinical",
     primaryTemplate: true,
+    pilotOrder: 4,
+    requiresGeometryEdit: true,
+    editPresetIds: ["endo-access"],
     studentYearLevels: [2, 3],
     clinicalParameterFields: ENDO_ACCESS_INTRO_FIELDS,
     defaultAnatomyRoles: [
@@ -379,7 +401,7 @@ export const CASE_TEMPLATES: CaseTemplate[] = [
     title: "Endodontic access — single tooth",
     shortDescription: "Open pulp chamber roof; locate canal orifices.",
     workflow: "single-tooth-clinical",
-    primaryTemplate: true,
+    primaryTemplate: false,
     studentYearLevels: [4, 5],
     clinicalParameterFields: ENDO_ACCESS_CLINICAL_FIELDS,
     defaultAnatomyRoles: [
@@ -409,6 +431,10 @@ export const CASE_TEMPLATES: CaseTemplate[] = [
     title: "Cusp fracture (pathology add-on)",
     shortDescription: "Add a fractured cusp for emergency and restorative teaching.",
     workflow: "from-existing-model",
+    primaryTemplate: true,
+    pilotOrder: 2,
+    requiresGeometryEdit: true,
+    editPresetIds: ["cusp-fracture"],
     studentYearLevels: [3, 4, 5],
     clinicalParameterFields: PATHOLOGY_CLINICAL_FIELDS,
     defaultAnatomyRoles: [
@@ -421,10 +447,10 @@ export const CASE_TEMPLATES: CaseTemplate[] = [
       "Plan provisional and definitive restoration options.",
     ],
     suggestedPrompts: [
-      "add a fractured missing cusp on the distobuccal cusp",
-      "create an oblique fracture line through the marginal ridge",
+      "remove part of the distobuccal cusp to create a visible fractured cusp with an irregular enamel edge",
+      "remove tooth structure along an oblique fracture line through the marginal ridge",
     ],
-    defaultOperation: "add",
+    defaultOperation: "remove",
     exportRecommendation: "teaching-bundle",
     studentHints: ["Compare intact vs fractured models using revision history."],
     assessmentPrompts: ["What interim management would you recommend?"],
@@ -439,7 +465,9 @@ export function getCaseTemplate(id: string): CaseTemplate | undefined {
 
 /** First four recommended templates (E0–E2 launch). */
 export function listPrimaryCaseTemplates(): CaseTemplate[] {
-  return CASE_TEMPLATES.filter((t) => t.primaryTemplate);
+  return CASE_TEMPLATES.filter((t) => t.primaryTemplate).sort(
+    (a, b) => (a.pilotOrder ?? 999) - (b.pilotOrder ?? 999)
+  );
 }
 
 export function listCaseTemplates(filters?: {

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
-import { Menu, Eye, Share2, Download, Save } from "lucide-react";
+import { Menu, Share2, Download, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AppLogoMark } from "@/components/brand/app-logo";
 import { projectFileName } from "@/lib/editor-segmentation";
@@ -22,6 +22,7 @@ interface EditorHeaderProps {
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
   onSave?: () => void;
+  onShare?: () => void;
   onExport?: () => void;
   onTitleChange?: (title: string) => void;
 }
@@ -44,6 +45,7 @@ export function EditorHeader({
   sidebarOpen,
   onToggleSidebar,
   onSave,
+  onShare,
   onExport,
   onTitleChange,
 }: EditorHeaderProps) {
@@ -153,11 +155,7 @@ export function EditorHeader({
             {saving ? "Saving…" : "Save"}
           </Button>
         )}
-        <Button variant="ghost" size="sm" className="hidden sm:inline-flex">
-          <Eye className="mr-1.5 h-4 w-4" />
-          Preview
-        </Button>
-        <Button variant="ghost" size="sm" className="hidden md:inline-flex">
+        <Button variant="ghost" size="sm" className="hidden md:inline-flex" onClick={onShare} disabled={!onShare}>
           <Share2 className="mr-1.5 h-4 w-4" />
           Share
         </Button>

@@ -8,6 +8,7 @@ export type ExportTarget =
   | "simtocare"
   | "virteasy"
   | "meta-quest"
+  | "powerpoint"
   | "teaching-bundle";
 
 export type ExportFormat = "stl" | "ply" | "glb" | "zip";
@@ -107,6 +108,23 @@ export const EXPORT_PRESETS: Record<ExportTarget, ExportPreset> = {
     hapticRealism: "visual-only",
     notes: [
       "Use /xr/[id] for browser WebXR preview.",
+    ],
+  },
+  powerpoint: {
+    id: "powerpoint",
+    label: "PowerPoint / Microsoft 365",
+    description: "Portable GLB for interactive 3D models in desktop PowerPoint, Word and Excel.",
+    formats: ["glb"],
+    units: "meters",
+    scaleFactor: 0.001,
+    maxTriangles: 150_000,
+    requireWatertight: false,
+    upAxis: "Y",
+    includeJawWhenPlaced: false,
+    hapticRealism: "visual-only",
+    notes: [
+      "Insert with Insert > 3D Models > From a File in a supported desktop Microsoft 365 app.",
+      "GLB is Microsoft's recommended portable 3D format; PowerPoint for the web cannot insert it directly.",
     ],
   },
   "teaching-bundle": {

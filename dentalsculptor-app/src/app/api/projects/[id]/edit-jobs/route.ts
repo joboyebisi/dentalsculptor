@@ -55,6 +55,8 @@ export async function POST(
   const regionMarks = (formData.get("regionMarks") as string) || "";
   const referenceEdited = (formData.get("referenceEdited") as string) === "true";
   const referenceImage = formData.get("referenceImage");
+  const sourceImage = formData.get("sourceImage");
+  const editedImage = formData.get("editedImage");
 
   if (!instruction.trim()) {
     return NextResponse.json({ error: "Instruction is required." }, { status: 400 });
@@ -104,6 +106,8 @@ export async function POST(
     if (referenceImage instanceof File) {
       proxyForm.append("referenceImage", referenceImage);
     }
+    if (sourceImage instanceof File) proxyForm.append("sourceImage", sourceImage);
+    if (editedImage instanceof File) proxyForm.append("editedImage", editedImage);
 
     const res = await fetch(modalEditUrl, {
       method: "POST",

@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "description": "20-image dental validation set for TRELLIS generation benchmarks. Slots 16–20 are placeholders until pathology/clinical photos are added.",
+  "fixedSeed": 1724708096,
+  "items": [
+    { "id": "01-upper-lateral-incisor-labial", "filename": "01-upper-lateral-incisor-labial.png", "toothType": "incisor", "fdiHint": "12", "source": "generation-library" },
+    { "id": "02-upper-lateral-incisor-lingual", "filename": "02-upper-lateral-incisor-lingual.png", "toothType": "incisor", "fdiHint": "12", "source": "generation-library" },
+    { "id": "03-upper-lateral-incisor-proximal-a", "filename": "03-upper-lateral-incisor-proximal-a.png", "toothType": "incisor", "fdiHint": "12", "source": "generation-library" },
+    { "id": "04-upper-lateral-incisor-proximal-b", "filename": "04-upper-lateral-incisor-proximal-b.png", "toothType": "incisor", "fdiHint": "12", "source": "generation-library" },
+    { "id": "05-upper-canine-labial-a", "filename": "05-upper-canine-labial-a.png", "toothType": "canine", "fdiHint": "13", "source": "generation-library" },
+    { "id": "06-upper-canine-labial-b", "filename": "06-upper-canine-labial-b.png", "toothType": "canine", "fdiHint": "13", "source": "generation-library" },
+    { "id": "07-upper-canine-lingual", "filename": "07-upper-canine-lingual.png", "toothType": "canine", "fdiHint": "13", "source": "generation-library" },
+    { "id": "08-upper-canine-proximal", "filename": "08-upper-canine-proximal.png", "toothType": "canine", "fdiHint": "13", "source": "generation-library" },
+    { "id": "09-upper-first-premolar-two-roots-a", "filename": "09-upper-first-premolar-two-roots-a.png", "toothType": "premolar", "fdiHint": "14", "source": "generation-library" },
+    { "id": "10-upper-first-premolar-two-roots-b", "filename": "10-upper-first-premolar-two-roots-b.png", "toothType": "premolar", "fdiHint": "14", "source": "generation-library" },
+    { "id": "11-premolar-single-root-proximal", "filename": "11-premolar-single-root-proximal.png", "toothType": "premolar", "fdiHint": "15", "source": "generation-library" },
+    { "id": "12-upper-molar-three-roots-a", "filename": "12-upper-molar-three-roots-a.png", "toothType": "molar", "fdiHint": "16", "source": "generation-library" },
+    { "id": "13-upper-molar-three-roots-b", "filename": "13-upper-molar-three-roots-b.png", "toothType": "molar", "fdiHint": "16", "source": "generation-library" },
+    { "id": "14-upper-molar-proximal", "filename": "14-upper-molar-proximal.png", "toothType": "molar", "fdiHint": "16", "source": "generation-library" },
+    { "id": "15-lower-molar-two-roots", "filename": "15-lower-molar-two-roots.png", "toothType": "molar", "fdiHint": "36", "source": "generation-library" },
+    { "id": "16-todo-caries-occlusal", "filename": "16-todo-caries-occlusal.png", "toothType": "molar", "fdiHint": "36", "source": "todo", "notes": "Add licensed occlusal caries photo" },
+    { "id": "17-todo-sound-incisor-clinical", "filename": "17-todo-sound-incisor-clinical.png", "toothType": "incisor", "fdiHint": "11", "source": "todo", "notes": "Clinical photo with gingiva cropped" },
+    { "id": "18-todo-premolar-clinical", "filename": "18-todo-premolar-clinical.png", "toothType": "premolar", "fdiHint": "14", "source": "todo", "notes": "IOS or clinical premolar" },
+    { "id": "19-todo-molar-reflective", "filename": "19-todo-molar-reflective.png", "toothType": "molar", "fdiHint": "46", "source": "todo", "notes": "Reflective enamel stress case" },
+    { "id": "20-todo-rotated-canine", "filename": "20-todo-rotated-canine.png", "toothType": "canine", "fdiHint": "23", "source": "todo", "notes": "Slight rotation / imperfect background" }
+  ]
+}

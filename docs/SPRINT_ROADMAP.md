@@ -143,6 +143,10 @@ Test after each phase. Update checkboxes as you go.
 | 7.3 | Hydration fixes on landing invite callout | ⬜ | |
 | 7.4 | Undo/redo in editor (Zundo) | ⬜ | Phase A deferred |
 | 7.5 | Update stale docs (Clerk → Supabase) | ⬜ | PROGRESS, DEPLOYMENT, README |
+| 7.6 | Persist generation source image for image-input Nano3D | ✅ | `/api/generate/mesh` → `DentalModel.sourceImageUrl` |
+| 7.7 | Refit camera after remote model mount | ✅ | Two-frame + settled-layout fit |
+| 7.8 | Community publish/share from editor | ✅ | Share dialog + publish API |
+| 7.9 | Group export targets + PowerPoint GLB | ✅ | Simulation / VR / presentation groups |
 
 ---
 

@@ -47,7 +47,10 @@ export function EditorEditPresetsBar({
 }: EditorEditPresetsBarProps) {
   if (!visible) return null;
 
-  const filtered = filterPresetsForContext(EDIT_PRESETS, context);
+  const casePresets = selectedCase?.editPresetIds
+    ? EDIT_PRESETS.filter((preset) => selectedCase.editPresetIds?.includes(preset.id))
+    : EDIT_PRESETS;
+  const filtered = filterPresetsForContext(casePresets, context);
   const compatible = filtered.filter((f) => f.compatible);
   const incompatible = filtered.filter((f) => !f.compatible);
   const suggestedPrompts = selectedCase?.suggestedPrompts ?? [];
@@ -82,6 +85,12 @@ export function EditorEditPresetsBar({
             Choose a suggested edit, paint the tooth, then preview. Operation and coverage stay in sync
             with the mask panel.
           </p>
+        </div>
+      )}
+
+      {selectedCase?.requiresGeometryEdit === false && (
+        <div className="rounded-xl border border-secondary/30 bg-secondary/10 px-3 py-2.5 text-body-sm text-on-surface">
+          This case uses model rotation and annotations only. No generative geometry edit is required.
         </div>
       )}
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
-import { generateAssetKey, uploadAsset } from "@/lib/storage";
+import { generateAssetKey, getS3AssetUrl, uploadAsset } from "@/lib/storage";
 import { isValidGlbBuffer, glbValidationError } from "@/lib/glb-utils";
 import { updateEditJobProgress } from "@/lib/edit-jobs.server";
 import { prisma } from "@/lib/prisma";
@@ -106,6 +106,11 @@ export async function GET(
     preview2dBase64?: string;
     maskedVertexRatio?: number;
     regionMarkCount?: number;
+    resultKey?: string;
+    provider?: string;
+    seed?: number;
+    inferenceSeconds?: number;
+    upstreamCommit?: string;
   } = {};
 
   if (raw.trim()) {
@@ -204,6 +209,38 @@ export async function GET(
       preview2dUrl: data.preview2dBase64
         ? `data:image/png;base64,${data.preview2dBase64}`
         : undefined,
+    });
+  }
+
+  if (data.status === "completed" && data.resultKey && !data.modelUrl) {
+    const resultUrl = await getS3AssetUrl(data.resultKey);
+    const resultRes = await fetch(resultUrl);
+    if (!resultRes.ok) {
+      throw new Error(`Could not retrieve Nano3D result (${resultRes.status}).`);
+    }
+    const buffer = Buffer.from(await resultRes.arrayBuffer());
+    if (!isValidGlbBuffer(buffer)) throw new Error(glbValidationError(buffer));
+    const key = generateAssetKey(user.id, `edit-${jobId}.glb`);
+    const modelUrl = await uploadAsset(key, buffer, "model/gltf-binary");
+    await updateEditJobProgress(jobId, {
+      status: "COMPLETED",
+      stage: data.stage ?? "completed",
+      progress: 100,
+      resultModelUrl: modelUrl,
+      resultFormat: "glb",
+      metadata: {
+        provider: data.provider,
+        seed: data.seed,
+        inferenceSeconds: data.inferenceSeconds,
+        upstreamCommit: data.upstreamCommit,
+      },
+    });
+    return NextResponse.json({
+      ...data,
+      status: "completed",
+      modelUrl,
+      format: "glb",
+      revisionNumber: dbJob?.revisionNumber,
     });
   }
 

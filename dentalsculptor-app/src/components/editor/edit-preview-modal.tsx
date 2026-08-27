@@ -18,6 +18,8 @@ interface EditPreviewModalProps {
   progress?: number;
   stageLabel?: string | null;
   previewProvider?: string | null;
+  previewIsAi?: boolean;
+  previewNotice?: string | null;
   onRefineMask: () => void;
   onApprove: () => void;
 }
@@ -33,6 +35,8 @@ export function EditPreviewModal({
   progress = 0,
   stageLabel,
   previewProvider,
+  previewIsAi = false,
+  previewNotice,
   onRefineMask,
   onApprove,
 }: EditPreviewModalProps) {
@@ -122,6 +126,12 @@ export function EditPreviewModal({
           </div>
         </div>
 
+        {previewNotice && (
+          <div className={`mx-6 mb-3 rounded-lg border px-3 py-2 text-body-sm ${previewIsAi ? "border-secondary/30 bg-secondary/10 text-on-surface" : "border-amber-300 bg-amber-50 text-amber-950"}`} role="status">
+            {previewNotice}
+          </div>
+        )}
+
         <div className="flex flex-wrap justify-end gap-2 border-t border-outline-variant bg-surface-container-lowest px-4 py-3">
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancel
@@ -132,11 +142,11 @@ export function EditPreviewModal({
           <Button
             type="button"
             className="bg-primary-container text-on-primary"
-            disabled={!afterPreview || loading}
+            disabled={!afterPreview || loading || !previewIsAi}
             onClick={onApprove}
           >
             <Check className="mr-2 h-4 w-4" />
-            Approve &amp; run 3D edit
+            {previewIsAi ? "Approve & run 3D edit" : "AI preview required"}
           </Button>
         </div>
       </div>

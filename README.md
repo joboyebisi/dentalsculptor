@@ -23,6 +23,8 @@
 | [**Supabase Setup**](./docs/SUPABASE_SETUP.md) | Database + Storage bucket configuration |
 | [**Environment Variables**](./docs/ENV.md) | `.env` vs `.env.example`, full variable list |
 | [**Sprint Roadmap**](./docs/SPRINT_ROADMAP.md) | **Active task tracker** — OAuth, edit, export, placement, multilayer |
+| [**Pilot release (27 Aug 2026)**](./docs/PILOT_RELEASE_2026-08-27.md) | **Latest push inventory** — Nano3D Modal fix, evaluation UX, benchmarks |
+| [**Real-time evaluation handoff**](./docs/REALTIME_EVALUATION_HANDOFF.md) | Pilot gates: generation → edit → export study path |
 | [**Supabase OAuth Setup**](./docs/SUPABASE_OAUTH_SETUP.md) | Google + Microsoft SSO configuration |
 | [**Design System**](./DESIGN.md) | Clinical Precision design tokens |
 | [App README](./dentalsculptor-app/README.md) | Setup, env vars, deployment |
@@ -55,7 +57,9 @@ DentalSculptor/
 ├── bloom-v0/                    # fal.ai 3D generation reference
 ├── stitch_dentalsculptor_xr_authoring_platform/  # Design mockups & specs
 ├── docs/                        # Project documentation (start here)
-├── logo.png                     # Brand mark
+│   └── PILOT_RELEASE_2026-08-27.md  # Latest unreleased-until-now change log
+├── research/                    # Validation sets & workflow research
+├── dentalsculptor-ml/           # Modal TRELLIS + Nano3D workers
 └── README.md                    # This file
 ```
 

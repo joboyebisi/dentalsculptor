@@ -31,6 +31,11 @@ from modal_app.images.trellis_gpu import (
     hf_secret,
     trellis_gpu_image,
 )
+from modal_app.images.nano3d_gpu import (
+    NANO3D_HF_CACHE,
+    nano3d_gpu_image,
+    nano3d_hf_volume,
+)
 from modal_app.trellis_config import (
     ASYNC_S3_ENABLED,
     BUFFER_CONTAINERS,
@@ -436,6 +441,83 @@ class TrellisGenerateService:
         )
 
 
+@app.cls(
+    image=nano3d_gpu_image,
+    gpu="A100-80GB",
+    secrets=trellis_secrets,
+    volumes={NANO3D_HF_CACHE: nano3d_hf_volume},
+    timeout=60 * 30,
+    scaledown_window=300,
+    max_containers=2,
+)
+class Nano3DEditService:
+    @modal.enter()
+    def load_model(self) -> None:
+        from modal_app.workers.nano3d_flowedit import Nano3DFlowEdit
+
+        self.flowedit = Nano3DFlowEdit()
+        self.flowedit.load()
+
+    @modal.method()
+    def edit_job(
+        self,
+        job_id: str,
+        source_image: bytes,
+        edited_image: bytes,
+        operation: str,
+        seed: int,
+    ) -> None:
+        def update_stage(stage: str, progress: int) -> None:
+            jobs_dict[job_id] = {
+                **(jobs_dict.get(job_id) or {"jobId": job_id}),
+                "status": "running",
+                "stage": stage,
+                "progress": progress,
+                "provider": "nano3d-flowedit",
+            }
+
+        try:
+            result = self.flowedit.edit_from_images(
+                source_image,
+                edited_image,
+                operation,
+                seed=seed,
+                stage_callback=update_stage,
+            )
+            update_stage("uploading", 92)
+            stored = upload_generation_result(
+                job_id,
+                result["glbBytes"],
+                metadata={
+                    "provider": "nano3d-flowedit",
+                    "upstream-commit": result["upstreamCommit"],
+                    "seed": str(result["seed"]),
+                },
+            )
+            jobs_dict[job_id] = {
+                "jobId": job_id,
+                "status": "completed",
+                "stage": "completed",
+                "progress": 100,
+                "provider": "nano3d-flowedit",
+                "format": "glb",
+                "seed": result["seed"],
+                "inferenceSeconds": result["inferenceSeconds"],
+                "upstreamCommit": result["upstreamCommit"],
+                **stored,
+            }
+        except Exception as exc:
+            traceback.print_exc()
+            jobs_dict[job_id] = {
+                "jobId": job_id,
+                "status": "failed",
+                "stage": "failed",
+                "progress": 100,
+                "provider": "nano3d-flowedit",
+                "error": f"Nano3D FlowEdit failed: {exc}",
+            }
+
+
 @app.function(image=cpu_image, timeout=60, secrets=[webhook_secret])
 @modal.fastapi_endpoint(method="POST", label=web_label("warm-gpu"))
 async def warm_gpu(request: Request):
@@ -611,26 +693,40 @@ async def edit(
     regionMarks: str = Form(""),
     maskImage: UploadFile | None = File(None),
     referenceImage: UploadFile | None = File(None),
+    sourceImage: UploadFile | None = File(None),
+    editedImage: UploadFile | None = File(None),
     referenceEdited: str = Form(""),
+    seed: int = Form(1),
 ):
     authorize(request)
     job_id = str(uuid.uuid4())
     mask_bytes = await maskImage.read() if maskImage else None
     reference_bytes = await referenceImage.read() if referenceImage else None
+    source_image_bytes = await sourceImage.read() if sourceImage else None
+    edited_image_bytes = await editedImage.read() if editedImage else None
     ref_edited = referenceEdited.strip().lower() in ("1", "true", "yes")
     jobs_dict[job_id] = {"jobId": job_id, "status": "queued", "progress": 0, "stage": "queued"}
+    gpu_enabled = os.environ.get("NANO3D_GPU_ENABLED", "1").strip().lower() in ("1", "true", "yes")
+    if gpu_enabled:
+        if not source_image_bytes or not edited_image_bytes:
+            raise HTTPException(
+                status_code=422,
+                detail="Real Nano3D requires both sourceImage and editedImage from the approved 2D preview.",
+            )
+        Nano3DEditService().edit_job.spawn(
+            job_id,
+            source_image_bytes,
+            edited_image_bytes,
+            operation,
+            seed,
+        )
+        return {"jobId": job_id, "status": "queued", "provider": "nano3d-flowedit"}
+
     run_edit_job.spawn(
-        job_id,
-        sourceModelUrl,
-        operation,
-        instruction,
-        mask_bytes,
-        reference_bytes,
-        camera or None,
-        regionMarks or None,
-        ref_edited,
+        job_id, sourceModelUrl, operation, instruction, mask_bytes,
+        reference_bytes, camera or None, regionMarks or None, ref_edited,
     )
-    return {"jobId": job_id, "status": "queued"}
+    return {"jobId": job_id, "status": "queued", "provider": "cpu-v1"}
 
 
 inpaint_image = trellis_gpu_image.pip_install(
@@ -680,3 +776,55 @@ def job_status(request: Request, jobId: str = ""):
     if stored:
         return stored
     raise HTTPException(status_code=404, detail="Job not found or expired.")
+
+
+@app.function(
+    image=nano3d_gpu_image,
+    gpu="A100-80GB",
+    secrets=trellis_secrets,
+    volumes={NANO3D_HF_CACHE: nano3d_hf_volume},
+    timeout=60 * 20,
+)
+def probe_nano3d_gpu_startup() -> dict:
+    """Diagnostic: same imports/load path as Nano3DEditService.load_model."""
+    steps: list[str] = []
+
+    def step(msg: str) -> None:
+        steps.append(msg)
+        print(msg, flush=True)
+
+    try:
+        import torch
+
+        step(f"torch={torch.__version__} cuda={torch.cuda.is_available()}")
+        if torch.cuda.is_available():
+            step(f"gpu={torch.cuda.get_device_name(0)}")
+
+        from modal_app.workers.nano3d_flowedit import Nano3DFlowEdit
+
+        step("import Nano3DFlowEdit ok")
+        editor = Nano3DFlowEdit()
+        editor.load()
+        step(f"Nano3DFlowEdit.load ok ({editor.load_seconds}s)")
+        return {"ok": True, "steps": steps, "loadSeconds": editor.load_seconds}
+    except Exception as exc:
+        traceback.print_exc()
+        return {
+            "ok": False,
+            "steps": steps,
+            "error": str(exc),
+            "traceback": traceback.format_exc(),
+        }
+
+
+@app.local_entrypoint()
+def probe_nano3d() -> None:
+    result = probe_nano3d_gpu_startup.remote()
+    print("\n=== Nano3D GPU probe ===")
+    for line in result.get("steps", []):
+        print(f"  {line}")
+    if result.get("ok"):
+        print(f"OK (load {result.get('loadSeconds')}s)")
+    else:
+        print(f"FAILED: {result.get('error')}")
+        print(result.get("traceback", ""))

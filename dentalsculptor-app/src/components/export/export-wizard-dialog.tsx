@@ -91,7 +91,7 @@ export function ExportWizardDialog({
   useEffect(() => {
     if (open) {
       setTarget(defaultTarget);
-      const defFmt = defaultTarget === "meta-quest" ? "glb" : "stl";
+      const defFmt = ["meta-quest", "powerpoint"].includes(defaultTarget) ? "glb" : "stl";
       setOutputFormat(defFmt);
       setScope("full");
       setStep(1);
@@ -380,32 +380,41 @@ export function ExportWizardDialog({
                 <p className="mb-2 text-label-caps font-semibold text-on-surface-variant">
                   Destination preset
                 </p>
-                <div className="grid gap-3 sm:grid-cols-2">
-              {listExportPresets().map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => setTarget(p.id)}
-                  className={cn(
-                    "rounded-xl border p-4 text-left transition-all",
-                    target === p.id
-                      ? "border-primary-container bg-primary-container/5 ring-2 ring-primary-container/15"
-                      : "border-outline-variant hover:border-primary-container/30"
-                  )}
-                >
-                  <div className="mb-1 flex items-center justify-between gap-2">
-                    <span className="font-semibold text-on-surface">{p.label}</span>
-                    <Badge variant="outline" className="text-[9px] uppercase">
-                      {p.hapticRealism === "visual-only"
-                        ? "Visual"
-                        : p.hapticRealism === "uniform-drill"
-                          ? "Uniform drill"
-                          : "Native"}
-                    </Badge>
-                  </div>
-                  <p className="text-body-sm text-on-surface-variant">{p.description}</p>
-                </button>
-              ))}
+                <div className="space-y-4">
+                  {[
+                    { label: "Dental simulation", ids: ["simodont", "simtocare", "virteasy"] },
+                    { label: "VR headsets", ids: ["meta-quest"] },
+                    { label: "Presentations & teaching", ids: ["powerpoint", "teaching-bundle"] },
+                  ].map((group) => (
+                    <div key={group.label}>
+                      <p className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">
+                        {group.label}
+                      </p>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {listExportPresets().filter((p) => group.ids.includes(p.id)).map((p) => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => setTarget(p.id)}
+                            className={cn(
+                              "rounded-xl border p-4 text-left transition-all",
+                              target === p.id
+                                ? "border-primary-container bg-primary-container/5 ring-2 ring-primary-container/15"
+                                : "border-outline-variant hover:border-primary-container/30"
+                            )}
+                          >
+                            <div className="mb-1 flex items-center justify-between gap-2">
+                              <span className="font-semibold text-on-surface">{p.label}</span>
+                              <Badge variant="outline" className="text-[9px] uppercase">
+                                {p.hapticRealism === "visual-only" ? "Visual" : "Uniform drill"}
+                              </Badge>
+                            </div>
+                            <p className="text-body-sm text-on-surface-variant">{p.description}</p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+
+<html class="h-full" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>DentalSculptor - Mask Painting Edit Mode</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-fixed-dim": "#b2c5ff",
+                        "surface": "#faf8ff",
+                        "on-tertiary": "#ffffff",
+                        "on-primary-fixed": "#001848",
+                        "on-tertiary-fixed-variant": "#5a00c6",
+                        "surface-bright": "#faf8ff",
+                        "on-error": "#ffffff",
+                        "on-secondary-fixed": "#00201c",
+                        "primary": "#00286a",
+                        "on-error-container": "#93000a",
+                        "surface-container-highest": "#dae2fd",
+                        "secondary": "#006b5f",
+                        "on-secondary-container": "#006f64",
+                        "on-secondary-fixed-variant": "#005048",
+                        "on-tertiary-container": "#be9fff",
+                        "on-primary-container": "#8eadff",
+                        "inverse-on-surface": "#eef0ff",
+                        "error": "#ba1a1a",
+                        "surface-dim": "#d2d9f4",
+                        "surface-tint": "#365aaf",
+                        "tertiary": "#3a0084",
+                        "on-surface": "#131b2e",
+                        "tertiary-container": "#5500bb",
+                        "on-surface-variant": "#434652",
+                        "on-primary": "#ffffff",
+                        "surface-container-high": "#e2e7ff",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container": "#eaedff",
+                        "outline": "#747783",
+                        "inverse-primary": "#b2c5ff",
+                        "on-tertiary-fixed": "#25005a",
+                        "primary-fixed": "#dae2ff",
+                        "on-background": "#131b2e",
+                        "on-primary-fixed-variant": "#174296",
+                        "secondary-container": "#6df5e1",
+                        "outline-variant": "#c4c6d3",
+                        "background": "#faf8ff",
+                        "primary-container": "#0f3d91",
+                        "surface-container-low": "#f2f3ff",
+                        "surface-variant": "#dae2fd",
+                        "on-secondary": "#ffffff",
+                        "secondary-fixed-dim": "#4fdbc8",
+                        "tertiary-fixed": "#eaddff",
+                        "secondary-fixed": "#71f8e4",
+                        "tertiary-fixed-dim": "#d2bbff",
+                        "inverse-surface": "#283044",
+                        "error-container": "#ffdad6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "md": "16px",
+                        "gutter": "16px",
+                        "panel-width": "320px",
+                        "margin-page": "32px",
+                        "base": "4px",
+                        "lg": "24px",
+                        "xs": "4px",
+                        "xl": "40px",
+                        "sm": "8px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "title-lg": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "label-md": ["JetBrains Mono"],
+                        "body-lg": ["Inter"],
+                        "headline-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "title-lg": ["18px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "label-sm": ["11px", { "lineHeight": "14px", "fontWeight": "600" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600" }]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .icon-fill {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="h-full bg-background text-on-background font-body-md text-body-md overflow-hidden flex flex-col">
+<!-- Top App Bar -->
+<header class="flex justify-between items-center w-full px-margin-page h-16 bg-panel-bg dark:bg-inverse-surface border-b border-border-subtle dark:border-outline flat no shadows z-50 relative shrink-0">
+<div class="flex items-center gap-md">
+<span class="text-headline-md font-headline-md font-bold text-primary dark:text-primary-fixed">DentalSculptor</span>
+<nav class="hidden md:flex gap-md ml-lg">
+<a class="text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-low dark:hover:bg-surface-container-highest transition-colors px-3 py-2 rounded-md" href="#">Project Alpha</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-low dark:hover:bg-surface-container-highest transition-colors px-3 py-2 rounded-md" href="#">Module 1</a>
+<a class="text-primary dark:text-primary-fixed font-bold border-b-2 border-primary hover:bg-surface-container-low dark:hover:bg-surface-container-highest transition-colors px-3 py-2 opacity-80 duration-150" href="#">Incisor Analysis</a>
+</nav>
+</div>
+<div class="flex items-center gap-md">
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-colors">
+<span class="material-symbols-outlined">help</span>
+</button>
+<button class="bg-primary-container text-on-primary-container px-4 py-2 rounded text-label-sm font-label-sm hover:opacity-90 transition-opacity">Launch in Quest</button>
+<img class="w-8 h-8 rounded-full border border-outline-variant object-cover ml-2" data-alt="A small circular avatar showing a generic minimalist user icon alongside a crest representing an academic institution. The styling is clean, professional, and medical-themed with a subtle blue tint, fitting a top navigation bar in a high-stakes UI." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBmu0QRQcg6DTBjdMbRlllK-NkuJsOLWPeLOkKu3vnfLqHCOQiC45DwY_LlVfcSFu-bWwtG2jostFGb292udjWdyucDiX9OmI3rgzAnlopyvLo5nS1T04GM1S_6h5FO_Ceasupa6O3O4MFbVdC6ulJYNAYScSjGms9icvC5VrmxNLxVVdnwl0US0FxTrbIiIObeg_nmNJJDf7jX7g8HKYqinbWxOGgxzT4T4Uc9BGZfW8gAZO0GqnVK-Q"/>
+</div>
+</header>
+<div class="flex flex-1 overflow-hidden relative">
+<!-- Main Stage (Captured Tooth View) -->
+<main class="flex-1 bg-surface-container relative overflow-hidden flex items-center justify-center">
+<!-- Background Image Area (Simulated 3D/Captured View) -->
+<div class="absolute inset-0 z-0 flex items-center justify-center p-xl">
+<div class="w-full h-full rounded-xl overflow-hidden shadow-sm relative border border-outline-variant" data-alt="A high-resolution, clinically precise 3D rendering of a human incisor tooth. The tooth is centered against a dark, surgical-grade neutral gray background. A translucent, glowing purple AI-generated surgical mask overlay covers the lower third of the tooth, indicating areas for structural modification. Lighting is sharp, mimicking operatory spot lights, emphasizing surface texture and clinical accuracy. Modern medical software aesthetic." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCPcadKs650Wat5UwbPl8noULe9ePqB9-gasukJGKJM-2p7D8aAqlbBLrLqk_VRT0orArP9JfVdipt8dSreBCK-dZ7BmnxyCuV2jhb4wjUVZqXE03-wqtQNZOZoDHmsUIoKeBA10oyHx9uqgZufHjdN2PGj9TEsGODY_Qg0Us3-lHC7qe3e4cpUDpJSbI7esyXNpM03rgjcrYrj12q8pJ8d9RI7eeMYiL4l0jV76GxXWE74G9aMSlkTLA')">
+<!-- Overlay crosshair/grid for clinical precision -->
+<div class="absolute inset-0 border border-white/10" style="background-image: linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px); background-size: 20px 20px;"></div>
+</div>
+</div>
+<!-- Floating Mask Paint Toolbar -->
+<div class="absolute bottom-margin-page left-1/2 -translate-x-1/2 bg-surface-container-low/70 backdrop-blur-md rounded-full px-unit-md py-unit-xs flex items-center gap-gutter border border-white/20 shadow-sm z-10 scale-95 transition-transform hover:bg-white/40">
+<div class="flex items-center gap-sm px-4 py-2">
+<button class="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-surface-container-high transition-colors text-primary font-bold group">
+<span class="material-symbols-outlined icon-fill text-xl group-hover:text-primary-container">brush</span>
+<span class="text-[10px] font-label-sm uppercase tracking-wider">Add</span>
+</button>
+<button class="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-surface-container-high transition-colors text-on-surface-variant group">
+<span class="material-symbols-outlined text-xl group-hover:text-primary">ink_eraser</span>
+<span class="text-[10px] font-label-sm uppercase tracking-wider">Remove</span>
+</button>
+<div class="w-px h-8 bg-outline-variant/50 mx-2"></div>
+<button class="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-surface-container-high transition-colors text-on-surface-variant group">
+<span class="material-symbols-outlined text-xl group-hover:text-primary">format_paint</span>
+<span class="text-[10px] font-label-sm uppercase tracking-wider">Replace</span>
+</button>
+</div>
+<div class="flex items-center gap-sm pr-4">
+<span class="text-label-sm font-label-sm text-on-surface-variant mr-2">Brush Size</span>
+<input class="w-24 h-1 bg-outline-variant rounded-lg appearance-none cursor-pointer accent-primary" max="100" min="1" type="range" value="50"/>
+</div>
+</div>
+<!-- Top Right Action Area -->
+<div class="absolute top-margin-page right-margin-page flex flex-col gap-sm z-10">
+<button class="bg-primary text-on-primary px-6 py-3 rounded shadow-md hover:bg-primary-container transition-colors flex items-center gap-2" onclick="document.getElementById('approveModal').classList.remove('hidden')">
+<span class="material-symbols-outlined text-sm">visibility</span>
+<span class="text-body-md font-bold">Preview 2D</span>
+</button>
+<button class="bg-surface-container-highest text-primary px-6 py-3 rounded shadow-sm hover:bg-surface-variant border border-outline-variant transition-colors flex items-center justify-center gap-2">
+<span class="text-body-md font-bold">Generate 3D</span>
+<span class="material-symbols-outlined text-sm">3d_rotation</span>
+</button>
+</div>
+<!-- Left Context Panel (Floating) -->
+<div class="absolute top-margin-page left-margin-page w-64 bg-surface/90 backdrop-blur border border-outline-variant rounded-lg p-md shadow-sm z-10">
+<h3 class="text-label-sm font-label-sm uppercase text-on-surface-variant mb-4 border-b border-outline-variant/50 pb-2">Active Mask Layer</h3>
+<div class="flex items-center justify-between mb-2">
+<span class="text-body-sm font-body-sm text-on-surface">Occlusal Surface</span>
+<span class="material-symbols-outlined text-tertiary text-sm">auto_awesome</span>
+</div>
+<div class="w-full bg-surface-container-high rounded-full h-1.5 mb-4">
+<div class="bg-tertiary h-1.5 rounded-full" style="width: 75%"></div>
+</div>
+<p class="text-xs text-on-surface-variant">AI Synthesis Complete. Awaiting manual refinement.</p>
+</div>
+</main>
+</div>
+<!-- Approve Modal (Hidden by default) -->
+<div class="hidden fixed inset-0 z-[100] bg-on-background/80 backdrop-blur-sm flex items-center justify-center p-margin-page" id="approveModal">
+<div class="bg-surface w-full max-w-5xl rounded-xl shadow-2xl border border-outline-variant flex flex-col overflow-hidden max-h-[90vh]">
+<div class="flex justify-between items-center p-md border-b border-outline-variant bg-surface-container-lowest">
+<h2 class="text-title-lg font-title-lg text-on-surface">Review 3D Generation</h2>
+<button class="p-2 rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors" onclick="document.getElementById('approveModal').classList.add('hidden')">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<div class="flex-1 p-lg overflow-y-auto bg-surface-container flex gap-lg">
+<!-- Before -->
+<div class="flex-1 flex flex-col gap-sm">
+<h3 class="text-label-md font-label-md text-on-surface-variant uppercase text-center">Original Scan</h3>
+<div class="flex-1 bg-surface-container-lowest rounded-lg border border-outline-variant shadow-sm relative min-h-[400px]" data-alt="A clinical 3D rendering of an original human incisor tooth before any modifications, viewed straight on. Neutral lighting, precise medical visualization style against a clean gray background." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCxWB92HcxKZ5qnvtreDWist_V7EjwKTG67EAOgpI8B1Kr-xTv38J2e9lkD_U8NgXxbIET_k1GHacgYmg-oXsJ0mDbOvkHXLkXeB7-3gxnHvuhkS0VXSNZdQvhOFX6Kf43EPkfeioaaxv9tGJ-N3Hg5QnkYg5EqmkqBKLXeeg7B0lvHTvjyWNm2WtnEqLsT8-IEOFjcNNjI5YP3U4OFoMgBGHJXeT0JTJCCrITLKM0UyKNxDEqtEioBfw')">
+<div class="absolute bottom-4 left-4 bg-surface/80 px-2 py-1 rounded text-xs text-on-surface font-label-md">Pre-op</div>
+</div>
+</div>
+<!-- Divider -->
+<div class="flex items-center justify-center">
+<div class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined text-on-surface-variant text-sm">arrow_forward</span>
+</div>
+</div>
+<!-- After -->
+<div class="flex-1 flex flex-col gap-sm">
+<h3 class="text-label-md font-label-md text-primary uppercase text-center font-bold flex items-center justify-center gap-1">
+<span class="material-symbols-outlined text-xs">auto_awesome</span>
+                        AI Synthesis
+                    </h3>
+<div class="flex-1 bg-surface-container-lowest rounded-lg border-2 border-tertiary-container shadow-md relative min-h-[400px] overflow-hidden" data-alt="A clinical 3D rendering of a human incisor tooth showing the AI-proposed structural modifications. The newly sculpted areas are highlighted with a subtle, clean ceramic-white material contrast against the original tooth color. Professional medical UI aesthetic." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDVW9sFUyE2-aO_sUvdxpGXU_wxogT02TmC67ZWoVICFZyQO5J5hAcBYkYbl1mZH8DzntVlwMY4XN160KHsuwsAovvDLD22JKY6tNCVr-gBWV4o3qup5z-g4vKdTMfH_j8ta7lUV2AV3CmqG7P6ULsd2jY1aTeuzYxOXIVCdgJZKazQMSfiRvnGrpsWwVZin0zn8ssteAOryuci8u7xv2UHxge0lfDBoxFfF7D7XSsIL_6NY3tbdncg1w')">
+<div class="absolute inset-0 bg-tertiary/5 pointer-events-none mix-blend-overlay"></div>
+<div class="absolute bottom-4 left-4 bg-tertiary-container text-on-tertiary px-2 py-1 rounded text-xs font-label-md flex items-center gap-1">
+<span class="material-symbols-outlined text-[10px]">check_circle</span> Approved Mesh
+                         </div>
+</div>
+</div>
+</div>
+<div class="p-md border-t border-outline-variant bg-surface-container-lowest flex justify-end gap-md">
+<button class="px-4 py-2 rounded text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-md" onclick="document.getElementById('approveModal').classList.add('hidden')">Cancel</button>
+<button class="px-4 py-2 rounded border border-outline-variant text-on-surface hover:bg-surface-container-high transition-colors font-label-md flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">edit</span> Refine Mask
+                </button>
+<button class="bg-primary text-on-primary px-6 py-2 rounded shadow hover:bg-primary-container transition-colors font-label-md flex items-center gap-2" onclick="document.getElementById('approveModal').classList.add('hidden')">
+<span class="material-symbols-outlined text-sm">check</span> Approve &amp; Finalize
+                </button>
+</div>
+</div>
+</div>
+</body></html>
