@@ -7,6 +7,7 @@ import { isValidGlbBuffer, glbValidationError } from "@/lib/glb-utils";
 import { prisma } from "@/lib/prisma";
 import { createEditJobRecord, updateEditJobProgress } from "@/lib/edit-jobs.server";
 import { logEdit } from "@/lib/edit-log";
+import { getCaseVariantPreset, type CaseVariantRecipe } from "@/lib/case-variant-recipes";
 
 export const maxDuration = 300;
 
@@ -57,6 +58,15 @@ export async function POST(
   const referenceImage = formData.get("referenceImage");
   const sourceImage = formData.get("sourceImage");
   const editedImage = formData.get("editedImage");
+  const variantRecipeRaw = (formData.get("variantRecipe") as string) || "";
+  const parsedVariantRecipe = parseJsonField(variantRecipeRaw) as CaseVariantRecipe | undefined;
+  const variantPreset = parsedVariantRecipe ? getCaseVariantPreset(parsedVariantRecipe.presetId) : undefined;
+  const variantRecipe = variantPreset && parsedVariantRecipe?.caseId === variantPreset.caseId && parsedVariantRecipe.technique === variantPreset.technique
+    ? parsedVariantRecipe
+    : undefined;
+  if (variantRecipeRaw && !variantRecipe) {
+    return NextResponse.json({ error: "Invalid teaching variant recipe." }, { status: 400 });
+  }
 
   if (!instruction.trim()) {
     return NextResponse.json({ error: "Instruction is required." }, { status: 400 });
@@ -70,7 +80,7 @@ export async function POST(
 
   const project = await prisma.project.findFirst({
     where: { id: projectId, ownerId: user.id },
-    select: { dentalModel: { select: { generated3DUrl: true } } },
+    select: { dentalModel: { select: { generated3DUrl: true } }, versions: { orderBy: { version: "desc" }, take: 1, select: { version: true } } },
   });
   if (!project) {
     return NextResponse.json({ error: "Project not found." }, { status: 404 });
@@ -82,6 +92,20 @@ export async function POST(
   const expanded = expandDentalPrompt(instruction);
   const stubJobId = `edit_${Date.now()}`;
   const t0 = Date.now();
+
+  if (variantRecipe) {
+    const existingMaster = await prisma.projectVersion.findFirst({ where: { projectId, label: "master-model" } });
+    if (!existingMaster) {
+      await prisma.projectVersion.create({
+        data: {
+          projectId,
+          version: (project.versions[0]?.version ?? 0) + 1,
+          label: "master-model",
+          snapshot: { modelUrl: sourceModelUrl, format: "glb", immutable: true, capturedAt: new Date().toISOString() },
+        },
+      });
+    }
+  }
 
   logEdit({
     phase: "start",
@@ -100,6 +124,7 @@ export async function POST(
     if (camera) proxyForm.append("camera", camera);
     proxyForm.append("selectedPartIds", selectedPartIds);
     if (regionMarks) proxyForm.append("regionMarks", regionMarks);
+    if (variantRecipe) proxyForm.append("variantRecipe", JSON.stringify(variantRecipe));
     if (referenceEdited) proxyForm.append("referenceEdited", "true");
     const mask = formData.get("maskImage");
     if (mask instanceof File) proxyForm.append("maskImage", mask);
@@ -152,7 +177,8 @@ export async function POST(
         camera: parseJsonField(camera),
         regionMarks: parseJsonField(regionMarks),
         selectedPartIds: parseJsonField(selectedPartIds),
-        provider: "modal",
+        provider: variantRecipe && variantRecipe.technique !== "generative" ? "deterministic" : "modal",
+        metadata: variantRecipe ? { variantRecipe, lineage: { source: "master-model" } } : undefined,
       });
     } catch (dbErr) {
       console.error("[edit-jobs] EditJob DB write failed — run prisma/sql/add_edit_job.sql", dbErr);
@@ -246,6 +272,6 @@ export async function POST(
   return NextResponse.json({
     jobId: stubJobId,
     status: "queued",
-    message: "Modal Nano3D not deployed — set MODAL_EDIT_URL in Vercel. See docs/MODAL_SETUP_GUIDE.md",
+    message: "DentalSculptor editing is temporarily unavailable. Please export the generated model or try again later.",
   });
 }

@@ -59,6 +59,8 @@ import {
 import { DEFAULT_EXPORT_TARGET } from "@/lib/export-presets";
 import type { ViewerInteractionMode } from "@/components/editor/cam-model-viewer";
 import { ShareProjectDialog } from "@/components/editor/share-project-dialog";
+import { CaseVariantBuilderDialog } from "@/components/editor/case-variant-builder-dialog";
+import type { CaseVariantPreset, CaseVariantRecipe } from "@/lib/case-variant-recipes";
 
 export interface EditorProject {
   id: string;
@@ -79,6 +81,7 @@ export interface EditorProject {
   learningObjectives: Array<{ id: string; title: string }>;
   assessments: Array<{ id: string; question: string }>;
   versions?: Array<{ label: string | null; snapshot: unknown; version: number }>;
+  communityProject?: { published: boolean } | null;
 }
 
 interface EditorWorkspaceProps {
@@ -105,6 +108,10 @@ export function EditorWorkspace({
 
   const modelMeta = parseModelProcessingStage(project.dentalModel?.processingStage);
   const initialModelUrl = project.dentalModel?.generated3DUrl ?? null;
+  const masterSnapshot = project.versions?.find((version) => version.label === "master-model")?.snapshot as
+    | { modelUrl?: string }
+    | undefined;
+  const masterModelUrl = masterSnapshot?.modelUrl ?? initialModelUrl;
 
   const [title, setTitle] = useState(project.title);
   const [meshData, setMeshData] = useState<GeneratedMesh | null>(project.dentalModel?.meshData ?? null);
@@ -135,6 +142,8 @@ export function EditorWorkspace({
   const [saving, setSaving] = useState(false);
   const [exportWizardOpen, setExportWizardOpen] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [variantBuilderOpen, setVariantBuilderOpen] = useState(false);
+  const [activeVariantRecipe, setActiveVariantRecipe] = useState<CaseVariantRecipe | null>(null);
   const [casePanelOpen, setCasePanelOpen] = useState(true);
   const [learningObjectives, setLearningObjectives] = useState(project.learningObjectives);
   const [instructions, setInstructions] = useState(project.instructions);
@@ -152,6 +161,7 @@ export function EditorWorkspace({
   const [previewNotice, setPreviewNotice] = useState<string | null>(null);
   const [editJobLoading, setEditJobLoading] = useState(false);
   const [editStatus, setEditStatus] = useState<string | null>(null);
+  const [editProgress, setEditProgress] = useState(0);
   const [uiError, setUiError] = useState<string | null>(null);
   const [revisionProofDetail, setRevisionProofDetail] = useState<string | null>(null);
   const [pendingRevision, setPendingRevision] = useState<{
@@ -294,7 +304,7 @@ export function EditorWorkspace({
           detail: `edit-health ready=${Boolean(data.ready)} host=${data.jobStatusUrlHost ?? "none"}`,
         });
         if (!data.ready) {
-          console.warn("[edit] Nano3D pipeline not fully ready — open /api/ml/edit-health while signed in");
+          console.warn("[edit] DentalSculptor editing service is not fully ready — open /api/ml/edit-health while signed in");
         }
       } catch {
         // non-fatal — editor still works
@@ -532,7 +542,7 @@ export function EditorWorkspace({
 
       if (maskBlob) {
         setPreviewProgress(45);
-        setPreviewStage("Running AI inpaint…");
+        setPreviewStage("DentalSculptor is creating the proposed change…");
         const previewForm = new FormData();
         previewForm.append("instruction", instruction);
         previewForm.append("operation", editOperation);
@@ -543,7 +553,17 @@ export function EditorWorkspace({
           method: "POST",
           body: previewForm,
         });
-        const previewData = await previewRes.json();
+        const { data: previewData, raw: previewRaw } = await readJsonResponse<{
+          previewBase64?: string;
+          contentType?: string;
+          provider?: string;
+          reason?: string;
+          error?: string;
+        }>(previewRes);
+        if (!previewData) {
+          throw new Error(jsonResponseError(previewRes, previewRaw, "Preview service returned an invalid response."));
+        }
+        if (!previewRes.ok) throw new Error(previewData.error ?? "Could not create the preview.");
 
         if (previewRes.ok && previewData.previewBase64) {
           const bytes = Uint8Array.from(atob(previewData.previewBase64 as string), (c) =>
@@ -552,14 +572,9 @@ export function EditorWorkspace({
           previewBlob = new Blob([bytes], {
             type: (previewData.contentType as string) ?? "image/png",
           });
-          providerLabel =
-            previewData.provider === "modal-sdxl"
-              ? "Modal SDXL"
-              : previewData.provider === "fal"
-                ? "fal.ai"
-                : "AI";
+          providerLabel = "DentalSculptor";
           setPreviewIsAi(true);
-          setPreviewNotice("AI inpaint completed. Confirm that the change is confined to the painted region before running the 3D edit.");
+          setPreviewNotice("DentalSculptor preview completed. Confirm that the change is confined to the painted region before running the 3D edit.");
         }
       }
 
@@ -572,9 +587,17 @@ export function EditorWorkspace({
           editOperation,
           instruction
         );
-        providerLabel = "Local preview";
-        setPreviewIsAi(false);
-        setPreviewNotice("Illustrative local preview only — no configured AI inpaint provider produced this image. Configure Modal SDXL or fal.ai before running a real 3D edit.");
+        const deterministicGeometryPreview =
+          editOperation === "remove" && activeEditPreset?.editMode === "geometry";
+        providerLabel = deterministicGeometryPreview
+          ? "DentalSculptor region preview"
+          : "Illustrative preview";
+        setPreviewIsAi(deterministicGeometryPreview);
+        setPreviewNotice(
+          deterministicGeometryPreview
+            ? "Region preview completed. DentalSculptor will apply the removal only to the marked model area; review the boundary before continuing."
+            : "Illustrative preview only — the editing service did not produce a verified proposal. A 3D edit cannot be approved from this preview."
+        );
       }
 
       setPreviewProvider(providerLabel);
@@ -590,6 +613,12 @@ export function EditorWorkspace({
         stage: "2d-mask-approval",
         prompt: expanded.original,
       });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not create the preview.";
+      setPreviewIsAi(false);
+      setPreviewStage(null);
+      setPreviewNotice(message);
+      setUiError(message);
     } finally {
       setPreviewLoading(false);
     }
@@ -628,16 +657,18 @@ export function EditorWorkspace({
 
   const handleGenerate3dEdit = async () => {
     if (!modelUrl || !aiPrompt.trim()) return;
-    const sourceBeforeEdit = modelUrl;
+    const sourceBeforeEdit = activeVariantRecipe && masterModelUrl ? masterModelUrl : modelUrl;
     setEditJobLoading(true);
-    setEditStatus("Submitting Nano3D edit…");
+    setEditProgress(5);
+    setEditStatus("Submitting DentalSculptor edit…");
     logEditClient({ phase: "start", projectId, operation: editOperation, detail: "generate3d" });
     const maskBlob = await maskOverlayRef.current?.toMaskBlob();
     const instruction = instructionWithRegionRefs(aiPrompt, rectMarks);
     const formData = new FormData();
     formData.append("instruction", instruction);
     formData.append("operation", editOperation);
-    formData.append("sourceModelUrl", modelUrl);
+    formData.append("sourceModelUrl", sourceBeforeEdit);
+    if (activeVariantRecipe) formData.append("variantRecipe", JSON.stringify(activeVariantRecipe));
     if (maskBlob) formData.append("maskImage", maskBlob, "mask.png");
     if (referenceImage) {
       formData.append("sourceImage", referenceImage, "source-view.png");
@@ -715,6 +746,7 @@ export function EditorWorkspace({
         setPreviewOpen(false);
         setActiveTool("select");
         setEditStatus(null);
+        setEditProgress(100);
         logEditClient({
           phase: "complete",
           projectId,
@@ -741,7 +773,8 @@ export function EditorWorkspace({
       }
 
       const jobId = data.jobId as string;
-      setEditStatus(`Nano3D queued (${jobId.slice(0, 8)}…) — waiting for worker`);
+      setEditStatus(`DentalSculptor edit queued (${jobId.slice(0, 8)}…)`);
+      setEditProgress(10);
       for (let attempt = 0; attempt < 90; attempt++) {
         await new Promise((r) => setTimeout(r, 2000));
         const statusRes = await fetch(
@@ -768,8 +801,9 @@ export function EditorWorkspace({
           typeof status.progress === "number" ? ` (${status.progress}%)` : "";
         setEditStatus(
           status.message ??
-            `Nano3D ${status.stage ?? status.status ?? "running"}${progressLabel}`
+            `DentalSculptor ${status.stage ?? status.status ?? "running"}${progressLabel}`
         );
+        if (typeof status.progress === "number") setEditProgress(status.progress);
         logEditClient({
           phase: "poll",
           projectId,
@@ -809,6 +843,7 @@ export function EditorWorkspace({
       setUiError(message);
     } finally {
       setEditJobLoading(false);
+      window.setTimeout(() => setEditProgress(0), 500);
     }
   };
 
@@ -827,6 +862,7 @@ export function EditorWorkspace({
       logEditClient({ phase: "accept", projectId, jobId: pendingRevision.jobId });
       setPendingRevision(null);
       setRevisionProofDetail(null);
+      setActiveVariantRecipe(null);
       track("AI_SUGGESTION_ACCEPTED", projectId, { editJobId: pendingRevision.jobId });
     } catch (err) {
       setUiError(err instanceof Error ? err.message : "Could not accept revision.");
@@ -853,6 +889,7 @@ export function EditorWorkspace({
       logEditClient({ phase: "reject", projectId, jobId: pendingRevision.jobId });
       setPendingRevision(null);
       setRevisionProofDetail(null);
+      setActiveVariantRecipe(null);
       track("AI_SUGGESTION_REJECTED", projectId, { editJobId: pendingRevision.jobId });
     } catch (err) {
       setUiError(err instanceof Error ? err.message : "Could not revert revision.");
@@ -1009,6 +1046,7 @@ export function EditorWorkspace({
         sidebarOpen={sidebarOpen}
         onToggleSidebar={() => setSidebarOpen((o) => !o)}
         onSave={handleSave}
+        onCreateVariant={() => setVariantBuilderOpen(true)}
         onShare={() => setShareDialogOpen(true)}
         onExport={handleExport}
         onTitleChange={setTitle}
@@ -1069,6 +1107,21 @@ export function EditorWorkspace({
             {maskNotice && (
               <div className="pointer-events-none absolute bottom-4 left-1/2 z-30 max-w-md -translate-x-1/2 rounded-lg border border-amber-300/60 bg-amber-50/95 px-4 py-2 text-center text-[11px] leading-snug text-amber-950 shadow-md backdrop-blur-sm">
                 {maskNotice}
+              </div>
+            )}
+
+            {editJobLoading && (
+              <div className="absolute inset-0 z-40 flex items-center justify-center bg-on-surface/35 p-6 backdrop-blur-[2px]" role="status" aria-live="polite">
+                <div className="w-full max-w-md rounded-2xl border border-outline-variant bg-surface/95 p-6 text-center shadow-2xl">
+                  <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-primary-container/25 border-t-primary-container" />
+                  <h3 className="text-title-lg font-semibold text-on-surface">DentalSculptor is applying your edit</h3>
+                  <p className="mt-2 text-body-sm text-on-surface-variant">{editStatus ?? "Preparing the edited model…"}</p>
+                  <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-surface-container-high">
+                    <div className="h-full rounded-full bg-primary-container transition-all duration-500" style={{ width: `${Math.max(6, Math.min(100, editProgress))}%` }} />
+                  </div>
+                  <p className="mt-2 font-mono text-xs text-on-surface-variant">{Math.round(editProgress)}%</p>
+                  <p className="mt-3 text-xs text-on-surface-variant">Keep this page open. Your original model remains unchanged until you accept the revision.</p>
+                </div>
               </div>
             )}
 
@@ -1138,7 +1191,7 @@ export function EditorWorkspace({
               previewLoading={previewLoading}
               generateLoading={editJobLoading}
               canPreview={Boolean(aiPrompt.trim()) && hasSpatialEditTarget}
-              canGenerate={Boolean(afterPreview) && !previewLoading}
+              canGenerate={Boolean(afterPreview) && previewIsAi && !previewLoading}
               onPreview2d={handlePreview2d}
               onGenerate3d={() => void handleGenerate3dEdit()}
             />
@@ -1282,6 +1335,23 @@ export function EditorWorkspace({
         projectId={projectId}
         projectTitle={title}
         hasModel={hasModel}
+        initiallyPublished={Boolean(project.communityProject?.published)}
+      />
+      <CaseVariantBuilderDialog
+        open={variantBuilderOpen}
+        onClose={() => setVariantBuilderOpen(false)}
+        onPrepare={(preset: CaseVariantPreset, recipe: CaseVariantRecipe) => {
+          setActiveVariantRecipe(recipe);
+          setActivePresetId(preset.id);
+          setSelectedSuggestedPrompt(preset.instruction);
+          setEditOperation(preset.operation);
+          setAiPrompt(preset.instruction);
+          setActiveTool(preset.requiresMask ? "mask" : "mark");
+          openMaskEditPanels();
+          setEditStatus(`${preset.label} configured — mark the target region.`);
+          setVariantBuilderOpen(false);
+          triggerSFX("toggle");
+        }}
       />
 
       <CaseWizardDialog

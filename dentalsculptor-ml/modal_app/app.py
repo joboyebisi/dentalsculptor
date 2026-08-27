@@ -49,6 +49,7 @@ from modal_app.trellis_config import (
 )
 from modal_app.workers.mesh_utils import generate_response_from_image
 from modal_app.workers.nano3d_utils import run_nano3d_edit
+from modal_app.workers.variant_geometry import run_case_variant
 from modal_app.workers.s3_results import (
     download_mesh_state,
     upload_generation_result,
@@ -77,6 +78,7 @@ cpu_image = modal.Image.debian_slim(python_version="3.11").pip_install(
     "scipy>=1.11.0",
     "networkx>=3.0",
     "trimesh>=4.0.0",
+    "manifold3d>=3.1.0",
 ).env(modal_runtime_env())
 weights_image = cpu_image.pip_install("huggingface-hub>=0.34.0")
 
@@ -465,6 +467,7 @@ class Nano3DEditService:
         job_id: str,
         source_image: bytes,
         edited_image: bytes,
+        source_model_url: str,
         operation: str,
         seed: int,
     ) -> None:
@@ -478,9 +481,14 @@ class Nano3DEditService:
             }
 
         try:
+            import urllib.request
+
+            with urllib.request.urlopen(source_model_url, timeout=120) as response:
+                source_model = response.read()
             result = self.flowedit.edit_from_images(
                 source_image,
                 edited_image,
+                source_model,
                 operation,
                 seed=seed,
                 stage_callback=update_stage,
@@ -493,6 +501,7 @@ class Nano3DEditService:
                     "provider": "nano3d-flowedit",
                     "upstream-commit": result["upstreamCommit"],
                     "seed": str(result["seed"]),
+                    "bounds-normalized": str(result["boundsNormalizedToSource"]),
                 },
             )
             jobs_dict[job_id] = {
@@ -505,6 +514,7 @@ class Nano3DEditService:
                 "seed": result["seed"],
                 "inferenceSeconds": result["inferenceSeconds"],
                 "upstreamCommit": result["upstreamCommit"],
+                "boundsNormalizedToSource": result["boundsNormalizedToSource"],
                 **stored,
             }
         except Exception as exc:
@@ -515,7 +525,7 @@ class Nano3DEditService:
                 "stage": "failed",
                 "progress": 100,
                 "provider": "nano3d-flowedit",
-                "error": f"Nano3D FlowEdit failed: {exc}",
+                "error": f"DentalSculptor edit failed: {exc}",
             }
 
 
@@ -667,7 +677,7 @@ def run_edit_job(
             "modelBase64": base64.b64encode(result["glbBytes"]).decode("ascii"),
             "maskedVertexRatio": result.get("maskedVertexRatio", 0),
             "regionMarkCount": result.get("regionMarkCount", 0),
-            "message": "Nano3D Case 3 path (CPU v1) — masked edit applied.",
+            "message": "DentalSculptor masked edit is ready for review.",
         }
         edited_2d = result.get("edited2dPng")
         if edited_2d:
@@ -681,6 +691,27 @@ def run_edit_job(
             "stage": "error",
             "error": str(exc),
         }
+
+
+@app.function(image=cpu_image, timeout=600)
+def run_variant_job(job_id: str, source_model_url: str, recipe_json: str, mask_bytes: bytes | None, camera_json: str | None):
+    jobs_dict[job_id] = {"jobId": job_id, "status": "running", "progress": 20, "stage": "validating_source"}
+    try:
+        jobs_dict[job_id] = {**jobs_dict[job_id], "progress": 45, "stage": "constructing_variant"}
+        result = run_case_variant(source_model_url, recipe_json, mask_bytes, camera_json)
+        jobs_dict[job_id] = {
+            "jobId": job_id,
+            "status": "completed",
+            "progress": 100,
+            "stage": "variant_ready",
+            "format": result["format"],
+            "modelBase64": base64.b64encode(result["glbBytes"]).decode("ascii"),
+            "maskedVertexRatio": result.get("maskedVertexRatio", 0),
+            "metrics": result.get("metrics", {}),
+            "message": "DentalSculptor teaching variant is ready for review.",
+        }
+    except Exception as exc:
+        jobs_dict[job_id] = {"jobId": job_id, "status": "failed", "progress": 100, "stage": "error", "error": str(exc)}
 
 
 @app.function(image=cpu_image, timeout=600, secrets=[webhook_secret])
@@ -697,6 +728,7 @@ async def edit(
     sourceImage: UploadFile | None = File(None),
     editedImage: UploadFile | None = File(None),
     referenceEdited: str = Form(""),
+    variantRecipe: str = Form(""),
     seed: int = Form(1),
 ):
     authorize(request)
@@ -707,17 +739,28 @@ async def edit(
     edited_image_bytes = await editedImage.read() if editedImage else None
     ref_edited = referenceEdited.strip().lower() in ("1", "true", "yes")
     jobs_dict[job_id] = {"jobId": job_id, "status": "queued", "progress": 0, "stage": "queued"}
+    if variantRecipe:
+        try:
+            recipe = json.loads(variantRecipe)
+        except json.JSONDecodeError as exc:
+            raise HTTPException(status_code=422, detail="Invalid teaching variant recipe.") from exc
+        if recipe.get("technique") in ("boolean", "material"):
+            if not sourceModelUrl or not mask_bytes or not camera:
+                raise HTTPException(status_code=422, detail="A source model, marked region, and camera view are required.")
+            run_variant_job.spawn(job_id, sourceModelUrl, variantRecipe, mask_bytes, camera)
+            return {"jobId": job_id, "status": "queued", "provider": "dentalsculptor-geometry"}
     gpu_enabled = os.environ.get("NANO3D_GPU_ENABLED", "1").strip().lower() in ("1", "true", "yes")
     if gpu_enabled:
-        if not source_image_bytes or not edited_image_bytes:
+        if not sourceModelUrl or not source_image_bytes or not edited_image_bytes:
             raise HTTPException(
                 status_code=422,
-                detail="Real Nano3D requires both sourceImage and editedImage from the approved 2D preview.",
+                detail="DentalSculptor requires the source model and both images from an approved preview.",
             )
         Nano3DEditService().edit_job.spawn(
             job_id,
             source_image_bytes,
             edited_image_bytes,
+            sourceModelUrl,
             operation,
             seed,
         )
