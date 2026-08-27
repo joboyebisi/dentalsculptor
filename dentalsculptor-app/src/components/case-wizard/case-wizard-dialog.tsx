@@ -281,8 +281,8 @@ export function CaseWizardDialog({ open, onClose, onContinue, applying = false }
                   Choose a teaching case
                 </h1>
                 <p className="mb-6 max-w-2xl text-body-sm text-on-surface-variant">
-                  For BDS Years 1–3: pick a case type, confirm the FDI tooth matches your uploaded
-                  photo, then export to simulators, Meta Quest, or PowerPoint-friendly bundles.
+                  Start with cases that preserve the generated anatomy. The six pilot cases are
+                  ordered from annotation-only through increasingly broad geometry changes.
                 </p>
                 <div className="grid gap-4 sm:grid-cols-2">
                   {EDUCATOR_CASE_PICKS.map((pick) => (
@@ -368,7 +368,7 @@ export function CaseWizardDialog({ open, onClose, onContinue, applying = false }
 
                   <div className="mt-8 max-w-2xl">
                     <label className="mb-1.5 block text-body-sm font-medium text-on-surface">
-                      Optional AI edit refinement
+                      Optional edit refinement
                     </label>
                     <textarea
                       rows={3}

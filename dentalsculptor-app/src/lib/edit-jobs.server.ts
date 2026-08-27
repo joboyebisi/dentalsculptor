@@ -12,6 +12,7 @@ export interface CreateEditJobInput {
   regionMarks?: unknown;
   selectedPartIds?: unknown;
   provider?: string;
+  metadata?: unknown;
 }
 
 export async function nextEditRevisionNumber(projectId: string): Promise<number> {
@@ -38,6 +39,7 @@ export async function createEditJobRecord(input: CreateEditJobInput) {
       camera: input.camera ?? undefined,
       regionMarks: input.regionMarks ?? undefined,
       selectedPartIds: input.selectedPartIds ?? undefined,
+      metadata: input.metadata ?? undefined,
       status: "QUEUED",
       stage: "queued",
     },
@@ -57,11 +59,21 @@ export async function updateEditJobProgress(
   }
 ) {
   const completed = data.status === "COMPLETED" || data.status === "FAILED";
+  let metadata = data.metadata;
+  if (data.metadata !== undefined) {
+    const existing = await prisma.editJob.findUnique({ where: { id: jobId }, select: { metadata: true } });
+    if (
+      existing?.metadata && typeof existing.metadata === "object" && !Array.isArray(existing.metadata) &&
+      data.metadata && typeof data.metadata === "object" && !Array.isArray(data.metadata)
+    ) {
+      metadata = { ...(existing.metadata as Record<string, unknown>), ...(data.metadata as Record<string, unknown>) };
+    }
+  }
   return prisma.editJob.update({
     where: { id: jobId },
     data: {
       ...data,
-      metadata: data.metadata ?? undefined,
+      metadata: metadata ?? undefined,
       completedAt: completed ? new Date() : undefined,
     },
   });

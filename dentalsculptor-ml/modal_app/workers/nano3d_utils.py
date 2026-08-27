@@ -23,9 +23,9 @@ import numpy as np
 
 MASK_THRESHOLD = 128
 VERTEX_DISPLACE = {
-    "remove": -0.04,
-    "add": 0.05,
-    "replace": 0.03,
+    "remove": -0.025,
+    "add": 0.025,
+    "replace": 0.012,
 }
 
 
@@ -141,33 +141,23 @@ def _apply_masked_mesh_deform(mesh, weights: np.ndarray, operation: str):
 
     vertices = np.array(mesh.vertices, copy=True)
     if weights.max() <= 0:
-        return _apply_fallback_operation(mesh, operation)
+        raise ValueError("No vertices intersect the marked edit region.")
 
-    delta = VERTEX_DISPLACE.get(operation, VERTEX_DISPLACE["replace"])
+    # Displacement must follow the model's scale. A fixed world-space value can
+    # collapse a small tooth or be invisible on a millimetre-scaled export.
+    diagonal = float(np.linalg.norm(mesh.bounds[1] - mesh.bounds[0]))
+    delta = diagonal * VERTEX_DISPLACE.get(operation, VERTEX_DISPLACE["replace"])
     normals = np.array(mesh.vertex_normals)
     displacement = normals * (weights[:, None] * delta)
     vertices += displacement
 
-    edited = trimesh.Trimesh(vertices=vertices, faces=mesh.faces, process=False)
-    edited.fix_normals()
-    return edited
-
-
-def _apply_fallback_operation(mesh, operation: str):
-    """Legacy whole-mesh tweak when no mask/camera supplied."""
-    import trimesh
-
-    vertices = np.array(mesh.vertices, copy=True)
-    if operation == "remove":
-        mask = vertices[:, 1] > np.median(vertices[:, 1])
-        vertices[mask] *= 0.92
-    elif operation == "add":
-        mask = vertices[:, 1] > np.median(vertices[:, 1])
-        vertices[mask] *= 1.08
-    else:
-        mask = vertices[:, 2] > np.median(vertices[:, 2])
-        vertices[mask, 2] *= 1.06
-    edited = trimesh.Trimesh(vertices=vertices, faces=mesh.faces, process=False)
+    edited = trimesh.Trimesh(
+        vertices=vertices,
+        faces=mesh.faces,
+        visual=mesh.visual.copy(),
+        metadata=dict(mesh.metadata),
+        process=False,
+    )
     edited.fix_normals()
     return edited
 
@@ -222,12 +212,13 @@ def run_nano3d_edit(
     mask_arr = _mask_array(mask_bytes, width, height)
     weights = _project_vertex_weights(np.array(mesh.vertices), camera, mask_arr)
 
-    if weights.max() > 0:
-        edited_mesh = _apply_masked_mesh_deform(mesh, weights, operation)
-        source_tag = source_tag_2d if reference_edited else "modal-nano3d-v1-masked"
-    else:
-        edited_mesh = _apply_fallback_operation(mesh, operation)
-        source_tag = "modal-nano3d-v1-fallback"
+    if weights.max() <= 0:
+        raise ValueError(
+            "The marked region could not be mapped to the model. Return to the editor, "
+            "fit the model to view, and repaint the target region."
+        )
+    edited_mesh = _apply_masked_mesh_deform(mesh, weights, operation)
+    source_tag = source_tag_2d if reference_edited else "modal-nano3d-v1-masked"
 
     glb = edited_mesh.export(file_type="glb")
 

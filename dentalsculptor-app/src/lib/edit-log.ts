@@ -52,7 +52,7 @@ export function formatEditProofDetail(input: {
   stage?: string;
 }): string | null {
   const parts: string[] = [];
-  if (input.stage) parts.push(`Nano3D ${input.stage}`);
+  if (input.stage) parts.push(`DentalSculptor ${input.stage}`);
   if (typeof input.maskedVertexRatio === "number") {
     const pct = (input.maskedVertexRatio * 100).toFixed(1);
     parts.push(

@@ -53,7 +53,7 @@ export function EditorEditPresetsBar({
   const filtered = filterPresetsForContext(casePresets, context);
   const compatible = filtered.filter((f) => f.compatible);
   const incompatible = filtered.filter((f) => !f.compatible);
-  const suggestedPrompts = selectedCase?.suggestedPrompts ?? [];
+  const suggestedPrompts = selectedCase?.editPresetIds?.length ? [] : selectedCase?.suggestedPrompts ?? [];
   const panelTitle = selectedCase ? `Case edits · ${selectedCase.title}` : "Edit presets";
 
   return (
@@ -72,7 +72,7 @@ export function EditorEditPresetsBar({
         <div className="rounded-xl border border-primary-container/20 bg-gradient-to-br from-primary-container/8 to-surface-container-lowest px-3 py-2.5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-label-caps text-[10px] font-bold tracking-wider text-primary-container">
-              Step 2 · Pick an edit
+              Step 2 · Choose the case action
             </p>
             {activeOperation && (
               <span className="rounded-full bg-tertiary-container/15 px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-tertiary">
@@ -82,8 +82,8 @@ export function EditorEditPresetsBar({
             )}
           </div>
           <p className="mt-1.5 text-body-sm leading-snug text-on-surface-variant">
-            Choose a suggested edit, paint the tooth, then preview. Operation and coverage stay in sync
-            with the mask panel.
+            Mark or brush the target first, then choose one action. The operation and instruction
+            are filled automatically; review them before previewing.
           </p>
         </div>
       )}

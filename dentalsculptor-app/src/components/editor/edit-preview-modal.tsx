@@ -28,7 +28,7 @@ export function EditPreviewModal({
   open,
   onClose,
   beforeLabel = "Original view",
-  afterLabel = "AI preview",
+  afterLabel = "Proposed edit",
   beforePreview,
   afterPreview,
   loading,
@@ -50,7 +50,7 @@ export function EditPreviewModal({
             <h2 className="text-title-lg font-semibold text-on-surface">Review 2D edit</h2>
             <p className="mt-0.5 text-body-sm text-on-surface-variant">
               Preview captures your current <strong>3D model view</strong> (not the original photo). The
-              AI preview shows the masked change before running the full 3D edit.
+              The proposed preview shows the masked change before running the full 3D edit.
             </p>
           </div>
           <button
@@ -107,7 +107,7 @@ export function EditPreviewModal({
                     />
                   </div>
                   <p className="text-[11px] text-on-surface-variant">
-                    AI inpaint when configured; otherwise a local clinical preview stub runs instantly.
+                    DentalSculptor is preparing a region-aware preview. Keep this window open.
                   </p>
                 </div>
               ) : afterPreview ? (
@@ -146,7 +146,7 @@ export function EditPreviewModal({
             onClick={onApprove}
           >
             <Check className="mr-2 h-4 w-4" />
-            {previewIsAi ? "Approve & run 3D edit" : "AI preview required"}
+            {previewIsAi ? "Approve & run 3D edit" : "Verified preview required"}
           </Button>
         </div>
       </div>

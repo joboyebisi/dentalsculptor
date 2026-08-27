@@ -55,6 +55,7 @@ class Nano3DFlowEdit:
         self,
         source_image: bytes,
         edited_image: bytes,
+        source_model: bytes | None,
         operation: str,
         seed: int = 1,
         stage_callback: Callable[[str, int], None] | None = None,
@@ -67,6 +68,7 @@ class Nano3DFlowEdit:
         from PIL import Image, ImageOps
         from trellis.utils import postprocessing_utils
         import torch
+        import numpy as np
 
         def stage(name: str, progress: int) -> None:
             if stage_callback:
@@ -120,6 +122,31 @@ class Nano3DFlowEdit:
                     simplify=0.95,
                     texture_size=1024,
                 )
+
+            # FlowEdit reconstructs the source and can return a globally thinner
+            # object even when only a cusp was targeted. Normalize the edited
+            # scene back to the trusted generated model's bounds. This preserves
+            # the original width, height, depth and export scale while leaving
+            # the localized edit encoded within that coordinate frame.
+            bounds_normalized = False
+            if source_model:
+                import io
+                import trimesh
+
+                source_scene = trimesh.load(io.BytesIO(source_model), file_type="glb", force="scene")
+                source_bounds = np.asarray(source_scene.bounds, dtype=np.float64)
+                edited_bounds = np.asarray(glb.bounds, dtype=np.float64)
+                source_extent = source_bounds[1] - source_bounds[0]
+                edited_extent = edited_bounds[1] - edited_bounds[0]
+                if np.all(source_extent > 1e-8) and np.all(edited_extent > 1e-8):
+                    scale = source_extent / edited_extent
+                    edited_center = edited_bounds.mean(axis=0)
+                    source_center = source_bounds.mean(axis=0)
+                    transform = np.eye(4)
+                    transform[:3, :3] = np.diag(scale)
+                    transform[:3, 3] = source_center - scale * edited_center
+                    glb.apply_transform(transform)
+                    bounds_normalized = True
             output_path = root / "edit_mesh.glb"
             glb.export(str(output_path))
             payload = output_path.read_bytes()
@@ -134,4 +161,5 @@ class Nano3DFlowEdit:
             "upstreamCommit": os.environ.get(
                 "NANO3D_COMMIT", "7d20eb6887cb73e3bb4ec349ee27e0b670004512"
             ),
+            "boundsNormalizedToSource": bounds_normalized,
         }

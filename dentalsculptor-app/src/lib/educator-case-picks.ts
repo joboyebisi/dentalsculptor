@@ -7,7 +7,13 @@ import type { CaseTemplate, StudentYearLevel } from "@/lib/case-templates";
 import { CASE_TEMPLATES } from "@/lib/case-templates";
 import type { ExportTarget } from "@/lib/export-presets";
 
-export type EducatorCaseCategory = "tooth-id" | "cavity" | "endo" | "cusp";
+export type EducatorCaseCategory =
+  | "tooth-id"
+  | "cusp"
+  | "class-i"
+  | "endo"
+  | "caries"
+  | "crown";
 
 export interface EducatorCasePick {
   id: EducatorCaseCategory;
@@ -34,34 +40,54 @@ export const EDUCATOR_CASE_PICKS: EducatorCasePick[] = [
     teachingUses: ["PowerPoint slides", "Meta Quest anatomy labs", "GLB/OBJ for LMS"],
   },
   {
-    id: "cavity",
-    label: "Cavity & caries",
-    subtitle: "Excavate lesions and practice operative prep form.",
-    primaryTemplateId: "caries-occlusal-excavation",
-    alternateTemplateIds: ["caries-smooth-surface", "prep-class-1-amalgam"],
-    studentYearLevels: [2, 3],
-    exportTargets: ["simodont", "simtocare", "teaching-bundle"],
-    teachingUses: ["Dental simulators (Simodont / SimToCare)", "STL for bench demos", "PLY teaching bundles"],
-  },
-  {
-    id: "endo",
-    label: "Endodontic access",
-    subtitle: "Open the pulp chamber and locate canal orifices.",
-    primaryTemplateId: "endo-access-intro",
-    alternateTemplateIds: ["endo-access-molar"],
-    studentYearLevels: [2, 3, 4],
-    exportTargets: ["simodont", "teaching-bundle", "meta-quest"],
-    teachingUses: ["Pre-clinical endo labs", "Simulator access training", "PowerPoint case walkthroughs"],
-  },
-  {
     id: "cusp",
-    label: "Cusp & fracture",
-    subtitle: "Add or assess cusp fracture for emergency/restorative cases.",
+    label: "Cusp fracture / chipped enamel",
+    subtitle: "Create a localized, visually obvious loss of enamel.",
     primaryTemplateId: "pathology-fracture-cusp",
     alternateTemplateIds: [],
     studentYearLevels: [2, 3],
     exportTargets: ["teaching-bundle", "meta-quest", "simodont"],
     teachingUses: ["Emergency dentistry scenarios", "Meta Quest VR case review", "OBJ/GLB for slides"],
+  },
+  {
+    id: "class-i",
+    label: "Simple Class I cavity",
+    subtitle: "Create a localized occlusal preparation in the central fissure.",
+    primaryTemplateId: "prep-class-1-amalgam",
+    alternateTemplateIds: [],
+    studentYearLevels: [2, 3],
+    exportTargets: ["simodont", "simtocare", "teaching-bundle"],
+    teachingUses: ["Operative teaching", "Simulator preparation practice", "Assessment demonstrations"],
+  },
+  {
+    id: "endo",
+    label: "Endodontic access opening",
+    subtitle: "Open the pulp chamber roof at a clear anatomical target.",
+    primaryTemplateId: "endo-access-intro",
+    alternateTemplateIds: [],
+    studentYearLevels: [2, 3, 4],
+    exportTargets: ["simodont", "teaching-bundle", "meta-quest"],
+    teachingUses: ["Pre-clinical endo labs", "Simulator access training", "Case walkthroughs"],
+  },
+  {
+    id: "caries",
+    label: "Caries appearance",
+    subtitle: "Add or remove a localized visual lesion for teaching.",
+    primaryTemplateId: "caries-occlusal-excavation",
+    alternateTemplateIds: [],
+    studentYearLevels: [2, 3],
+    exportTargets: ["simodont", "simtocare", "teaching-bundle"],
+    teachingUses: ["Caries recognition", "Excavation discussion", "Visual case demonstrations"],
+  },
+  {
+    id: "crown",
+    label: "Crown reduction",
+    subtitle: "Broad surface reduction for advanced evaluation only.",
+    primaryTemplateId: "crown-prep-premolar",
+    alternateTemplateIds: [],
+    studentYearLevels: [4, 5],
+    exportTargets: ["virteasy", "simodont", "teaching-bundle"],
+    teachingUses: ["Crown preparation review", "Reduction assessment", "Advanced simulation"],
   },
 ];
 

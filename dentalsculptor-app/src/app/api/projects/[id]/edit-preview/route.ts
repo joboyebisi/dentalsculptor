@@ -108,6 +108,6 @@ export async function POST(
   return NextResponse.json({
     fallback: true,
     reason:
-      "No inpaint worker configured — set MODAL_INPAINT_URL (self-hosted) or FAL_KEY (paid fallback). Using client stub.",
+      "The DentalSculptor preview service is unavailable. An illustrative preview may be shown, but it cannot be approved for a 3D edit.",
   });
 }

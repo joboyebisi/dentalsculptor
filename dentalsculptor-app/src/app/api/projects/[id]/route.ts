@@ -20,9 +20,9 @@ export async function GET(
       assessments: { orderBy: { order: "asc" } },
       communityProject: true,
       versions: {
-        where: { label: "case-recipe" },
+        where: { label: { in: ["case-recipe", "master-model"] } },
         orderBy: { version: "desc" },
-        take: 1,
+        take: 10,
       },
     },
   });

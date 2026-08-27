@@ -49,12 +49,35 @@ export async function applyMasked2dPreview(
     lowerInstruction.includes("cavity") ||
     lowerInstruction.includes("decay");
 
+  const cornerSamples = [
+    [px[0]!, px[1]!, px[2]!],
+    [px[(canvas.width - 1) * 4]!, px[(canvas.width - 1) * 4 + 1]!, px[(canvas.width - 1) * 4 + 2]!],
+  ];
+  const background = [0, 1, 2].map((channel) =>
+    Math.round(cornerSamples.reduce((sum, sample) => sum + sample[channel]!, 0) / cornerSamples.length)
+  );
+
   for (let i = 0; i < px.length; i += 4) {
     if (mx[i]! < 128) continue;
     const x = (i / 4) % canvas.width;
     const y = Math.floor(i / 4 / canvas.width);
 
-    if (operation === "remove" || isCaries) {
+    if (isFracture && operation === "remove") {
+      // A fracture preview must show actual missing silhouette, not merely a
+      // darkened tooth. Replace the painted fragment with the viewer background
+      // and retain a narrow dark irregular boundary at the surviving enamel.
+      const left = x > 0 ? i - 4 : i;
+      const right = x < canvas.width - 1 ? i + 4 : i;
+      const up = y > 0 ? i - canvas.width * 4 : i;
+      const down = y < canvas.height - 1 ? i + canvas.width * 4 : i;
+      const boundary = mx[left]! < 128 || mx[right]! < 128 || mx[up]! < 128 || mx[down]! < 128;
+      const jitter = ((x * 17 + y * 31) % 11) < 3;
+      if (boundary && jitter) {
+        px[i] = 56; px[i + 1] = 48; px[i + 2] = 44;
+      } else {
+        px[i] = background[0]!; px[i + 1] = background[1]!; px[i + 2] = background[2]!;
+      }
+    } else if (operation === "remove" || isCaries) {
       px[i] = Math.round(px[i]! * 0.35 + 18);
       px[i + 1] = Math.round(px[i + 1]! * 0.32 + 12);
       px[i + 2] = Math.round(px[i + 2]! * 0.28 + 8);
@@ -68,33 +91,9 @@ export async function applyMasked2dPreview(
       px[i + 2] = Math.min(255, Math.round(px[i + 2]! * 0.88 + 18));
     }
 
-    if (isFracture && y > canvas.height * 0.35) {
-      const edgeNoise = ((x * 7 + y * 13) % 5) - 2;
-      const fractureLine = Math.abs((x + edgeNoise) % 24 - 12) < 2;
-      if (fractureLine || y > canvas.height * 0.72) {
-        px[i] = Math.min(255, px[i]! + 35);
-        px[i + 1] = Math.min(255, px[i + 1]! + 28);
-        px[i + 2] = Math.min(255, px[i + 2]! + 22);
-      }
-    }
   }
 
   ctx.putImageData(imageData, 0, 0);
-
-  // Fracture gap line across masked bbox
-  if (isFracture) {
-    ctx.save();
-    ctx.globalCompositeOperation = "source-over";
-    ctx.strokeStyle = "rgba(40, 30, 25, 0.75)";
-    ctx.lineWidth = Math.max(2, canvas.width * 0.004);
-    ctx.beginPath();
-    const startX = canvas.width * 0.42;
-    const startY = canvas.height * 0.55;
-    ctx.moveTo(startX, startY);
-    ctx.lineTo(canvas.width * 0.58, canvas.height * 0.78);
-    ctx.stroke();
-    ctx.restore();
-  }
 
   return new Promise((resolve) => canvas.toBlob((b) => resolve(b ?? referenceBlob), "image/png"));
 }

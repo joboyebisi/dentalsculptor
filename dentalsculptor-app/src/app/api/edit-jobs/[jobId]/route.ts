@@ -136,7 +136,7 @@ export async function GET(
       progress: dbJob?.progress ?? 0,
       stage: dbJob?.stage ?? "queued",
       revisionNumber: dbJob?.revisionNumber,
-      message: "Waiting for Nano3D worker…",
+      message: "Waiting for DentalSculptor editing service…",
     });
   } else if (!res.ok) {
     return NextResponse.json(
@@ -216,7 +216,7 @@ export async function GET(
     const resultUrl = await getS3AssetUrl(data.resultKey);
     const resultRes = await fetch(resultUrl);
     if (!resultRes.ok) {
-      throw new Error(`Could not retrieve Nano3D result (${resultRes.status}).`);
+      throw new Error(`Could not retrieve DentalSculptor edit result (${resultRes.status}).`);
     }
     const buffer = Buffer.from(await resultRes.arrayBuffer());
     if (!isValidGlbBuffer(buffer)) throw new Error(glbValidationError(buffer));
