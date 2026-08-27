@@ -44,5 +44,10 @@ export async function POST(
     metadata: { destination: "community" },
   });
 
-  return NextResponse.json({ published: true, communityUrl: "/community" });
+  return NextResponse.json({
+    published: true,
+    communityUrl: `/community/${id}`,
+    projectId: id,
+    publishedAt: publishedAt.toISOString(),
+  });
 }

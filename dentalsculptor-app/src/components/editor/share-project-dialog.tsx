@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Check, Copy, Share2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { jsonResponseError, readJsonResponse } from "@/lib/safe-json-response";
 
 interface ShareProjectDialogProps {
   open: boolean;
@@ -10,12 +11,14 @@ interface ShareProjectDialogProps {
   projectId: string;
   projectTitle: string;
   hasModel: boolean;
+  initiallyPublished?: boolean;
 }
 
-export function ShareProjectDialog({ open, onClose, projectId, projectTitle, hasModel }: ShareProjectDialogProps) {
+export function ShareProjectDialog({ open, onClose, projectId, projectTitle, hasModel, initiallyPublished = false }: ShareProjectDialogProps) {
   const [publishing, setPublishing] = useState(false);
-  const [published, setPublished] = useState(false);
+  const [published, setPublished] = useState(initiallyPublished);
   const [copied, setCopied] = useState(false);
+  const [communityUrl, setCommunityUrl] = useState<string | null>(initiallyPublished ? `/community/${projectId}` : null);
   const [error, setError] = useState<string | null>(null);
   if (!open) return null;
 
@@ -24,8 +27,10 @@ export function ShareProjectDialog({ open, onClose, projectId, projectTitle, has
     setError(null);
     try {
       const res = await fetch(`/api/projects/${projectId}/publish`, { method: "POST" });
-      const data = (await res.json()) as { error?: string };
+      const { data, raw } = await readJsonResponse<{ error?: string; communityUrl?: string }>(res);
+      if (!data) throw new Error(jsonResponseError(res, raw, "Publishing returned an invalid response."));
       if (!res.ok) throw new Error(data.error ?? "Could not publish project.");
+      setCommunityUrl(data.communityUrl ?? `/community/${projectId}`);
       setPublished(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not publish project.");
@@ -35,7 +40,7 @@ export function ShareProjectDialog({ open, onClose, projectId, projectTitle, has
   }
 
   async function copyLink() {
-    await navigator.clipboard.writeText(`${window.location.origin}/community`);
+    await navigator.clipboard.writeText(`${window.location.origin}${communityUrl ?? `/community/${projectId}`}`);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1800);
   }
@@ -51,7 +56,7 @@ export function ShareProjectDialog({ open, onClose, projectId, projectTitle, has
           <div className="rounded-xl border border-primary-container/25 bg-primary-container/5 p-4">
             <div className="flex gap-3"><Share2 className="mt-0.5 h-5 w-5 shrink-0 text-primary-container" /><div><p className="font-semibold text-on-surface">Publish to the community gallery</p><p className="mt-1 text-body-sm leading-relaxed text-on-surface-variant">Other educators can discover and clone this teaching project. Confirm that its image, model and case details contain no identifiable patient information.</p></div></div>
           </div>
-          {published && <div className="flex items-center gap-2 rounded-lg border border-secondary/30 bg-secondary/10 px-3 py-2 text-body-sm text-on-surface"><Check className="h-4 w-4 text-secondary" /> Published to the community gallery.</div>}
+          {published && <div className="space-y-2 rounded-lg border border-secondary/30 bg-secondary/10 px-3 py-2 text-body-sm text-on-surface"><div className="flex items-center gap-2"><Check className="h-4 w-4 text-secondary" /> Published to the community gallery.</div><a className="block break-all font-mono text-xs text-primary-container underline" href={communityUrl ?? `/community/${projectId}`}>View published project</a></div>}
           {error && <p className="text-body-sm text-error">{error}</p>}
         </div>
         <div className="flex justify-end gap-2 border-t border-outline-variant px-5 py-4">

@@ -60,7 +60,7 @@ export default async function CommunityPage() {
               <div className="aspect-video bg-gradient-to-br from-surface-container to-primary-container/10" />
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">
-                  <h3 className="font-semibold">{cp.project.title}</h3>
+                  <Link href={`/community/${cp.project.id}`} className="font-semibold hover:text-primary-container hover:underline">{cp.project.title}</Link>
                   {cp.featured && <Badge variant="research">Featured</Badge>}
                 </div>
                 <p className="mt-1 text-body-sm text-on-surface-variant">
