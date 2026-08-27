@@ -100,3 +100,20 @@ def upload_generation_result(
         "resultKey": key,
         "etag": str(response.get("ETag", "")).strip('"'),
     }
+
+
+def store_generation_result(
+    job_id: str,
+    glb_bytes: bytes,
+    *,
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, str]:
+    """Upload to S3 when configured; otherwise inline base64 for job-status polling."""
+    import base64
+
+    bucket = os.environ.get("AWS_S3_BUCKET", "").strip()
+    if bucket:
+        return upload_generation_result(job_id, glb_bytes, metadata=metadata)
+    return {
+        "modelBase64": base64.b64encode(glb_bytes).decode("ascii"),
+    }

@@ -47,8 +47,10 @@ nano3d_gpu_image = (
         f"pip install {NANO3D_PATH}/extensions/vox2seq --no-build-isolation",
         f"pip install git+https://github.com/EasternJournalist/utils3d.git@{UTILS3D_COMMIT}",
         "git clone https://github.com/NVlabs/nvdiffrast.git /tmp/nvdiffrast && pip install /tmp/nvdiffrast --no-build-isolation",
+        "git clone https://github.com/autonomousvision/mip-splatting.git /tmp/mip-splatting && pip install /tmp/mip-splatting/submodules/diff-gaussian-rasterization/ --no-build-isolation",
+        "git clone --recurse-submodules https://github.com/JeffreyXiang/diffoctreerast.git /tmp/diffoctreerast && pip install /tmp/diffoctreerast --no-build-isolation",
         "pip install kaolin -f https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.4.0_cu118.html",
-        f"PYTHONPATH={NANO3D_PATH} python -c \"import types,sys; p=types.ModuleType('inference'); p.__path__=['{NANO3D_PATH}/inference']; p.__package__='inference'; sys.modules['inference']=p; import bpy; from inference.model_utils import load_sparse_structure_encoder, inject_methods; from trellis.pipelines import TrellisImageTo3DPipeline; print('nano3d trellis imports ok')\"",
+        f"PYTHONPATH={NANO3D_PATH} python -c \"import diff_gaussian_rasterization; import types,sys; p=types.ModuleType('inference'); p.__path__=['{NANO3D_PATH}/inference']; p.__package__='inference'; sys.modules['inference']=p; import bpy; from inference.model_utils import load_sparse_structure_encoder, inject_methods; from trellis.pipelines import TrellisImageTo3DPipeline; print('nano3d trellis imports ok')\"",
         gpu="A100",
     )
     .env(
@@ -59,6 +61,7 @@ nano3d_gpu_image = (
             "SPARSE_ATTN_BACKEND": "xformers",
             "SPCONV_ALGO": "native",
             "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True",
+            "TORCH_CUDA_ARCH_LIST": "8.0",
         }
     )
 )

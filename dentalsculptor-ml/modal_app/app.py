@@ -52,6 +52,7 @@ from modal_app.workers.nano3d_utils import run_nano3d_edit
 from modal_app.workers.s3_results import (
     download_mesh_state,
     upload_generation_result,
+    store_generation_result,
     upload_mesh_state,
     upload_preview_result,
 )
@@ -485,7 +486,7 @@ class Nano3DEditService:
                 stage_callback=update_stage,
             )
             update_stage("uploading", 92)
-            stored = upload_generation_result(
+            stored = store_generation_result(
                 job_id,
                 result["glbBytes"],
                 metadata={

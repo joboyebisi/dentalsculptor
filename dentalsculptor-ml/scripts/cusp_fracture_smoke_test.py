@@ -273,14 +273,14 @@ def main() -> int:
         result["editedGlbBytes"] = len(edited_glb)
         result["editedGlbValid"] = glb_ok
         print(f"  edited GLB: {len(edited_glb)} bytes valid={glb_ok}")
-    elif final.get("glbBase64"):
-        edited_glb = base64.b64decode(final["glbBase64"])
+    elif final.get("glbBase64") or final.get("modelBase64"):
+        edited_glb = base64.b64decode(final.get("glbBase64") or final.get("modelBase64"))
         (run_dir / "edited.glb").write_bytes(edited_glb)
         glb_ok = is_valid_glb(edited_glb)
         result["editedGlbValid"] = glb_ok
 
     passed = (
-        preview_provider in {"modal-sdxl", "fal", "sdxl"}
+        preview_provider in {"modal-sdxl-inpaint", "modal-sdxl", "fal", "sdxl"}
         and result.get("editProvider") == "nano3d-flowedit"
         and final.get("status") == "completed"
         and glb_ok
