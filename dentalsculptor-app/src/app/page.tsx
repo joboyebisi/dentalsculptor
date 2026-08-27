@@ -25,7 +25,7 @@ const steps = [
     icon: Box,
     title: "Author & export",
     description:
-      "Download GLB, create a teaching case, edit in the workspace, and export for simulators.",
+      "Download for your target platform or publish the generated model, with optional case authoring when an edit is needed.",
   },
 ];
 
@@ -113,7 +113,7 @@ function LandingPageContent() {
               How it works
             </h2>
             <p className="mx-auto mt-3 max-w-2xl text-center text-body-md text-on-surface-variant">
-              Upload a photo, generate a 3D model, then download or open in the editor.
+              Upload a photo, generate a 3D model, then download or publish it. Editing is optional.
             </p>
             <div className="mt-10 grid gap-6 sm:grid-cols-3">
               {steps.map((step, i) => (

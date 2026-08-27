@@ -9,7 +9,7 @@ export const GENERATION_COPY = {
     "First visit — loading the reconstruction model can take a few minutes. We started preparing compute when you opened this page; keep this tab open.",
   inProgressHint: "You can keep this tab open; we'll notify you when it's ready if you opt in below.",
   modelReadyHint:
-    "Model ready — download, create a teaching case, or open in the editor.",
+    "Model ready — download an export or publish it. Create a teaching case only when you need one.",
   enhanceQualityLabel: "Enhance to full quality",
   enhancingQualityLabel: "Enhancing quality…",
   timeoutError:

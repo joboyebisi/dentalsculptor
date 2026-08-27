@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
-import { Download, Loader2, BookOpen, Pencil, Sparkles } from "lucide-react";
+import { Download, Loader2, BookOpen, Sparkles, Share2 } from "lucide-react";
 import { DentalViewer } from "@/components/three/dental-viewer";
 import { Button } from "@/components/ui/button";
 import { useLandingModel } from "@/context/landing-model-context";
@@ -15,7 +15,6 @@ import {
 import { createProjectFromLandingPayload } from "@/lib/create-landing-project";
 import { GENERATION_COPY } from "@/lib/generation-copy";
 import { GenerationProgressDisplay } from "@/components/generation/generation-progress-display";
-import { projectFileName } from "@/lib/editor-segmentation";
 
 export function LandingModelPanel() {
   const router = useRouter();
@@ -40,7 +39,7 @@ export function LandingModelPanel() {
     isFinalModel,
     lastGenerationSeconds,
   } = useLandingModel();
-  const [busy, setBusy] = useState<PendingNextStep | "download" | null>(null);
+  const [busy, setBusy] = useState<PendingNextStep | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [elapsedSec, setElapsedSec] = useState(0);
 
@@ -53,30 +52,6 @@ export function LandingModelPanel() {
     const id = setInterval(() => setElapsedSec(Math.floor((Date.now() - start) / 1000)), 1000);
     return () => clearInterval(id);
   }, [isLoading, isEnhancing]);
-
-  async function handleDownload() {
-    if (!modelUrl) return;
-    setBusy("download");
-    setActionError(null);
-    try {
-      const res = await fetch(`/api/models/proxy?url=${encodeURIComponent(modelUrl)}`);
-      if (!res.ok) throw new Error("Download failed");
-      const blob = await res.blob();
-      const ext = format === "obj" ? "obj" : "glb";
-      const name = uploadedFile
-        ? `${projectFileName(uploadedFile.name.replace(/\.[^.]+$/, ""))}.${ext}`
-        : `dental-model.${ext}`;
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = name;
-      a.click();
-      URL.revokeObjectURL(a.href);
-    } catch {
-      setActionError("Could not download the model. Try again after it finishes loading.");
-    } finally {
-      setBusy(null);
-    }
-  }
 
   async function resumeAfterAuth(nextStep: PendingNextStep) {
     if (!hasModel || !uploadedFile || !modelUrl) return;
@@ -120,11 +95,10 @@ export function LandingModelPanel() {
       }
 
       const { projectId } = await createProjectFromLandingPayload(payload);
-      if (nextStep === "case-wizard") {
-        router.push(`/editor/${projectId}?caseWizard=1`);
-      } else {
-        router.push(`/editor/${projectId}`);
-      }
+      if (nextStep === "download") router.push(`/projects/${projectId}/download`);
+      else if (nextStep === "publish") router.push(`/projects/${projectId}/publish`);
+      else if (nextStep === "case-wizard") router.push(`/editor/${projectId}?caseWizard=1`);
+      else router.push(`/editor/${projectId}`);
     } catch {
       setActionError("Could not continue. Try again.");
     } finally {
@@ -214,8 +188,8 @@ export function LandingModelPanel() {
               </p>
               <div className="flex flex-wrap items-center justify-center gap-3">
                 <Button
-                  variant="outline"
-                  onClick={handleDownload}
+                  className="bg-primary-container text-on-primary"
+                  onClick={() => resumeAfterAuth("download")}
                   disabled={!modelUrl || busy !== null}
                 >
                   {busy === "download" ? (
@@ -223,10 +197,22 @@ export function LandingModelPanel() {
                   ) : (
                     <Download className="mr-2 h-4 w-4" />
                   )}
-                  Download model
+                  Download or export
                 </Button>
                 <Button
-                  className="bg-primary-container text-on-primary"
+                  variant="outline"
+                  onClick={() => resumeAfterAuth("publish")}
+                  disabled={!modelUrl || busy !== null}
+                >
+                  {busy === "publish" ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Share2 className="mr-2 h-4 w-4" />
+                  )}
+                  Publish
+                </Button>
+                <Button
+                  variant="ghost"
                   onClick={() => resumeAfterAuth("case-wizard")}
                   disabled={!modelUrl || busy !== null}
                 >
@@ -235,24 +221,12 @@ export function LandingModelPanel() {
                   ) : (
                     <BookOpen className="mr-2 h-4 w-4" />
                   )}
-                  Create teaching case
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => resumeAfterAuth("editor")}
-                  disabled={!modelUrl || busy !== null}
-                >
-                  {busy === "editor" ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Pencil className="mr-2 h-4 w-4" />
-                  )}
-                  Open in editor
+                  Optional: create a teaching case
                 </Button>
               </div>
               <p className="text-center text-body-sm text-on-surface-variant">
-                Creating a case or opening the editor will ask you to sign in if needed — then you
-                can pick a case template, edit, place on a jaw, and export.
+                Download opens destination-specific export without entering the editor. Publishing
+                creates a shareable community project. Editing is optional.
               </p>
             </>
           )}

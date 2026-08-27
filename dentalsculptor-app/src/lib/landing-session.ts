@@ -1,6 +1,6 @@
 const SESSION_KEY = "ds_pending_landing_project";
 
-export type PendingNextStep = "editor" | "case-wizard";
+export type PendingNextStep = "download" | "publish" | "editor" | "case-wizard";
 
 export interface PendingLandingProject {
   modelUrl: string;

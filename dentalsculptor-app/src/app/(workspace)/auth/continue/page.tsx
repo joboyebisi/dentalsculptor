@@ -32,7 +32,11 @@ export default function AuthContinuePage() {
       try {
         const { projectId } = await createProjectFromLandingPayload(pendingToPayload(pending));
         clearPendingLandingProject();
-        if (pending.nextStep === "case-wizard") {
+        if (pending.nextStep === "download") {
+          router.replace(`/projects/${projectId}/download`);
+        } else if (pending.nextStep === "publish") {
+          router.replace(`/projects/${projectId}/publish`);
+        } else if (pending.nextStep === "case-wizard") {
           router.replace(`/editor/${projectId}?caseWizard=1`);
         } else {
           router.replace(`/editor/${projectId}`);
