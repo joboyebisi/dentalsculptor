@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Image from "next/image";
 import { BookOpen, ImagePlus, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GenerationImageControls } from "@/components/generation/generation-image-controls";
@@ -120,18 +119,10 @@ export function GenerationImagePicker({
             previewClassName
           )}
         >
-          {previewUrl.startsWith("blob:") || previewUrl.startsWith("data:") ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={previewUrl} alt="Selected dental image" className="h-full w-full object-contain p-1" />
-          ) : (
-            <Image
-              src={previewUrl}
-              alt="Selected dental image"
-              fill
-              className="object-contain p-1"
-              sizes="(max-width: 768px) 100vw, 340px"
-            />
-          )}
+          {/* Authenticated project assets and expiring storage URLs must not go
+              through the Next image optimizer, which cannot forward the session. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={previewUrl} alt="Selected dental image" className="h-full w-full object-contain p-1" />
         </div>
       ) : (
         <button

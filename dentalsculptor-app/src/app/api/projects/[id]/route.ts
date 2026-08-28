@@ -40,6 +40,9 @@ export async function GET(
           project.dentalModel.generated3DUrl || project.dentalModel.generated3DKey
             ? projectModelServePath(id)
             : null,
+        sourceImageServeUrl: project.dentalModel.sourceImageUrl
+          ? `/api/projects/${encodeURIComponent(id)}/source-image`
+          : null,
       }
     : null;
 

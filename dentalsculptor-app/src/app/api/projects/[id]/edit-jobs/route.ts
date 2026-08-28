@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { expandDentalPrompt } from "@/lib/dental-prompt-glossary";
 import { trackResearchEvent } from "@/lib/research-events";
-import { generateAssetKey, uploadAsset } from "@/lib/storage";
+import { extractStorageKeyFromUrl, generateAssetKey, getAssetUrl, uploadAsset } from "@/lib/storage";
 import { isValidGlbBuffer, glbValidationError } from "@/lib/glb-utils";
 import { prisma } from "@/lib/prisma";
 import { createEditJobRecord, updateEditJobProgress } from "@/lib/edit-jobs.server";
 import { logEdit } from "@/lib/edit-log";
 import { getCaseVariantPreset, type CaseVariantRecipe } from "@/lib/case-variant-recipes";
+import { projectModelServePath, resolveProjectModelUrl } from "@/lib/project-model-asset.server";
 
 export const maxDuration = 300;
 
@@ -50,7 +51,7 @@ export async function POST(
   const formData = await req.formData();
   const instruction = (formData.get("instruction") as string) || "";
   const operation = (formData.get("operation") as string) || "replace";
-  const sourceModelUrl = (formData.get("sourceModelUrl") as string) || "";
+  const requestedSourceModelUrl = (formData.get("sourceModelUrl") as string) || "";
   const camera = (formData.get("camera") as string) || "";
   const selectedPartIds = (formData.get("selectedPartIds") as string) || "[]";
   const regionMarks = (formData.get("regionMarks") as string) || "";
@@ -71,7 +72,7 @@ export async function POST(
   if (!instruction.trim()) {
     return NextResponse.json({ error: "Instruction is required." }, { status: 400 });
   }
-  if (!sourceModelUrl) {
+  if (!requestedSourceModelUrl && !variantRecipe) {
     return NextResponse.json({ error: "sourceModelUrl is required." }, { status: 400 });
   }
   if (!["add", "remove", "replace"].includes(operation)) {
@@ -80,22 +81,37 @@ export async function POST(
 
   const project = await prisma.project.findFirst({
     where: { id: projectId, ownerId: user.id },
-    select: { dentalModel: { select: { generated3DUrl: true } }, versions: { orderBy: { version: "desc" }, take: 1, select: { version: true } } },
+    select: {
+      dentalModel: { select: { generated3DUrl: true, generated3DKey: true, processingStage: true } },
+      versions: { orderBy: { version: "desc" }, take: 20, select: { version: true, label: true, snapshot: true } },
+    },
   });
   if (!project) {
     return NextResponse.json({ error: "Project not found." }, { status: 404 });
   }
-  if (!isAllowedSourceModelUrl(sourceModelUrl, project.dentalModel?.generated3DUrl)) {
+  const masterVersion = project.versions.find((version) => version.label === "master-model");
+  const masterSnapshot = masterVersion?.snapshot as { modelUrl?: string } | null;
+  const isProjectProxy = requestedSourceModelUrl === projectModelServePath(projectId);
+  // Case variants are always derived from server-owned project state. The browser
+  // may display a proxy or stale signed URL, but it never chooses the master.
+  let sourceModelUrl: string | null = variantRecipe
+    ? masterSnapshot?.modelUrl ?? await resolveProjectModelUrl(project.dentalModel)
+    : isProjectProxy
+      ? await resolveProjectModelUrl(project.dentalModel)
+      : requestedSourceModelUrl;
+  if (!variantRecipe && !isProjectProxy && !isAllowedSourceModelUrl(requestedSourceModelUrl, project.dentalModel?.generated3DUrl)) {
     return NextResponse.json({ error: "Source model does not belong to this project." }, { status: 403 });
   }
+  const sourceStorageKey = sourceModelUrl ? extractStorageKeyFromUrl(sourceModelUrl) : null;
+  if (sourceStorageKey) sourceModelUrl = await getAssetUrl(sourceStorageKey);
+  if (!sourceModelUrl) return NextResponse.json({ error: "Source model is unavailable." }, { status: 409 });
 
   const expanded = expandDentalPrompt(instruction);
   const stubJobId = `edit_${Date.now()}`;
   const t0 = Date.now();
 
   if (variantRecipe) {
-    const existingMaster = await prisma.projectVersion.findFirst({ where: { projectId, label: "master-model" } });
-    if (!existingMaster) {
+    if (!masterVersion) {
       await prisma.projectVersion.create({
         data: {
           projectId,

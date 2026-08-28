@@ -64,6 +64,30 @@ when the mark/mask workflow is active.
 - The original source image and approved edited image are sent separately to the
   image-input edit service.
 
+## Simplified case-led editor
+
+When a case has already been selected, the editor no longer presents separate
+mask, workflow, teaching-case, preset and edit-action windows at the same time.
+The case-led layout has three coordinated surfaces:
+
+1. **Left panel:** persisted source image, immutable-master status, selected case
+   goal and one “Mark the area to change” entry point.
+2. **3D view:** tooth, purple paint overlay and the compact brush/navigation tools.
+3. **Bottom action bar:** a single progressive action—Paint, Preview, then Create
+   3D variant—with the selected semantic instruction shown read-only.
+
+The unrestricted/manual editor retains advanced floating panels when no case is
+selected. This keeps expert capability without forcing it into the guided flow.
+
+Two asset-path defects were corrected at the same time:
+
+- `/api/projects/[id]/source-image` streams the authenticated persisted source
+  image, recovering its storage key instead of rendering an expired signed URL.
+- the edit-job API recognizes `/api/projects/[id]/model` as the authenticated
+  project model, resolves a fresh storage URL server-side and refreshes old
+  signed master URLs before submitting work. This removes the erroneous “Source
+  model does not belong to this project” rejection visible in the old UI.
+
 ## Geometry and appearance preservation
 
 Two safeguards address the thin, black edit result:
@@ -139,6 +163,91 @@ Main additions:
 
 ## Deployment-agent checklist
 
+### Commit scope for the latest case-flow correction
+
+Commit the following application files together; they form one atomic fix for
+the Vercel 403, expired source image and consistent guided-case workflow:
+
+- `dentalsculptor-app/src/app/api/projects/[id]/edit-jobs/route.ts`
+- `dentalsculptor-app/src/app/api/projects/[id]/route.ts`
+- `dentalsculptor-app/src/app/api/projects/[id]/source-image/route.ts`
+- `dentalsculptor-app/src/components/editor/editor-source-panel.tsx`
+- `dentalsculptor-app/src/components/editor/editor-workspace.tsx`
+- `dentalsculptor-app/src/components/editor/guided-case-edit-bar.tsx`
+- `dentalsculptor-app/src/components/generation/generation-image-picker.tsx`
+- `dentalsculptor-app/src/lib/case-variant-recipes.ts`
+- `dentalsculptor-app/src/lib/guided-case-flow.ts`
+- `dentalsculptor-app/src/lib/project-model-asset.server.ts`
+- `docs/GENERATION_FIRST_HANDOVER.md`
+- `docs/CASE_CREATION_AUDIT.md`
+
+Do **not** include unrelated root screenshots, downloaded tooth charts,
+`modal-deploy.log`, or `docs/benchmarks/smoke-runs/*` unless the maintainer
+explicitly wants those research artifacts committed.
+
+Suggested local verification before committing:
+
+```powershell
+cd dentalsculptor-app
+npm run build
+.\node_modules\.bin\eslint.cmd `
+  src/lib/guided-case-flow.ts `
+  src/lib/case-variant-recipes.ts `
+  src/components/editor/guided-case-edit-bar.tsx `
+  "src/app/api/projects/[id]/edit-jobs/route.ts"
+cd ..
+git diff --check
+```
+
+### Deployment order
+
+1. **Commit and deploy the Next.js files above first.** No new database migration
+   is required for this latest correction. Existing `ProjectVersion` and
+   `EditJob.metadata` fields are reused.
+2. Confirm the Vercel deployment contains the new dynamic route
+   `/api/projects/[id]/source-image`.
+3. Open the same project that previously failed and confirm its source image
+   loads through that route.
+4. Reapply or reload the cusp-fracture case. The editor must automatically bind
+   `fracture-oblique`; users should not need to reopen Create Variant.
+5. Paint, preview and submit. `/edit-preview` should return 200 and `/edit-jobs`
+   must no longer return 403. A queued/202 or completed/200 response proves the
+   request passed application ownership validation and reached the configured
+   editing service.
+6. If the request reaches the editing service but the job then fails, deploy the
+   Modal changes described below and inspect the Modal job status. Do not treat a
+   worker failure as the same bug as the resolved Vercel 403.
+
+### Modal deployment scope
+
+The deterministic case worker is a separate deployment concern. Ensure the
+commit being deployed already includes:
+
+- `dentalsculptor-ml/modal_app/app.py`
+- `dentalsculptor-ml/modal_app/workers/variant_geometry.py`
+- `dentalsculptor-ml/modal_app/workers/nano3d_utils.py`
+- `dentalsculptor-ml/modal_app/workers/nano3d_flowedit.py`
+
+Deploy from `dentalsculptor-ml` with the authenticated Modal profile and existing
+secrets. Capture the emitted edit and job-status URLs, then verify Vercel has the
+matching `MODAL_EDIT_URL`, `MODAL_JOB_STATUS_URL` and
+`MODAL_WEBHOOK_SECRET`. Never place secret values in the repository or handover.
+
+### Required post-deploy regression sequence
+
+Run in this order and retain the Vercel request status plus final GLB for each:
+
+1. cusp fracture;
+2. Class I cavity;
+3. external endodontic access;
+4. visual caries, then caries excavation;
+5. crown reduction.
+
+Each must use the same Goal → Target → Preview → Create interaction layout. See
+`docs/CASE_CREATION_AUDIT.md` for the case-specific default recipe, claims and
+release gates. Tooth identification is excluded from this geometry sequence
+until annotation authoring is completed.
+
 1. Apply the existing Prisma schema before testing Like records.
 2. Confirm storage credentials persist both the generation image and GLB.
 3. Deploy the Next.js application and verify auth continuation for both
@@ -166,10 +275,21 @@ Main additions:
    variant downloads and publishes. Treat endodontic access as an external
    opening unless a validated segmented internal-anatomy model is attached.
 
-## Known infrastructure blocker
+## Generation and deployment status (August 2026)
 
-The configured local Modal profile previously returned `Could not connect to the
-Modal server` even for a read-only app listing, before image construction began.
-The implementation compiles, but a successful remote build and GPU smoke test
-must be completed on the deployment system before full editing is presented as
-production-ready.
+- Landing and `/projects/new` use **single-step `standard` quality** generation
+  (no preview→finalize gate on the landing page).
+- Async Modal jobs are **required on Vercel**; sync generation times out at 300s.
+- Modal worker redeployed with `TRELLIS_ASYNC_S3_ENABLED=true` for async S3 jobs.
+- Card previews use deterministic storage keys (`/api/projects/{id}/preview-image`);
+  no `previewImageKey` database column is required.
+- Cusp-fracture smoke test passes when edit jobs submit `sourceModel` inline.
+
+## Known infrastructure notes
+
+- Cold GPU start can still take several minutes; session warmup via
+  `POST /api/ml/warm` reduces first-generation latency when it succeeds.
+- Full geometry case regression (Class I, endodontic access, caries, crown) still
+  requires the post-deploy sequence in `docs/CASE_CREATION_AUDIT.md`.
+- Tooth identification remains annotation-only until CAM annotation authoring
+  is complete.

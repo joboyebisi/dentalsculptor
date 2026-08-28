@@ -1,4 +1,5 @@
 import type { EditOperation } from "@/lib/edit-types";
+import type { CaseTemplate } from "@/lib/case-templates";
 
 export type VariantTechnique = "boolean" | "material" | "generative" | "annotation";
 export type VariantCase = "anatomy" | "fracture" | "class-i" | "endo" | "caries" | "crown" | "cusp-restoration";
@@ -45,4 +46,28 @@ export const CASE_VARIANT_PRESETS: CaseVariantPreset[] = [
 
 export function getCaseVariantPreset(id: string): CaseVariantPreset | undefined {
   return CASE_VARIANT_PRESETS.find((preset) => preset.id === id);
+}
+
+export function defaultVariantPresetForCase(caseTemplate: CaseTemplate): CaseVariantPreset | null {
+  const id = caseTemplate.procedure === "pathology-add" ? "fracture-oblique"
+    : caseTemplate.procedure === "prep-class-1" || caseTemplate.procedure === "prep-class-2" ? "class1-standard"
+    : caseTemplate.procedure === "endo-access" ? "endo-conservative"
+    : caseTemplate.procedure === "caries-smooth-surface" ? "caries-visual"
+    : caseTemplate.procedure === "caries-occlusal" ? "caries-excavate"
+    : caseTemplate.procedure === "crown-prep" ? "crown-occlusal"
+    : null;
+  return id ? getCaseVariantPreset(id) ?? null : null;
+}
+
+export function recipeFromVariantPreset(preset: CaseVariantPreset): CaseVariantRecipe {
+  return {
+    presetId: preset.id,
+    caseId: preset.caseId,
+    technique: preset.technique,
+    severity: preset.defaultSeverity,
+    angleDeg: preset.caseId === "fracture" ? 35 : 0,
+    depthMm: preset.defaultSeverity === "small" ? 1 : preset.defaultSeverity === "large" ? 3 : 1.5,
+    targetSurface: "occlusal",
+    label: preset.label,
+  };
 }

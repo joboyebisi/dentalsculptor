@@ -26,13 +26,12 @@ import {
   EditorMaskContextPanel,
 } from "@/components/editor/edit-preview-modal";
 import { ExportWizardDialog } from "@/components/export/export-wizard-dialog";
-import { EditorCasePanel } from "@/components/editor/editor-case-panel";
 import { EditorCaseContextPanel } from "@/components/editor/editor-case-context-panel";
 import { CaseWizardDialog, type CaseWizardContinuePayload } from "@/components/case-wizard/case-wizard-dialog";
 import type { CaseTemplate } from "@/lib/case-templates";
 import { getCaseTemplate } from "@/lib/case-templates";
 import type { CaseRecipe } from "@/lib/clinical-case-params";
-import { parseCaseRecipeFromProject, formatInstructionsFromRecipe, buildEditPromptFromRecipe } from "@/lib/case-recipe-utils";
+import { parseCaseRecipeFromProject, buildEditPromptFromRecipe } from "@/lib/case-recipe-utils";
 import { useResearchTracker } from "@/hooks/use-research-tracker";
 import { generateSegmentParts, type SegmentPart } from "@/lib/editor-segmentation";
 import { triggerSFX } from "@/lib/sfx-bus";
@@ -62,7 +61,9 @@ import { DEFAULT_EXPORT_TARGET } from "@/lib/export-presets";
 import type { ViewerInteractionMode } from "@/components/editor/cam-model-viewer";
 import { ShareProjectDialog } from "@/components/editor/share-project-dialog";
 import { CaseVariantBuilderDialog } from "@/components/editor/case-variant-builder-dialog";
-import type { CaseVariantPreset, CaseVariantRecipe } from "@/lib/case-variant-recipes";
+import { GuidedCaseEditBar } from "@/components/editor/guided-case-edit-bar";
+import { defaultVariantPresetForCase, recipeFromVariantPreset, type CaseVariantPreset, type CaseVariantRecipe } from "@/lib/case-variant-recipes";
+import { guidedCaseFlowCopy } from "@/lib/guided-case-flow";
 
 export interface EditorProject {
   id: string;
@@ -77,6 +78,7 @@ export interface EditorProject {
     generated3DUrl?: string | null;
     modelServeUrl?: string | null;
     sourceImageUrl?: string | null;
+    sourceImageServeUrl?: string | null;
     thumbnailUrl?: string | null;
     processingStage?: string | null;
   } | null;
@@ -104,6 +106,7 @@ export function EditorWorkspace({
   const initialTemplate = initialRecipe?.templateId
     ? getCaseTemplate(initialRecipe.templateId) ?? null
     : null;
+  const initialVariantPreset = initialTemplate ? defaultVariantPresetForCase(initialTemplate) : null;
 
   const { track } = useResearchTracker();
   const viewerRef = useRef<CamViewerHandle>(null);
@@ -137,9 +140,9 @@ export function EditorWorkspace({
   const [templateError, setTemplateError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<EditorTab>("authoring");
   const [aiPrompt, setAiPrompt] = useState(() =>
-    initialRecipe && initialTemplate
+    initialVariantPreset?.instruction ?? (initialRecipe && initialTemplate
       ? buildEditPromptFromRecipe(initialRecipe, initialTemplate)
-      : ""
+      : "")
   );
   const [generating, setGenerating] = useState(false);
   const [segmenting, setSegmenting] = useState(false);
@@ -147,14 +150,13 @@ export function EditorWorkspace({
   const [exportWizardOpen, setExportWizardOpen] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [variantBuilderOpen, setVariantBuilderOpen] = useState(false);
-  const [activeVariantRecipe, setActiveVariantRecipe] = useState<CaseVariantRecipe | null>(null);
-  const [casePanelOpen, setCasePanelOpen] = useState(true);
-  const [learningObjectives, setLearningObjectives] = useState(project.learningObjectives);
-  const [instructions, setInstructions] = useState(project.instructions);
+  const [activeVariantRecipe, setActiveVariantRecipe] = useState<CaseVariantRecipe | null>(() =>
+    initialVariantPreset ? recipeFromVariantPreset(initialVariantPreset) : null
+  );
   const [brushMode, setBrushMode] = useState<MaskBrushMode>("paint");
   const [brushSize, setBrushSize] = useState(12);
   const [editOperation, setEditOperation] = useState<EditOperation>(
-    initialTemplate?.defaultOperation ?? "remove"
+    initialVariantPreset?.operation ?? initialTemplate?.defaultOperation ?? "remove"
   );
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -177,14 +179,14 @@ export function EditorWorkspace({
   const [beforePreview, setBeforePreview] = useState<string | null>(null);
   const [afterPreview, setAfterPreview] = useState<string | null>(null);
   const [editedReferenceBlob, setEditedReferenceBlob] = useState<Blob | null>(null);
-  const [activePresetId, setActivePresetId] = useState<string | null>(null);
-  const [selectedSuggestedPrompt, setSelectedSuggestedPrompt] = useState<string | null>(null);
+  const [activePresetId, setActivePresetId] = useState<string | null>(initialVariantPreset?.id ?? null);
+  const [selectedSuggestedPrompt, setSelectedSuggestedPrompt] = useState<string | null>(initialVariantPreset?.instruction ?? null);
   const [referenceImage, setReferenceImage] = useState<Blob | null>(null);
   const [referenceCamera, setReferenceCamera] = useState<SerializedCameraState | null>(null);
   const [maskCoverage, setMaskCoverage] = useState(0);
   const [revisionVersion] = useState(1);
   const [sourcePreview, setSourcePreview] = useState<string | null>(
-    project.dentalModel?.sourceImageUrl ?? null
+    project.dentalModel?.sourceImageServeUrl ?? project.dentalModel?.sourceImageUrl ?? null
   );
   const [rectMarks, setRectMarks] = useState<RectMark[]>([]);
   const [markRedoStack, setMarkRedoStack] = useState<RectMark[]>([]);
@@ -281,6 +283,7 @@ export function EditorWorkspace({
     hasInstruction: Boolean(aiPrompt.trim()),
     hasPreview: Boolean(afterPreview),
   });
+  const guidedFlow = selectedCase ? guidedCaseFlowCopy(selectedCase) : null;
 
   const clearMaskPaint = useCallback((notice?: string) => {
     maskOverlayRef.current?.clear();
@@ -496,19 +499,22 @@ export function EditorWorkspace({
       }
 
       setSelectedCase(payload.template);
+      const defaultVariant = defaultVariantPresetForCase(payload.template);
+      if (defaultVariant) {
+        setActiveVariantRecipe(recipeFromVariantPreset(defaultVariant));
+        setActivePresetId(defaultVariant.id);
+        setSelectedSuggestedPrompt(defaultVariant.instruction);
+        setAiPrompt(defaultVariant.instruction);
+        setEditOperation(defaultVariant.operation);
+      } else {
+        setActiveVariantRecipe(null);
+      }
       setCaseRecipe(data.recipe as CaseRecipe);
       const nextTitle = data.project?.title ?? payload.template.title;
       setTitle(nextTitle);
       await onSave({ title: nextTitle });
-      setInstructions(formatInstructionsFromRecipe(data.recipe as CaseRecipe, payload.template));
-      setLearningObjectives(
-        payload.template.learningObjectives.map((title, i) => ({
-          id: `lo-${i}`,
-          title,
-        }))
-      );
-      if (data.editPrompt) setAiPrompt(data.editPrompt);
-      if (payload.template.defaultOperation) setEditOperation(payload.template.defaultOperation);
+      if (!defaultVariant && data.editPrompt) setAiPrompt(data.editPrompt);
+      if (!defaultVariant && payload.template.defaultOperation) setEditOperation(payload.template.defaultOperation);
       setActiveTool("select");
       setFloatingPanels({
         maskContext: { minimized: false },
@@ -1085,6 +1091,10 @@ export function EditorWorkspace({
           onRotateImage={handleSourceRotate}
           onGenerateModel={handleGenerateModel}
           generating={generating}
+          hasModel={hasModel}
+          caseTitle={selectedCase?.title ?? null}
+          caseInstruction={guidedFlow?.targetHint ?? selectedCase?.shortDescription ?? null}
+          onStartEdit={() => { setActiveTool("mask"); openMaskEditPanels(); }}
         />
 
         <section
@@ -1146,7 +1156,7 @@ export function EditorWorkspace({
             )}
 
             <EditorMaskContextPanel
-              visible={maskVisible}
+              visible={maskVisible && !selectedCase}
               minimized={floatingPanels.maskContext.minimized}
               onMinimize={() => minimizeFloatingPanel("maskContext")}
               onRestore={() => restoreFloatingPanel("maskContext")}
@@ -1157,7 +1167,7 @@ export function EditorWorkspace({
             />
 
             <EditorEditWorkflowPanel
-              visible={maskVisible}
+              visible={maskVisible && !selectedCase}
               minimized={floatingPanels.workflow.minimized}
               onMinimize={() => minimizeFloatingPanel("workflow")}
               onRestore={() => restoreFloatingPanel("workflow")}
@@ -1170,7 +1180,7 @@ export function EditorWorkspace({
             />
 
             <EditorCaseContextPanel
-              visible={maskVisible && Boolean(selectedCase)}
+              visible={false}
               minimized={floatingPanels.caseContext.minimized}
               onMinimize={() => minimizeFloatingPanel("caseContext")}
               onRestore={() => restoreFloatingPanel("caseContext")}
@@ -1189,7 +1199,7 @@ export function EditorWorkspace({
             )}
 
             <EditorEditPresetsBar
-              visible={showEditPresets}
+              visible={showEditPresets && !selectedCase}
               minimized={floatingPanels.presets.minimized}
               onMinimize={() => minimizeFloatingPanel("presets")}
               onRestore={() => restoreFloatingPanel("presets")}
@@ -1204,7 +1214,7 @@ export function EditorWorkspace({
             />
 
             <EditorEditActions
-              visible={maskVisible}
+              visible={maskVisible && !selectedCase}
               minimized={floatingPanels.editActions.minimized}
               onMinimize={() => minimizeFloatingPanel("editActions")}
               onRestore={() => restoreFloatingPanel("editActions")}
@@ -1246,7 +1256,21 @@ export function EditorWorkspace({
 
           <EditPresetHapticNotice preset={activeEditPreset} className="mx-3 mb-1" />
 
-          <EditorAiBar
+          {selectedCase ? (
+            <GuidedCaseEditBar
+              caseTitle={selectedCase.title}
+              instruction={aiPrompt || selectedCase.shortDescription}
+              step={editWorkflowStep}
+              previewLoading={previewLoading}
+              editLoading={editJobLoading}
+              onPaint={() => { setActiveTool("mask"); openMaskEditPanels(); }}
+              onPreview={handlePreview2d}
+              onCreate={() => void handleGenerate3dEdit()}
+              markLabel={guidedFlow?.mark ?? "Mark target area"}
+              previewLabel={guidedFlow?.preview ?? "Preview change"}
+              createLabel={guidedFlow?.create ?? "Create 3D variant"}
+            />
+          ) : <EditorAiBar
             value={aiPrompt}
             onChange={(v) => {
               setAiPrompt(v);
@@ -1260,7 +1284,7 @@ export function EditorWorkspace({
             onRemoveAttachment={handleRemoveRegionAttachment}
             hasMask={maskHasStrokes || maskCoverage > 0}
             workflowStep={editWorkflowStep}
-          />
+          />}
         </section>
 
         <EditorPropertiesPanel
@@ -1284,26 +1308,6 @@ export function EditorWorkspace({
           disabled
         />
 
-        <EditorCasePanel
-          open={casePanelOpen}
-          onToggle={() => setCasePanelOpen((o) => !o)}
-          caseRecipe={caseRecipe}
-          selectedCase={selectedCase}
-          instructions={instructions}
-          learningObjectives={learningObjectives}
-          onSelectPrompt={handleSelectSuggestedPrompt}
-          selectedPrompt={selectedSuggestedPrompt ?? (aiPrompt.trim() || null)}
-          activeOperation={editOperation}
-          onStartMaskEdit={() => {
-            if (selectedCase?.requiresGeometryEdit === false) {
-              setActiveTool("mark");
-            } else {
-              if (selectedCase?.defaultOperation) setEditOperation(selectedCase.defaultOperation);
-              setActiveTool("mask");
-              openMaskEditPanels();
-            }
-          }}
-        />
       </div>
 
       <EditorStatusBar

@@ -1,6 +1,6 @@
 "use client";
 
-import { Factory } from "lucide-react";
+import { Factory, CheckCircle2, Paintbrush } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { GenerationNotifyOption } from "@/components/generation/generation-notify-option";
@@ -17,6 +17,10 @@ interface EditorSourcePanelProps {
   onGenerateModel?: () => void;
   generating?: boolean;
   preparingImage?: boolean;
+  hasModel?: boolean;
+  caseTitle?: string | null;
+  caseInstruction?: string | null;
+  onStartEdit?: () => void;
 }
 
 export function EditorSourcePanel({
@@ -30,6 +34,10 @@ export function EditorSourcePanel({
   onGenerateModel,
   generating,
   preparingImage,
+  hasModel,
+  caseTitle,
+  caseInstruction,
+  onStartEdit,
 }: EditorSourcePanelProps) {
   return (
     <aside
@@ -66,19 +74,23 @@ export function EditorSourcePanel({
               onRotate={onRotateImage ? () => void onRotateImage() : undefined}
             />
 
-            <Button
-              className="w-full bg-primary-container text-on-primary"
-              onClick={onGenerateModel}
-              disabled={generating || !(hasSourceFile ?? sourcePreview)}
-            >
-              <Factory className="mr-2 h-4 w-4" />
-              {generating ? "Generating…" : "Generate 3D model"}
-            </Button>
-
-            <GenerationNotifyOption
-              disabled={generating}
-              className="border-outline-variant bg-surface-container-lowest"
-            />
+            {hasModel && caseTitle ? (
+              <div className="rounded-xl border border-outline-variant bg-surface-container-low p-3">
+                <div className="flex items-center gap-2 text-xs font-semibold text-secondary"><CheckCircle2 className="h-4 w-4" />3D master ready</div>
+                <p className="mt-3 text-body-sm font-semibold text-on-surface">{caseTitle}</p>
+                <p className="mt-1 text-xs leading-relaxed text-on-surface-variant">{caseInstruction}</p>
+                <Button size="sm" className="mt-3 w-full bg-primary-container text-on-primary" onClick={onStartEdit}>
+                  <Paintbrush className="mr-2 h-4 w-4" />Mark the area to change
+                </Button>
+              </div>
+            ) : (
+              <>
+                <Button className="w-full bg-primary-container text-on-primary" onClick={onGenerateModel} disabled={generating || !(hasSourceFile ?? sourcePreview)}>
+                  <Factory className="mr-2 h-4 w-4" />{generating ? "Generating…" : "Generate 3D model"}
+                </Button>
+                <GenerationNotifyOption disabled={generating} className="border-outline-variant bg-surface-container-lowest" />
+              </>
+            )}
           </div>
         </>
       ) : (

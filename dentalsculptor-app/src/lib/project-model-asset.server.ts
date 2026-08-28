@@ -74,7 +74,7 @@ function parseModelFormatHint(processingStage: string | null | undefined): strin
   }
 }
 
-async function streamStorageObjectByKey(key: string): Promise<{
+export async function streamStorageObjectByKey(key: string): Promise<{
   body: ReadableStream | ArrayBuffer;
   contentType: string;
   cacheControl: string;
