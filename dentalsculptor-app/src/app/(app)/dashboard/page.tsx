@@ -18,6 +18,8 @@ import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 import { isUiPreviewMode } from "@/lib/preview-mode";
 import { PREVIEW_PROJECTS, PREVIEW_METRICS, PREVIEW_EVENTS, PREVIEW_COMMUNITY } from "@/lib/preview-data";
+import { getProjectPreviewImageUrl } from "@/lib/project-preview-image";
+import { ProjectPreviewImage } from "@/components/projects/project-preview-image";
 
 export default async function DashboardPage() {
   const user = await getAuthUser();
@@ -54,7 +56,10 @@ export default async function DashboardPage() {
       take: 3,
       include: {
         project: {
-          include: { owner: { select: { name: true, institution: true } } },
+          include: {
+            dentalModel: { select: { sourceImageUrl: true, thumbnailUrl: true } },
+            owner: { select: { name: true, institution: true } },
+          },
         },
       },
     }),
@@ -119,10 +124,15 @@ export default async function DashboardPage() {
                     <Link
                       key={project.id}
                       href={`/editor/${project.id}`}
-                      className="flex items-center justify-between rounded-lg border border-border-subtle p-3 transition-colors hover:bg-surface-container-low"
+                      className="flex items-center gap-3 rounded-lg border border-border-subtle p-3 transition-colors hover:bg-surface-container-low"
                     >
-                      <div>
-                        <p className="font-medium">{project.title}</p>
+                      <ProjectPreviewImage
+                        src={getProjectPreviewImageUrl(project)}
+                        alt={`${project.title} 3D preview`}
+                        className="!aspect-square h-14 w-14 shrink-0 rounded-md"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-medium">{project.title}</p>
                         <p className="text-body-sm text-on-surface-variant">
                           Updated {formatDate(project.updatedAt)}
                         </p>

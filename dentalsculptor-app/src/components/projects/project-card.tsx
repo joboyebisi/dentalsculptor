@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { ProjectPreviewImage } from "@/components/projects/project-preview-image";
 
 export type ProjectListItem = {
   id: string;
@@ -18,6 +19,7 @@ export type ProjectListItem = {
   updatedAt: string;
   annotationCount: number;
   objectiveCount: number;
+  previewImageUrl: string | null;
 };
 
 function DeleteProjectDialog({
@@ -204,7 +206,7 @@ export function ProjectCard({
         role="button"
         tabIndex={0}
       >
-        <div className="aspect-video shrink-0 bg-gradient-to-br from-surface-container to-primary-container/10" />
+        <ProjectPreviewImage src={project.previewImageUrl} alt={`${project.title} 3D preview`} />
         <CardContent className="flex flex-1 flex-col p-4">
           <div className="flex items-start gap-2">
             <h3 className="line-clamp-2 min-h-[2.75rem] flex-1 font-semibold leading-snug">

@@ -47,6 +47,7 @@ import {
 } from "@/lib/generation-notifications";
 import { GENERATION_COPY } from "@/lib/generation-copy";
 import { pollGenerationJob } from "@/lib/generation-jobs";
+import { uploadProjectPreviewImage } from "@/lib/upload-project-preview-image";
 import { EDITOR_SURFACE } from "@/lib/constants";
 import { expandDentalPrompt } from "@/lib/dental-prompt-glossary";
 import { applyMasked2dPreview } from "@/lib/edit-2d-preview";
@@ -228,6 +229,20 @@ export function EditorWorkspace({
     setModelLoadStatus(status);
     setModelLoadDetail(detail);
   }, []);
+  const previewUploadedForModelRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (modelLoadStatus !== "ready" || !modelUrl) return;
+    if (previewUploadedForModelRef.current === modelUrl) return;
+    previewUploadedForModelRef.current = modelUrl;
+
+    void (async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 350));
+      const capture = await viewerRef.current?.captureView();
+      if (!capture?.image) return;
+      await uploadProjectPreviewImage(projectId, capture.image, "preview.png");
+    })();
+  }, [modelLoadStatus, modelUrl, projectId]);
   const [segmentParts, setSegmentParts] = useState<SegmentPart[]>(
     project.dentalModel?.meshData || project.dentalModel?.generated3DUrl
       ? generateSegmentParts()

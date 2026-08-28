@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { Download, Loader2, BookOpen, Sparkles, Share2 } from "lucide-react";
-import { DentalViewer } from "@/components/three/dental-viewer";
+import { DentalViewer, type DentalViewerHandle } from "@/components/three/dental-viewer";
 import { Button } from "@/components/ui/button";
 import { useLandingModel } from "@/context/landing-model-context";
 import {
@@ -23,7 +23,6 @@ export function LandingModelPanel() {
     meshData,
     modelUrl,
     modelKey,
-    thumbnailUrl,
     mtlUrl,
     format,
     isLoading,
@@ -42,6 +41,7 @@ export function LandingModelPanel() {
   const [busy, setBusy] = useState<PendingNextStep | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [elapsedSec, setElapsedSec] = useState(0);
+  const viewerRef = useRef<DentalViewerHandle>(null);
 
   useEffect(() => {
     if (!isLoading && !isEnhancing) {
@@ -60,11 +60,12 @@ export function LandingModelPanel() {
     setActionError(null);
 
     try {
+      const previewImage = (await viewerRef.current?.capturePreview()) ?? undefined;
       const payload = {
         imageFile: uploadedFile,
         modelUrl,
         modelKey: modelKey ?? undefined,
-        thumbnailUrl: thumbnailUrl ?? undefined,
+        previewImage,
         mtlUrl: mtlUrl ?? undefined,
         format: format ?? undefined,
         sourceFileName: uploadedFile.name,
@@ -118,6 +119,7 @@ export function LandingModelPanel() {
         )}
         {hasModel ? (
           <DentalViewer
+            ref={viewerRef}
             meshData={meshData}
             modelUrl={modelUrl}
             modelFormat={format}

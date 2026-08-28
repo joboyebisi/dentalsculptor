@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Heart, Download, Copy, Star } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,23 +6,64 @@ import { Badge } from "@/components/ui/badge";
 import { COMMUNITY_CATEGORIES } from "@/lib/constants";
 import { isUiPreviewMode } from "@/lib/preview-mode";
 import { PREVIEW_COMMUNITY } from "@/lib/preview-data";
+import { getProjectPreviewImageUrl } from "@/lib/project-preview-image";
+import {
+  CommunityProjectCard,
+  type CommunityProjectCardItem,
+} from "@/components/community/community-project-card";
+
+function toCommunityCardItem(cp: {
+  id: string;
+  likes: number;
+  downloads: number;
+  featured: boolean;
+  rating: number;
+  project: {
+    id: string;
+    title: string;
+    category: string | null;
+    thumbnailUrl?: string | null;
+    dentalModel?: { sourceImageUrl?: string | null; thumbnailUrl?: string | null } | null;
+    owner: { name: string | null; institution: string | null };
+    learningObjectives: { id: string; title: string }[];
+  };
+}): CommunityProjectCardItem {
+  return {
+    id: cp.id,
+    likes: cp.likes,
+    downloads: cp.downloads,
+    featured: cp.featured,
+    rating: cp.rating,
+    project: {
+      id: cp.project.id,
+      title: cp.project.title,
+      category: cp.project.category,
+      previewImageUrl: getProjectPreviewImageUrl(cp.project),
+      owner: cp.project.owner,
+      learningObjectives: cp.project.learningObjectives,
+    },
+  };
+}
 
 export default async function CommunityPage() {
-  const communityProjects = isUiPreviewMode()
-    ? PREVIEW_COMMUNITY
-    : await prisma.communityProject.findMany({
-    where: { published: true },
-    orderBy: { downloads: "desc" },
-    include: {
-      project: {
-        include: {
-          owner: { select: { name: true, institution: true } },
-          learningObjectives: { take: 2 },
-          _count: { select: { annotations: true } },
-        },
-      },
-    },
-  });
+  const communityProjects: CommunityProjectCardItem[] = isUiPreviewMode()
+    ? PREVIEW_COMMUNITY.map((cp) => toCommunityCardItem(cp))
+    : (
+        await prisma.communityProject.findMany({
+          where: { published: true },
+          orderBy: { downloads: "desc" },
+          include: {
+            project: {
+              include: {
+                dentalModel: { select: { sourceImageUrl: true, thumbnailUrl: true } },
+                owner: { select: { name: true, institution: true } },
+                learningObjectives: { take: 2 },
+                _count: { select: { annotations: true } },
+              },
+            },
+          },
+        })
+      ).map((cp) => toCommunityCardItem(cp));
 
   return (
     <div className="p-margin-page">
@@ -56,38 +96,7 @@ export default async function CommunityPage() {
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {communityProjects.map((cp) => (
-            <Card key={cp.id} className="overflow-hidden">
-              <div className="aspect-video bg-gradient-to-br from-surface-container to-primary-container/10" />
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <Link href={`/community/${cp.project.id}`} className="font-semibold hover:text-primary-container hover:underline">{cp.project.title}</Link>
-                  {cp.featured && <Badge variant="research">Featured</Badge>}
-                </div>
-                <p className="mt-1 text-body-sm text-on-surface-variant">
-                  {cp.project.owner.name} · {cp.project.owner.institution}
-                </p>
-                {cp.project.category && (
-                  <Badge variant="outline" className="mt-2">{cp.project.category}</Badge>
-                )}
-                <div className="mt-3 flex flex-wrap gap-1">
-                  {cp.project.learningObjectives.map((obj) => (
-                    <Badge key={obj.id} variant="outline" className="text-xs">{obj.title}</Badge>
-                  ))}
-                </div>
-                <div className="mt-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3 text-body-sm text-on-surface-variant">
-                    <span className="flex items-center gap-1"><Heart className="h-3.5 w-3.5" />{cp.likes}</span>
-                    <span className="flex items-center gap-1"><Download className="h-3.5 w-3.5" />{cp.downloads}</span>
-                    <span className="flex items-center gap-1"><Star className="h-3.5 w-3.5" />{cp.rating.toFixed(1)}</span>
-                  </div>
-                  <form action={`/api/community/${cp.project.id}/clone`} method="POST">
-                    <Button size="sm" variant="outline" type="submit">
-                      <Copy className="mr-1 h-3 w-3" />Clone
-                    </Button>
-                  </form>
-                </div>
-              </CardContent>
-            </Card>
+            <CommunityProjectCard key={cp.id} entry={cp} />
           ))}
         </div>
       )}

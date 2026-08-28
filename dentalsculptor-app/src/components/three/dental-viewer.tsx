@@ -1,7 +1,15 @@
 "use client";
 
-import { Suspense, useRef, useMemo, useState, useCallback } from "react";
-import { Canvas, ThreeEvent } from "@react-three/fiber";
+import {
+  Suspense,
+  useRef,
+  useMemo,
+  useState,
+  useCallback,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
+import { Canvas, ThreeEvent, useThree } from "@react-three/fiber";
 import { OrbitControls, PerspectiveCamera, Html, Grid, Environment } from "@react-three/drei";
 import * as THREE from "three";
 import type { GeneratedMesh } from "@/lib/model-generator";
@@ -128,11 +136,45 @@ function AnnotationPoints({
   );
 }
 
-function SceneContent(props: DentalModelProps) {
+function ViewerCaptureBridge({
+  captureRef,
+}: {
+  captureRef: React.MutableRefObject<(() => Promise<Blob | null>) | null>;
+}) {
+  const { camera, gl, scene } = useThree();
+  captureRef.current = () =>
+    new Promise((resolve) => {
+      camera.updateMatrixWorld();
+      camera.updateProjectionMatrix();
+      gl.render(scene, camera);
+
+      const rect = gl.domElement.getBoundingClientRect();
+      const width = Math.max(1, Math.floor(rect.width));
+      const height = Math.max(1, Math.floor(rect.height));
+      const output = document.createElement("canvas");
+      output.width = width;
+      output.height = height;
+      const context = output.getContext("2d");
+      if (!context) {
+        resolve(null);
+        return;
+      }
+      context.drawImage(gl.domElement, 0, 0, width, height);
+      output.toBlob((blob) => resolve(blob), "image/png", 0.92);
+    });
+  return null;
+}
+
+function SceneContent(
+  props: DentalModelProps & {
+    captureRef: React.MutableRefObject<(() => Promise<Blob | null>) | null>;
+  }
+) {
   const controlsRef = useRef<any>(null);
 
   return (
     <>
+      <ViewerCaptureBridge captureRef={props.captureRef} />
       <PerspectiveCamera makeDefault position={[2.5, 1.5, 2.5]} fov={45} />
       <color attach="background" args={[VIEWPORT_THEME.background]} />
       <Environment preset="studio" environmentIntensity={0.55} />
@@ -186,15 +228,24 @@ function SceneContent(props: DentalModelProps) {
   );
 }
 
+export interface DentalViewerHandle {
+  capturePreview: () => Promise<Blob | null>;
+}
+
 export interface DentalViewerProps extends DentalModelProps {
   className?: string;
   showGrid?: boolean;
 }
 
-export function DentalViewer({
-  className = "h-full w-full",
-  ...props
-}: DentalViewerProps) {
+export const DentalViewer = forwardRef<DentalViewerHandle, DentalViewerProps>(function DentalViewer(
+  { className = "h-full w-full", ...props },
+  ref
+) {
+  const captureRef = useRef<(() => Promise<Blob | null>) | null>(null);
+  useImperativeHandle(ref, () => ({
+    capturePreview: () => captureRef.current?.() ?? Promise.resolve(null),
+  }));
+
   return (
     <div className={`relative ${className}`} style={{ backgroundColor: VIEWPORT_THEME.background }}>
       <Canvas
@@ -207,12 +258,12 @@ export function DentalViewer({
         }}
       >
         <Suspense fallback={null}>
-          <SceneContent {...props} />
+          <SceneContent {...props} captureRef={captureRef} />
         </Suspense>
       </Canvas>
     </div>
   );
-}
+});
 
 export function useViewerControls() {
   const [wireframe, setWireframe] = useState(false);

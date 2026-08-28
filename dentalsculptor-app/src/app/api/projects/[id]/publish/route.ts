@@ -27,7 +27,7 @@ export async function POST(
       data: {
         status: "PUBLISHED",
         publishingLevel: "COMMUNITY",
-        thumbnailUrl: project.thumbnailUrl ?? project.dentalModel.thumbnailUrl,
+        thumbnailUrl: project.dentalModel?.thumbnailUrl ?? project.thumbnailUrl,
       },
     }),
     prisma.communityProject.upsert({

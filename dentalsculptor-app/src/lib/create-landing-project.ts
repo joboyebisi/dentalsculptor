@@ -6,6 +6,7 @@ export interface LandingProjectPayload {
   imageFile: File;
   modelUrl: string;
   modelKey?: string;
+  previewImage?: Blob;
   thumbnailUrl?: string;
   mtlUrl?: string;
   format?: string;
@@ -18,7 +19,11 @@ export function buildLandingProjectFormData(payload: LandingProjectPayload): For
   formData.append("image", payload.imageFile);
   formData.append("modelUrl", payload.modelUrl);
   if (payload.modelKey) formData.append("modelKey", payload.modelKey);
-  if (payload.thumbnailUrl) formData.append("thumbnailUrl", payload.thumbnailUrl);
+  if (payload.previewImage) {
+    formData.append("previewImage", payload.previewImage, "preview.png");
+  } else if (payload.thumbnailUrl) {
+    formData.append("thumbnailUrl", payload.thumbnailUrl);
+  }
   if (payload.mtlUrl) formData.append("mtlUrl", payload.mtlUrl);
   if (payload.format) formData.append("format", payload.format);
   return formData;

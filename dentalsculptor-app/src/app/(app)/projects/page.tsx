@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { isUiPreviewMode } from "@/lib/preview-mode";
 import { PREVIEW_PROJECTS } from "@/lib/preview-data";
 import { ProjectsGrid, type ProjectListItem } from "@/components/projects/project-card";
+import { getProjectPreviewImageUrl } from "@/lib/project-preview-image";
 
 function toListItem(project: {
   id: string;
@@ -15,6 +16,8 @@ function toListItem(project: {
   description: string | null;
   status: string;
   updatedAt: Date;
+  thumbnailUrl?: string | null;
+  dentalModel?: { sourceImageUrl?: string | null; thumbnailUrl?: string | null } | null;
   _count: { annotations: number; learningObjectives: number };
 }): ProjectListItem {
   return {
@@ -25,6 +28,7 @@ function toListItem(project: {
     updatedAt: project.updatedAt.toISOString(),
     annotationCount: project._count.annotations,
     objectiveCount: project._count.learningObjectives,
+    previewImageUrl: getProjectPreviewImageUrl(project),
   };
 }
 
@@ -39,6 +43,7 @@ export default async function ProjectsPage() {
           where: { ownerId: user.id },
           orderBy: { updatedAt: "desc" },
           include: {
+            dentalModel: { select: { sourceImageUrl: true, thumbnailUrl: true } },
             _count: { select: { annotations: true, learningObjectives: true } },
           },
         })

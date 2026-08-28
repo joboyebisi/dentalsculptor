@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
   const existingThumbnailUrl = (formData.get("thumbnailUrl") as string) || null;
   const existingMtlUrl = (formData.get("mtlUrl") as string) || null;
   const existingFormat = (formData.get("format") as string) || null;
+  const previewImage = formData.get("previewImage") as File | null;
 
   if (!image?.size) {
     return NextResponse.json({ error: "Image file is required." }, { status: 400 });
@@ -33,6 +34,15 @@ export async function POST(req: NextRequest) {
   const title = titleInput.trim() || autoProjectTitle(image.name);
   const buffer = Buffer.from(await image.arrayBuffer());
   const key = generateAssetKey(user.id, image.name);
+  let cardPreviewUrl: string | null = null;
+  if (previewImage?.size) {
+    const previewBuffer = Buffer.from(await previewImage.arrayBuffer());
+    cardPreviewUrl = await uploadAsset(
+      generateAssetKey(user.id, `preview-${Date.now()}.png`),
+      previewBuffer,
+      previewImage.type || "image/png"
+    );
+  }
   const provider = getMlMeshProvider();
   const deferToAsyncModal =
     !existingModelUrl && provider === "modal" && isModalAsyncS3Enabled();
@@ -72,7 +82,7 @@ export async function POST(req: NextRequest) {
   }
 
   let generated3DUrl = existingModelUrl;
-  let thumbnailUrl = existingThumbnailUrl;
+  let thumbnailUrl = cardPreviewUrl ?? existingThumbnailUrl;
   let mtlUrl = existingMtlUrl;
   let format = existingFormat;
   let meshData: object | null = null;
@@ -136,6 +146,7 @@ export async function POST(req: NextRequest) {
       title,
       description,
       status: "READY",
+      thumbnailUrl,
       dentalModel: {
         create: {
           sourceImageUrl: imageUrl,

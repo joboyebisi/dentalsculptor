@@ -63,10 +63,17 @@ export async function persistGeneratedModelToProject(
     },
   });
 
-  await prisma.project.updateMany({
-    where: { id: input.projectId },
-    data: { status: "READY" },
-  });
+  if (input.thumbnailUrl) {
+    await prisma.project.updateMany({
+      where: { id: input.projectId },
+      data: { thumbnailUrl: input.thumbnailUrl, status: "READY" },
+    });
+  } else {
+    await prisma.project.updateMany({
+      where: { id: input.projectId },
+      data: { status: "READY" },
+    });
+  }
 
   return { generated3DUrl, generated3DKey };
 }
