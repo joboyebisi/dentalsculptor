@@ -57,7 +57,16 @@ export default async function DashboardPage() {
       include: {
         project: {
           include: {
-            dentalModel: { select: { sourceImageUrl: true, thumbnailUrl: true } },
+            dentalModel: {
+              select: {
+                sourceImageUrl: true,
+                thumbnailUrl: true,
+                previewImageKey: true,
+                generated3DUrl: true,
+                generated3DKey: true,
+                meshData: true,
+              },
+            },
             owner: { select: { name: true, institution: true } },
           },
         },

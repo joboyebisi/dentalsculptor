@@ -9,7 +9,9 @@ import {
   createModalGenerationJob,
   generateMeshViaModal,
   getMlMeshProvider,
+  hasModalAsyncEndpoints,
   isModalAsyncS3Enabled,
+  isServerlessHost,
 } from "@/lib/ml-provider";
 import { prisma } from "@/lib/prisma";
 import { generationErrorMessage, logGeneration } from "@/lib/generation-log";
@@ -17,7 +19,7 @@ import { isModalAsyncDisabledError, modalAsyncDisabledHint } from "@/lib/generat
 import { persistGeneratedModelToProject } from "@/lib/persist-generated-model.server";
 import { generateAssetKey, uploadAsset } from "@/lib/storage";
 
-/** Hobby plan max is 300s. Async path returns 202 quickly; sync fallback may still timeout on long cold starts. */
+/** Async returns 202 in ~1s; keep sync budget low on serverless so misconfig fails fast. */
 export const maxDuration = 300;
 
 function hasValidResearchAccessCode(value: FormDataEntryValue | null): boolean {
@@ -105,6 +107,8 @@ export async function POST(req: NextRequest) {
     quality,
     imageBytes: image.size,
     asyncS3: isModalAsyncS3Enabled(),
+    serverless: isServerlessHost(),
+    hasAsyncEndpoints: hasModalAsyncEndpoints(),
   });
 
   if (provider === "mock") {
@@ -195,7 +199,13 @@ export async function POST(req: NextRequest) {
             detail: "Async S3 disabled on worker — using sync Modal generate.",
           });
           await prisma.generationJob.delete({ where: { id: jobId } }).catch(() => undefined);
-          // Fall through to sync MODAL_GENERATE_URL below.
+          if (isServerlessHost()) {
+            return NextResponse.json(
+              { error: modalAsyncDisabledHint(), traceId },
+              { status: 503 }
+            );
+          }
+          // Fall through to sync MODAL_GENERATE_URL below (local dev only).
         } else {
           await prisma.generationJob.update({
             where: { id: jobId },
@@ -213,6 +223,17 @@ export async function POST(req: NextRequest) {
     }
 
     if (provider === "modal") {
+      if (isServerlessHost() && !isModalAsyncS3Enabled()) {
+        return NextResponse.json(
+          {
+            error:
+              "Production generation requires Modal async job endpoints. Set MODAL_GENERATE_ASYNC_URL, MODAL_JOB_STATUS_URL, and MODAL_ASYNC_S3_ENABLED=true on Vercel.",
+            traceId,
+          },
+          { status: 503 }
+        );
+      }
+
       const result = await generateMeshViaModal(image, user?.id ?? "anonymous", {
         quality,
         seed,

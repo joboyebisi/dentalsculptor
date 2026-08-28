@@ -13,6 +13,7 @@ import {
   type PendingNextStep,
 } from "@/lib/landing-session";
 import { createProjectFromLandingPayload } from "@/lib/create-landing-project";
+import { captureAndUploadCardPreview } from "@/lib/upload-project-preview-image";
 import { GENERATION_COPY } from "@/lib/generation-copy";
 import { GenerationProgressDisplay } from "@/components/generation/generation-progress-display";
 
@@ -60,12 +61,11 @@ export function LandingModelPanel() {
     setActionError(null);
 
     try {
-      const previewImage = (await viewerRef.current?.capturePreview()) ?? undefined;
+      const capturePreview = () => viewerRef.current?.capturePreview() ?? Promise.resolve(null);
       const payload = {
         imageFile: uploadedFile,
         modelUrl,
         modelKey: modelKey ?? undefined,
-        previewImage,
         mtlUrl: mtlUrl ?? undefined,
         format: format ?? undefined,
         sourceFileName: uploadedFile.name,
@@ -95,7 +95,11 @@ export function LandingModelPanel() {
         return;
       }
 
-      const { projectId } = await createProjectFromLandingPayload(payload);
+      const { projectId } = await createProjectFromLandingPayload({
+        ...payload,
+        previewImage: (await capturePreview()) ?? undefined,
+      });
+      void captureAndUploadCardPreview(projectId, capturePreview, { delayMs: 400, retries: 4 });
       if (nextStep === "download") router.push(`/projects/${projectId}/download`);
       else if (nextStep === "publish") router.push(`/projects/${projectId}/publish`);
       else if (nextStep === "case-wizard") router.push(`/editor/${projectId}?caseWizard=1`);

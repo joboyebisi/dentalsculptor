@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { COMMUNITY_CATEGORIES } from "@/lib/constants";
 import { isUiPreviewMode } from "@/lib/preview-mode";
 import { PREVIEW_COMMUNITY } from "@/lib/preview-data";
-import { getProjectPreviewImageUrl } from "@/lib/project-preview-image";
+import { getCommunityPreviewImageUrl } from "@/lib/project-preview-image";
 import {
   CommunityProjectCard,
   type CommunityProjectCardItem,
@@ -23,7 +23,14 @@ function toCommunityCardItem(cp: {
     title: string;
     category: string | null;
     thumbnailUrl?: string | null;
-    dentalModel?: { sourceImageUrl?: string | null; thumbnailUrl?: string | null } | null;
+    dentalModel?: {
+      sourceImageUrl?: string | null;
+      thumbnailUrl?: string | null;
+      previewImageKey?: string | null;
+      generated3DUrl?: string | null;
+      generated3DKey?: string | null;
+      meshData?: unknown;
+    } | null;
     owner: { name: string | null; institution: string | null };
     learningObjectives: { id: string; title: string }[];
   };
@@ -38,7 +45,7 @@ function toCommunityCardItem(cp: {
       id: cp.project.id,
       title: cp.project.title,
       category: cp.project.category,
-      previewImageUrl: getProjectPreviewImageUrl(cp.project),
+      previewImageUrl: getCommunityPreviewImageUrl(cp.project),
       owner: cp.project.owner,
       learningObjectives: cp.project.learningObjectives,
     },
@@ -55,7 +62,16 @@ export default async function CommunityPage() {
           include: {
             project: {
               include: {
-                dentalModel: { select: { sourceImageUrl: true, thumbnailUrl: true } },
+                dentalModel: {
+                  select: {
+                    sourceImageUrl: true,
+                    thumbnailUrl: true,
+                    previewImageKey: true,
+                    generated3DUrl: true,
+                    generated3DKey: true,
+                    meshData: true,
+                  },
+                },
                 owner: { select: { name: true, institution: true } },
                 learningObjectives: { take: 2 },
                 _count: { select: { annotations: true } },

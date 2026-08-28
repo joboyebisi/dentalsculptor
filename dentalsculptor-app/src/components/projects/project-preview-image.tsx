@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
-import { resolveModelFetchUrl } from "@/lib/model-asset-url";
+import { isCardPreviewServeUrl } from "@/lib/project-card-preview-path";
 
 export function ProjectPreviewImage({
   src,
@@ -15,8 +15,9 @@ export function ProjectPreviewImage({
   className?: string;
 }) {
   const [failed, setFailed] = useState(false);
-  const resolved = src && !failed ? resolveModelFetchUrl(src) : null;
-  const isLocal = resolved?.startsWith("/") ?? false;
+  const resolved = src && !failed ? src : null;
+  const isApiPreview = resolved ? isCardPreviewServeUrl(resolved) : false;
+  const isLocalStatic = resolved?.startsWith("/") && !isApiPreview;
 
   if (!resolved) {
     return (
@@ -30,13 +31,28 @@ export function ProjectPreviewImage({
     );
   }
 
+  if (isApiPreview) {
+    return (
+      <div className={cn("relative shrink-0 overflow-hidden bg-surface-container", className ?? "aspect-video")}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={resolved}
+          alt={alt}
+          className="h-full w-full object-cover object-center"
+          loading="lazy"
+          onError={() => setFailed(true)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className={cn("relative shrink-0 overflow-hidden bg-surface-container", className ?? "aspect-video")}>
       <Image
         src={resolved}
         alt={alt}
         fill
-        unoptimized={!isLocal}
+        unoptimized={!isLocalStatic}
         className="object-cover object-center"
         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
         onError={() => setFailed(true)}

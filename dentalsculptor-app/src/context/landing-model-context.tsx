@@ -206,11 +206,15 @@ export function LandingModelProvider({ children }: { children: React.ReactNode }
 
       const contentType = res.headers.get("content-type") ?? "";
       if (!contentType.includes("application/json")) {
-        throw new Error(
-          res.ok
-            ? "Unexpected server response. Restart the dev server and try again."
-            : `Generation failed (${res.status}). Sign in may be required — refresh the page and retry.`
-        );
+        const statusMsg =
+          res.status === 504 || res.status === 502
+            ? GENERATION_COPY.gatewayTimeoutError
+            : res.status === 503
+              ? GENERATION_COPY.serviceUnavailableError
+              : res.ok
+                ? "Unexpected server response. Restart the dev server and try again."
+                : `Generation failed (${res.status}). Sign in may be required — refresh the page and retry.`;
+        throw new Error(statusMsg);
       }
 
       let data = await res.json();

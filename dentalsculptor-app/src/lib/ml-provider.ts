@@ -47,11 +47,22 @@ function modalQuality(value?: string): ModalQuality {
   return value === "preview" || value === "final" ? value : "standard";
 }
 
-export function isModalAsyncS3Enabled(): boolean {
-  return (
-    process.env.MODAL_ASYNC_S3_ENABLED === "true" &&
-    Boolean(process.env.MODAL_GENERATE_ASYNC_URL && process.env.MODAL_JOB_STATUS_URL)
+export function hasModalAsyncEndpoints(): boolean {
+  return Boolean(
+    process.env.MODAL_GENERATE_ASYNC_URL && process.env.MODAL_JOB_STATUS_URL
   );
+}
+
+export function isModalAsyncS3Enabled(): boolean {
+  if (!hasModalAsyncEndpoints()) return false;
+  // Sync Modal generation exceeds Vercel limits — async is mandatory in production.
+  if (process.env.VERCEL) return process.env.MODAL_ASYNC_S3_ENABLED !== "false";
+  if (process.env.MODAL_ASYNC_S3_ENABLED === "true") return true;
+  return false;
+}
+
+export function isServerlessHost(): boolean {
+  return Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
 }
 
 /** Spin up Modal GPU container (load model + optional CUDA warmup). Fire-and-forget. */

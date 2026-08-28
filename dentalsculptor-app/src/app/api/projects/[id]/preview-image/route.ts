@@ -1,7 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { generateAssetKey, uploadAsset } from "@/lib/storage";
+import {
+  saveProjectCardPreview,
+  streamProjectCardPreview,
+} from "@/lib/project-card-preview.server";
+
+export const maxDuration = 30;
+
+/** Stream the 3D viewport card preview PNG for a project. */
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const user = await getAuthUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id } = await params;
+  const owns = await prisma.project.count({ where: { id, ownerId: user.id } });
+  if (!owns) return NextResponse.json({ error: "Project not found." }, { status: 404 });
+
+  const asset = await streamProjectCardPreview(id);
+  if (!asset) {
+    return NextResponse.json({ error: "Preview not found." }, { status: 404 });
+  }
+
+  return new NextResponse(asset.body, {
+    status: 200,
+    headers: {
+      "Content-Type": asset.contentType,
+      "Cache-Control": "private, max-age=300",
+    },
+  });
+}
 
 /** Upload a 2.5D viewport capture of the generated 3D model for project cards. */
 export async function POST(
@@ -22,19 +53,7 @@ export async function POST(
   }
 
   const buffer = Buffer.from(await previewImage.arrayBuffer());
-  const key = generateAssetKey(user.id, `projects/${id}/preview-${Date.now()}.png`);
-  const previewUrl = await uploadAsset(key, buffer, previewImage.type || "image/png");
+  const key = await saveProjectCardPreview(id, buffer, previewImage.type || "image/png");
 
-  await prisma.$transaction([
-    prisma.dentalModel.updateMany({
-      where: { projectId: id },
-      data: { thumbnailUrl: previewUrl },
-    }),
-    prisma.project.update({
-      where: { id },
-      data: { thumbnailUrl: previewUrl },
-    }),
-  ]);
-
-  return NextResponse.json({ previewUrl, thumbnailUrl: previewUrl });
+  return NextResponse.json({ previewImageKey: key });
 }

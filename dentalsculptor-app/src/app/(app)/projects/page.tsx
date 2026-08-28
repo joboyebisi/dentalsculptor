@@ -17,7 +17,14 @@ function toListItem(project: {
   status: string;
   updatedAt: Date;
   thumbnailUrl?: string | null;
-  dentalModel?: { sourceImageUrl?: string | null; thumbnailUrl?: string | null } | null;
+  dentalModel?: {
+    sourceImageUrl?: string | null;
+    thumbnailUrl?: string | null;
+    previewImageKey?: string | null;
+    generated3DUrl?: string | null;
+    generated3DKey?: string | null;
+    meshData?: unknown;
+  } | null;
   _count: { annotations: number; learningObjectives: number };
 }): ProjectListItem {
   return {
@@ -43,7 +50,16 @@ export default async function ProjectsPage() {
           where: { ownerId: user.id },
           orderBy: { updatedAt: "desc" },
           include: {
-            dentalModel: { select: { sourceImageUrl: true, thumbnailUrl: true } },
+            dentalModel: {
+              select: {
+                sourceImageUrl: true,
+                thumbnailUrl: true,
+                previewImageKey: true,
+                generated3DUrl: true,
+                generated3DKey: true,
+                meshData: true,
+              },
+            },
             _count: { select: { annotations: true, learningObjectives: true } },
           },
         })

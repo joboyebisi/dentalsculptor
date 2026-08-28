@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { DentalViewer } from "@/components/three/dental-viewer";
+import { DentalViewer, type DentalViewerHandle } from "@/components/three/dental-viewer";
 import { autoProjectTitle } from "@/lib/auto-project-title";
 import { prepareGenerationImageDetailed } from "@/lib/prepare-generation-image";
 import { rotateImageFile } from "@/lib/image-rotation";
@@ -20,12 +20,15 @@ import {
   prepareGenerationNotification,
 } from "@/lib/generation-notifications";
 import { pollGenerationJob } from "@/lib/generation-jobs";
+import { captureAndUploadCardPreview } from "@/lib/upload-project-preview-image";
 import { requestGpuWarmup } from "@/lib/gpu-warmup";
 import type { GeneratedMesh } from "@/lib/model-generator";
 
 export default function NewProjectPage() {
   const router = useRouter();
   const previewUrlRef = useRef<string | null>(null);
+  const viewerRef = useRef<DentalViewerHandle>(null);
+  const previewUploadedRef = useRef(false);
   const [step, setStep] = useState(1);
   const [description, setDescription] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -53,6 +56,17 @@ export default function NewProjectPage() {
     const id = setInterval(() => setElapsedSec(Math.floor((Date.now() - start) / 1000)), 1000);
     return () => clearInterval(id);
   }, [processing]);
+
+  useEffect(() => {
+    if (step !== 3 || !projectId || previewUploadedRef.current) return;
+    if (!modelUrl && !meshData) return;
+    previewUploadedRef.current = true;
+    void captureAndUploadCardPreview(
+      projectId,
+      () => viewerRef.current?.capturePreview() ?? Promise.resolve(null),
+      { delayMs: 500, retries: 5 }
+    );
+  }, [step, projectId, modelUrl, meshData]);
 
   const revokePreview = useCallback((url: string | null) => {
     if (url?.startsWith("blob:")) URL.revokeObjectURL(url);
@@ -241,7 +255,7 @@ export default function NewProjectPage() {
               </p>
             )}
             <div className="mt-6 h-80 overflow-hidden rounded-xl border border-border-subtle">
-              <DentalViewer meshData={meshData} modelUrl={modelUrl} className="h-full" />
+              <DentalViewer ref={viewerRef} meshData={meshData} modelUrl={modelUrl} className="h-full" />
             </div>
             <div className="mt-8 flex gap-3">
               <Button className="flex-1" onClick={() => router.push(`/editor/${projectId}`)}>
