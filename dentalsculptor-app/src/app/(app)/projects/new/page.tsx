@@ -11,7 +11,7 @@ import { DentalViewer, type DentalViewerHandle } from "@/components/three/dental
 import { autoProjectTitle } from "@/lib/auto-project-title";
 import { prepareGenerationImageDetailed } from "@/lib/prepare-generation-image";
 import { rotateImageFile } from "@/lib/image-rotation";
-import { GENERATION_COPY } from "@/lib/generation-copy";
+import { GENERATION_COPY, DEFAULT_GENERATION_QUALITY } from "@/lib/generation-copy";
 import { GenerationNotifyOption } from "@/components/generation/generation-notify-option";
 import { GenerationImagePicker } from "@/components/generation/generation-image-picker";
 import { GenerationProgressDisplay } from "@/components/generation/generation-progress-display";
@@ -133,7 +133,7 @@ export default function NewProjectPage() {
         const genForm = new FormData();
         genForm.append("image", prepared.file);
         genForm.append("projectId", data.project.id);
-        genForm.append("quality", "preview");
+        genForm.append("quality", DEFAULT_GENERATION_QUALITY);
 
         const genRes = await fetch("/api/generate/mesh", { method: "POST", body: genForm });
         const genData = await genRes.json();

@@ -1,5 +1,4 @@
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
-import { prisma } from "@/lib/prisma";
 import { cardPreviewStorageKey } from "@/lib/project-card-preview-path";
 import {
   getS3Config,
@@ -13,6 +12,7 @@ import {
   isSupabaseStorageConfigured,
 } from "@/lib/supabase-server";
 
+/** Card previews use a deterministic storage key — no DB column required. */
 export async function saveProjectCardPreview(
   projectId: string,
   buffer: Buffer,
@@ -43,11 +43,6 @@ export async function saveProjectCardPreview(
     throw new Error("Storage is not configured for card previews.");
   }
 
-  await prisma.dentalModel.updateMany({
-    where: { projectId },
-    data: { previewImageKey: key },
-  });
-
   return key;
 }
 
@@ -55,11 +50,7 @@ export async function streamProjectCardPreview(projectId: string): Promise<{
   body: ReadableStream | ArrayBuffer;
   contentType: string;
 } | null> {
-  const dentalModel = await prisma.dentalModel.findUnique({
-    where: { projectId },
-    select: { previewImageKey: true },
-  });
-  const key = dentalModel?.previewImageKey ?? cardPreviewStorageKey(projectId);
+  const key = cardPreviewStorageKey(projectId);
 
   if (isS3BackendSelected() && isS3StorageConfigured()) {
     try {
@@ -87,12 +78,6 @@ export async function streamProjectCardPreview(projectId: string): Promise<{
 }
 
 export async function projectHasCardPreview(projectId: string): Promise<boolean> {
-  const dentalModel = await prisma.dentalModel.findUnique({
-    where: { projectId },
-    select: { previewImageKey: true },
-  });
-  if (dentalModel?.previewImageKey) return true;
-
   const key = cardPreviewStorageKey(projectId);
   if (isS3BackendSelected() && isS3StorageConfigured()) {
     try {

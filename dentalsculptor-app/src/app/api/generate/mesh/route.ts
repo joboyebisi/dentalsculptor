@@ -15,6 +15,7 @@ import {
 } from "@/lib/ml-provider";
 import { prisma } from "@/lib/prisma";
 import { generationErrorMessage, logGeneration } from "@/lib/generation-log";
+import { DEFAULT_GENERATION_QUALITY } from "@/lib/generation-copy";
 import { isModalAsyncDisabledError, modalAsyncDisabledHint } from "@/lib/generation-errors";
 import { persistGeneratedModelToProject } from "@/lib/persist-generated-model.server";
 import { generateAssetKey, uploadAsset } from "@/lib/storage";
@@ -57,9 +58,7 @@ export async function POST(req: NextRequest) {
   const quality =
     qualityRaw === "preview" || qualityRaw === "final" || qualityRaw === "standard"
       ? qualityRaw
-      : isModalAsyncS3Enabled()
-        ? "preview"
-        : "preview";
+      : DEFAULT_GENERATION_QUALITY;
   const seedValue = formData.get("seed");
   const seed =
     typeof seedValue === "string" && /^\d+$/.test(seedValue)

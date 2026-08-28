@@ -20,7 +20,6 @@ function toListItem(project: {
   dentalModel?: {
     sourceImageUrl?: string | null;
     thumbnailUrl?: string | null;
-    previewImageKey?: string | null;
     generated3DUrl?: string | null;
     generated3DKey?: string | null;
     meshData?: unknown;
@@ -54,7 +53,6 @@ export default async function ProjectsPage() {
               select: {
                 sourceImageUrl: true,
                 thumbnailUrl: true,
-                previewImageKey: true,
                 generated3DUrl: true,
                 generated3DKey: true,
                 meshData: true,

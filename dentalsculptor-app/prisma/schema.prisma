@@ -151,7 +151,6 @@ model DentalModel {
   generated3DUrl  String?
   generated3DKey  String?
   thumbnailUrl    String?
-  previewImageKey String?
   meshData        Json?
   processingStage String?
   createdAt       DateTime @default(now())

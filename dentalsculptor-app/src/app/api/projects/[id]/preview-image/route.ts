@@ -55,5 +55,5 @@ export async function POST(
   const buffer = Buffer.from(await previewImage.arrayBuffer());
   const key = await saveProjectCardPreview(id, buffer, previewImage.type || "image/png");
 
-  return NextResponse.json({ previewImageKey: key });
+  return NextResponse.json({ previewKey: key });
 }

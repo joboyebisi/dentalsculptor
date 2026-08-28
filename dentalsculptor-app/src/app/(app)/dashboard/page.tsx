@@ -61,7 +61,6 @@ export default async function DashboardPage() {
               select: {
                 sourceImageUrl: true,
                 thumbnailUrl: true,
-                previewImageKey: true,
                 generated3DUrl: true,
                 generated3DKey: true,
                 meshData: true,

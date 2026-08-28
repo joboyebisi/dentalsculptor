@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
-import { Download, Loader2, BookOpen, Sparkles, Share2 } from "lucide-react";
+import { Download, Loader2, BookOpen, Share2 } from "lucide-react";
 import { DentalViewer, type DentalViewerHandle } from "@/components/three/dental-viewer";
 import { Button } from "@/components/ui/button";
 import { useLandingModel } from "@/context/landing-model-context";
@@ -34,7 +34,6 @@ export function LandingModelPanel() {
     generationProgress,
     modelQuality,
     isEnhancing,
-    enhanceModel,
     canEnhance,
     isFinalModel,
     lastGenerationSeconds,
@@ -104,8 +103,8 @@ export function LandingModelPanel() {
       else if (nextStep === "publish") router.push(`/projects/${projectId}/publish`);
       else if (nextStep === "case-wizard") router.push(`/editor/${projectId}?caseWizard=1`);
       else router.push(`/editor/${projectId}`);
-    } catch {
-      setActionError("Could not continue. Try again.");
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Could not continue. Try again.");
     } finally {
       setBusy(null);
     }
@@ -170,24 +169,7 @@ export function LandingModelPanel() {
               {GENERATION_COPY.completedIn(lastGenerationSeconds)}
             </p>
           )}
-          {canEnhance && (
-            <Button
-              className="w-full bg-primary-container text-on-primary ring-2 ring-primary-container/30"
-              onClick={() => void enhanceModel()}
-              disabled={isEnhancing || isLoading || busy !== null}
-            >
-              {isEnhancing ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Sparkles className="mr-2 h-4 w-4" />
-              )}
-              {isEnhancing
-                ? GENERATION_COPY.enhancingQualityLabel
-                : "Build final 3D model"}
-            </Button>
-          )}
-
-          {isFinalModel && (
+          {(isFinalModel || (hasModel && !canEnhance && !isLoading)) && (
             <>
               <p className="text-center text-body-sm text-on-surface-variant">
                 {GENERATION_COPY.modelReadyHint}
@@ -235,12 +217,6 @@ export function LandingModelPanel() {
                 creates a shareable community project. Editing is optional.
               </p>
             </>
-          )}
-
-          {canEnhance && !isEnhancing && (
-            <p className="text-center text-body-sm text-on-surface-variant">
-              Preview loaded — build the final model for download, teaching cases, or editing.
-            </p>
           )}
 
           {actionError && (

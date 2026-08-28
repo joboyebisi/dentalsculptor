@@ -10,6 +10,7 @@ import {
 } from "@/lib/generation-notifications";
 import {
   GENERATION_COPY,
+  DEFAULT_GENERATION_QUALITY,
   GENERATION_FETCH_TIMEOUT_MS,
   GENERATION_POLL_INTERVAL_MS,
   GENERATION_POLL_MAX_ATTEMPTS,
@@ -182,7 +183,7 @@ export function LandingModelProvider({ children }: { children: React.ReactNode }
       requestGpuWarmup("generate");
       const formData = new FormData();
       formData.append("image", uploadedFile);
-      formData.append("quality", "preview");
+      formData.append("quality", DEFAULT_GENERATION_QUALITY);
       if (inviteCode) formData.append("accessCode", inviteCode);
 
       const controller = new AbortController();
@@ -251,9 +252,7 @@ export function LandingModelProvider({ children }: { children: React.ReactNode }
         setModelQuality(
           data.quality === "final" || data.quality === "standard"
             ? data.quality
-            : activeJobId
-              ? "preview"
-              : "standard"
+            : DEFAULT_GENERATION_QUALITY
         );
         setGenerationSource(
           data.source === "modal" ? "modal" : data.source === "fal" ? "fal" : "mock"

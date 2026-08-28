@@ -1,4 +1,5 @@
-/** User-facing copy for 3D generation — no vendor or model names. */
+/** Default mesh quality for user-facing generation (single-step, no preview→finalize). */
+export const DEFAULT_GENERATION_QUALITY = "standard" as const;
 export const GENERATION_COPY = {
   inProgressTitle: "Generating 3D model",
   inProgressDetail:

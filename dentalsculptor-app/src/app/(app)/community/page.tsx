@@ -26,7 +26,6 @@ function toCommunityCardItem(cp: {
     dentalModel?: {
       sourceImageUrl?: string | null;
       thumbnailUrl?: string | null;
-      previewImageKey?: string | null;
       generated3DUrl?: string | null;
       generated3DKey?: string | null;
       meshData?: unknown;
@@ -66,7 +65,6 @@ export default async function CommunityPage() {
                   select: {
                     sourceImageUrl: true,
                     thumbnailUrl: true,
-                    previewImageKey: true,
                     generated3DUrl: true,
                     generated3DKey: true,
                     meshData: true,
