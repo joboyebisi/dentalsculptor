@@ -58,11 +58,16 @@ BASE64_COMPAT_ENABLED = _env_bool("TRELLIS_BASE64_COMPAT_ENABLED", True)
 
 HF_CACHE_PATH = "/cache/huggingface"
 TRELLIS2_PATH = "/opt/TRELLIS.2"
-MODEL_NAME = "microsoft/TRELLIS.2-4B"
+BASE_MODEL_NAME = "microsoft/TRELLIS.2-4B"
+BASE_MODEL_REVISION = "af44b45f2e35a493886929c6d786e563ec68364d"
+# A candidate is deployed alongside the base model and promoted only by changing
+# these two environment values. Rolling back never mutates or deletes weights.
+MODEL_NAME = os.getenv("TRELLIS_MODEL_NAME", BASE_MODEL_NAME).strip()
+MODEL_REVISION = os.getenv("TRELLIS_MODEL_REVISION", BASE_MODEL_REVISION).strip()
 TRELLIS_COMMIT = "1762f493fe7731a3b7cc6b79ad5da7b015b516c1"
 
 HF_REPOSITORIES = {
-    MODEL_NAME: "af44b45f2e35a493886929c6d786e563ec68364d",
+    MODEL_NAME: MODEL_REVISION,
     "facebook/dinov3-vitl16-pretrain-lvd1689m": "ea8dc2863c51be0a264bab82070e3e8836b02d51",
     "briaai/RMBG-2.0": "5df4c9c76d8170882c34f6986e848ee07fd0ba43",
 }
@@ -143,6 +148,8 @@ def modal_runtime_env() -> dict[str, str]:
         "TRELLIS_BASE64_COMPAT_ENABLED": _bool_env(BASE64_COMPAT_ENABLED),
         "TRELLIS_DEPLOYMENT_ENV": DEPLOYMENT_ENV,
         "TRELLIS_MODAL_GPU": GPU_TYPE,
+        "TRELLIS_MODEL_NAME": MODEL_NAME,
+        "TRELLIS_MODEL_REVISION": MODEL_REVISION,
     }
 
 

@@ -470,6 +470,7 @@ class Nano3DEditService:
         source_model_url: str,
         operation: str,
         seed: int,
+        source_model_bytes: bytes | None = None,
     ) -> None:
         def update_stage(stage: str, progress: int) -> None:
             jobs_dict[job_id] = {
@@ -481,10 +482,15 @@ class Nano3DEditService:
             }
 
         try:
-            import urllib.request
+            if source_model_bytes is not None:
+                source_model = source_model_bytes
+            elif source_model_url:
+                import urllib.request
 
-            with urllib.request.urlopen(source_model_url, timeout=120) as response:
-                source_model = response.read()
+                with urllib.request.urlopen(source_model_url, timeout=120) as response:
+                    source_model = response.read()
+            else:
+                raise ValueError("A source model URL or inline GLB is required.")
             result = self.flowedit.edit_from_images(
                 source_image,
                 edited_image,
@@ -727,6 +733,7 @@ async def edit(
     referenceImage: UploadFile | None = File(None),
     sourceImage: UploadFile | None = File(None),
     editedImage: UploadFile | None = File(None),
+    sourceModel: UploadFile | None = File(None),
     referenceEdited: str = Form(""),
     variantRecipe: str = Form(""),
     seed: int = Form(1),
@@ -737,6 +744,7 @@ async def edit(
     reference_bytes = await referenceImage.read() if referenceImage else None
     source_image_bytes = await sourceImage.read() if sourceImage else None
     edited_image_bytes = await editedImage.read() if editedImage else None
+    source_model_bytes = await sourceModel.read() if sourceModel else None
     ref_edited = referenceEdited.strip().lower() in ("1", "true", "yes")
     jobs_dict[job_id] = {"jobId": job_id, "status": "queued", "progress": 0, "stage": "queued"}
     if variantRecipe:
@@ -751,7 +759,7 @@ async def edit(
             return {"jobId": job_id, "status": "queued", "provider": "dentalsculptor-geometry"}
     gpu_enabled = os.environ.get("NANO3D_GPU_ENABLED", "1").strip().lower() in ("1", "true", "yes")
     if gpu_enabled:
-        if not sourceModelUrl or not source_image_bytes or not edited_image_bytes:
+        if (not sourceModelUrl and not source_model_bytes) or not source_image_bytes or not edited_image_bytes:
             raise HTTPException(
                 status_code=422,
                 detail="DentalSculptor requires the source model and both images from an approved preview.",
@@ -763,6 +771,7 @@ async def edit(
             sourceModelUrl,
             operation,
             seed,
+            source_model_bytes,
         )
         return {"jobId": job_id, "status": "queued", "provider": "nano3d-flowedit"}
 

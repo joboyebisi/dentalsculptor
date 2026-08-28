@@ -192,8 +192,9 @@ def main() -> int:
         _write_result(run_dir, result)
         return 1
 
-    glb_b64 = gen.get("glbBase64") or gen.get("meshBase64")
+    glb_b64 = gen.get("glbBase64") or gen.get("meshBase64") or gen.get("modelBase64")
     model_url = gen.get("modelUrl") or gen.get("glbUrl")
+    glb_bytes: bytes | None = None
     if glb_b64:
         glb_bytes = base64.b64decode(glb_b64)
         (run_dir / "generated.glb").write_bytes(glb_bytes)
@@ -202,6 +203,9 @@ def main() -> int:
         (run_dir / "generated.glb").write_bytes(glb_bytes)
     else:
         print("  WARN: no inline GLB — continuing with source photo only for edit path")
+
+    if not model_url and glb_b64:
+        model_url = None  # pass GLB as file upload instead of oversized form field
 
     print("== 2) 2D inpaint preview ==")
     code, inp = post_multipart(
@@ -228,19 +232,26 @@ def main() -> int:
     edited_path.write_bytes(base64.b64decode(inp["previewBase64"]))
 
     print("== 3) Nano3D image-input edit ==")
+    edit_files: dict[str, tuple[str, Path]] = {
+        "sourceImage": ("source.png", args.source_image),
+        "editedImage": ("edited.png", edited_path),
+    }
+    if glb_bytes:
+        edit_files["sourceModel"] = ("generated.glb", run_dir / "generated.glb")
+    if not model_url and not glb_bytes:
+        print("ERROR: no source model for edit (missing GLB from generate step)")
+        _write_result(run_dir, result)
+        return 1
     code, edit = post_multipart(
         args.edit_url,
         secret,
         {
             "operation": "remove",
             "instruction": "Remove the masked cusp fragment and create an irregular oblique enamel fracture edge",
-            "sourceModelUrl": model_url or "https://example.invalid/smoke.glb",
+            "sourceModelUrl": model_url or "",
             "seed": str(args.seed),
         },
-        {
-            "sourceImage": ("source.png", args.source_image),
-            "editedImage": ("edited.png", edited_path),
-        },
+        edit_files,
     )
     result["steps"]["edit_submit"] = {"code": code, "response": edit}
     print(f"  edit HTTP {code} provider={edit.get('provider')}")
