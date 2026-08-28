@@ -3,6 +3,9 @@ import {
   guessModelContentType,
   isAllowedModelAssetUrl,
 } from "@/lib/model-asset-url";
+import { extractStorageKeyFromUrl } from "@/lib/storage";
+
+export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
   const rawUrl = req.nextUrl.searchParams.get("url");
@@ -29,25 +32,38 @@ export async function GET(req: NextRequest) {
     const upstream = await fetch(target.toString(), {
       headers: { "User-Agent": "DentalSculptor/1.0" },
       cache: "no-store",
+      signal: AbortSignal.timeout(120_000),
     });
 
     if (!upstream.ok) {
+      const storageKey = extractStorageKeyFromUrl(target.toString());
+      console.error(
+        "[models/proxy] upstream failed",
+        upstream.status,
+        storageKey ? `(storage key: ${storageKey})` : target.hostname
+      );
       return NextResponse.json(
-        { error: `Upstream returned ${upstream.status}` },
+        {
+          error:
+            upstream.status === 403
+              ? "Model link expired. Re-open the project to refresh."
+              : `Upstream returned ${upstream.status}`,
+        },
         { status: 502 }
       );
     }
 
-    const body = await upstream.arrayBuffer();
     const contentType =
       upstream.headers.get("content-type") ??
       guessModelContentType(target.pathname);
+    const contentLength = upstream.headers.get("content-length");
 
-    return new NextResponse(body, {
+    return new NextResponse(upstream.body, {
       status: 200,
       headers: {
         "Content-Type": contentType,
-        "Cache-Control": "public, max-age=86400",
+        ...(contentLength ? { "Content-Length": contentLength } : {}),
+        "Cache-Control": "public, max-age=3600",
         "Access-Control-Allow-Origin": "*",
       },
     });

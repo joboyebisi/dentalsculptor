@@ -48,6 +48,7 @@ import {
 import { GENERATION_COPY } from "@/lib/generation-copy";
 import { pollGenerationJob } from "@/lib/generation-jobs";
 import { uploadProjectPreviewImage } from "@/lib/upload-project-preview-image";
+import { projectModelServePath } from "@/lib/project-model-path";
 import { EDITOR_SURFACE } from "@/lib/constants";
 import { expandDentalPrompt } from "@/lib/dental-prompt-glossary";
 import { applyMasked2dPreview } from "@/lib/edit-2d-preview";
@@ -74,6 +75,7 @@ export interface EditorProject {
   dentalModel: {
     meshData: GeneratedMesh | null;
     generated3DUrl?: string | null;
+    modelServeUrl?: string | null;
     sourceImageUrl?: string | null;
     thumbnailUrl?: string | null;
     processingStage?: string | null;
@@ -108,7 +110,8 @@ export function EditorWorkspace({
   const maskOverlayRef = useRef<MaskPaintOverlayHandle>(null);
 
   const modelMeta = parseModelProcessingStage(project.dentalModel?.processingStage);
-  const initialModelUrl = project.dentalModel?.generated3DUrl ?? null;
+  const initialModelUrl =
+    project.dentalModel?.modelServeUrl ?? project.dentalModel?.generated3DUrl ?? null;
   const masterSnapshot = project.versions?.find((version) => version.label === "master-model")?.snapshot as
     | { modelUrl?: string }
     | undefined;
@@ -1003,7 +1006,7 @@ export function EditorWorkspace({
       }
 
       if (data.modelUrl) {
-        setModelUrl(data.modelUrl);
+        setModelUrl(projectModelServePath(projectId));
         setMtlUrl(data.mtlUrl ?? null);
         setModelFormat(data.format ?? detectModelFormat(data.modelUrl, data.format, data.mtlUrl));
         setModelLoadStatus("loading");

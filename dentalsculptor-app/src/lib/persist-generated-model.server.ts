@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { mirrorRemoteAssetToStorage } from "@/lib/mirror-remote-asset";
+import { extractStorageKeyFromUrl } from "@/lib/storage";
 import { serializeModelProcessingStage } from "@/lib/model-processing-stage";
 import { isSupabaseStorageConfigured } from "@/lib/supabase-server";
 import type { Prisma } from "@/generated/prisma/client";
@@ -47,6 +48,10 @@ export async function persistGeneratedModelToProject(
     } catch (error) {
       console.error("[persist-generated-model] mirror failed, keeping remote URL:", error);
     }
+  }
+
+  if (!generated3DKey && generated3DUrl) {
+    generated3DKey = extractStorageKeyFromUrl(generated3DUrl);
   }
 
   await prisma.dentalModel.updateMany({

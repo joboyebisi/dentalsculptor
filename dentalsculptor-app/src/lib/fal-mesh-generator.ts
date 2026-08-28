@@ -6,6 +6,7 @@ export const HUNYUAN_3D_MODEL = "fal-ai/hunyuan-3d/v3.1/rapid/image-to-3d";
 
 export interface FalMeshResult {
   modelUrl: string;
+  modelKey?: string;
   thumbnailUrl?: string;
   textureUrl?: string;
   mtlUrl?: string;

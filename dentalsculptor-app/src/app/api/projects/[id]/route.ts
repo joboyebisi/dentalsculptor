@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getS3AssetUrl } from "@/lib/storage";
+import {
+  resolveProjectModelStorageKey,
+  streamProjectModelAsset,
+} from "@/lib/project-model-asset.server";
+import { projectModelServePath } from "@/lib/project-model-path";
 
 export async function GET(
   _req: NextRequest,
@@ -29,13 +33,28 @@ export async function GET(
 
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  if (project.dentalModel?.generated3DKey) {
-    project.dentalModel.generated3DUrl = await getS3AssetUrl(
-      project.dentalModel.generated3DKey
-    );
+  const dentalModel = project.dentalModel
+    ? {
+        ...project.dentalModel,
+        modelServeUrl:
+          project.dentalModel.generated3DUrl || project.dentalModel.generated3DKey
+            ? projectModelServePath(id)
+            : null,
+      }
+    : null;
+
+  if (dentalModel && !dentalModel.generated3DKey && dentalModel.generated3DUrl) {
+    const recoveredKey = resolveProjectModelStorageKey(dentalModel);
+    if (recoveredKey && recoveredKey !== dentalModel.generated3DKey) {
+      await prisma.dentalModel.updateMany({
+        where: { projectId: id },
+        data: { generated3DKey: recoveredKey },
+      });
+      dentalModel.generated3DKey = recoveredKey;
+    }
   }
 
-  return NextResponse.json({ project });
+  return NextResponse.json({ project: { ...project, dentalModel } });
 }
 
 export async function PATCH(

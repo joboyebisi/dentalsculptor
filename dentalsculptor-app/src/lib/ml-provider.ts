@@ -212,6 +212,7 @@ export async function generateMeshViaModal(
     );
     return {
       modelUrl,
+      modelKey: key,
       format: "glb",
       requestId: data.jobId,
     };

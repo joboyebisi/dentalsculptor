@@ -1,3 +1,5 @@
+import { isSameOriginModelServeUrl } from "@/lib/project-model-path";
+
 const PROXY_PATH = "/api/models/proxy";
 
 /** Hosts we allow the server proxy to fetch (fal output + our storage). */
@@ -23,7 +25,7 @@ export function isAllowedModelAssetUrl(url: string): boolean {
 /** Same-origin URL for browser loaders (avoids CORS on fal.media). */
 export function resolveModelFetchUrl(url: string): string {
   if (!url || url.startsWith("local://") || url.startsWith("blob:")) return url;
-  if (url.startsWith(PROXY_PATH)) return url;
+  if (url.startsWith(PROXY_PATH) || isSameOriginModelServeUrl(url)) return url;
 
   try {
     if (typeof window !== "undefined") {
