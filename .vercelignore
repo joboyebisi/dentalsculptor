@@ -1,0 +1,12 @@
+# Vercel builds only dentalsculptor-app (configured as the project root).
+dentalsculptor-ml/
+bloom-v0/
+docs/benchmarks/
+*.jpg
+*.jpeg
+*.webp
+screen.png
+*.log
+.env.local
+**/.env.local
+**/__pycache__/
