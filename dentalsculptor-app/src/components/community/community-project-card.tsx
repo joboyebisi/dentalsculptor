@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { Heart, Download, Copy, Star } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Heart, Download, Star } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ProjectPreviewImage } from "@/components/projects/project-preview-image";
+import { CommunityCardActions } from "@/components/community/community-card-actions";
 
 export type CommunityProjectCardItem = {
   id: string;
@@ -70,13 +70,9 @@ export function CommunityProjectCard({ entry }: { entry: CommunityProjectCardIte
               {entry.rating.toFixed(1)}
             </span>
           </div>
-          <form action={`/api/community/${entry.project.id}/clone`} method="POST">
-            <Button size="sm" variant="outline" type="submit">
-              <Copy className="mr-1 h-3 w-3" />
-              Clone
-            </Button>
-          </form>
+          <span className="text-xs text-on-surface-variant">Open for details</span>
         </div>
+        <CommunityCardActions projectId={entry.project.id} initialLikes={entry.likes} />
       </CardContent>
     </Card>
   );

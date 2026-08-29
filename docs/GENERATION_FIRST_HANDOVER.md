@@ -1,6 +1,36 @@
 # DentalSculptor generation-first implementation handover
 
-**Updated:** 28 August 2026
+**Updated:** 29 August 2026
+
+## 29 August implementation increment
+
+- Community clone now verifies that the source is published, copies the GLB to
+  a new owner-scoped storage object, carries source/thumbnail assets, annotations,
+  objectives and assessments, and opens the new project with a `303` redirect.
+  A clone is no longer incorrectly counted as a download.
+- Published project cards and detail pages expose the same four primary actions:
+  **Like, Download, Clone and Share**. Direct downloads increment the published
+  project's download metric and return a named GLB attachment.
+- Dashboard generation now ends with the same action hierarchy as landing:
+  **Download or export**, **Publish and share**, optional **Create teaching case**,
+  and secondary **Open free editor**.
+- The fracture editor adds a straight fracture-boundary tool beside Paint and
+  Erase. Case-led editing locks the operation chosen by the case preset; only the
+  free editor exposes Add/Remove/Replace switching.
+- The principal fracture failure was fixed at the worker boundary: Three.js
+  serializes camera matrices column-major, while NumPy previously interpreted
+  them row-major. Correct transposition plus a small projection tolerance makes
+  a painted fragment or narrow fracture line select the intended mesh vertices.
+- GPU warm requests now refresh within the deployed scale-down window. A true
+  always-warm pool remains an explicit cost-bearing deployment choice via
+  `TRELLIS_RESEARCH_WARM_POOL=true`; do not enable it silently.
+
+Focused verification for this increment:
+
+- `npm run build` passes on Next.js 16.2.12.
+- `python -m unittest tests.test_camera_projection -v` passes both positive and
+  off-tooth projection cases.
+- `python -m compileall -q modal_app` passes.
 
 ## Product decision
 

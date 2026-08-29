@@ -2,9 +2,38 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { trackResearchEvent } from "@/lib/research-events";
+import { extractStorageKeyFromUrl, generateAssetKey, uploadAsset } from "@/lib/storage";
+import { streamProjectModelAsset, streamStorageObjectByKey } from "@/lib/project-model-asset.server";
+
+async function readBody(body: ReadableStream | ArrayBuffer): Promise<Buffer> {
+  if (body instanceof ArrayBuffer) return Buffer.from(body);
+  return Buffer.from(await new Response(body).arrayBuffer());
+}
+
+async function cloneAuxiliaryAsset(
+  userId: string,
+  url: string | null,
+  fallbackName: string
+): Promise<string | null> {
+  if (!url || url.startsWith("blob:") || url.startsWith("local://")) return null;
+  const storageKey = extractStorageKeyFromUrl(url);
+  const stored = storageKey ? await streamStorageObjectByKey(storageKey) : null;
+  if (stored) {
+    const key = generateAssetKey(userId, fallbackName);
+    return uploadAsset(key, await readBody(stored.body), stored.contentType);
+  }
+  const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(30_000) });
+  if (!response.ok) return null;
+  const key = generateAssetKey(userId, fallbackName);
+  return uploadAsset(
+    key,
+    Buffer.from(await response.arrayBuffer()),
+    response.headers.get("content-type") ?? "application/octet-stream"
+  );
+}
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ projectId: string }> }
 ) {
   const { projectId } = await params;
@@ -18,10 +47,38 @@ export async function POST(
       annotations: true,
       learningObjectives: true,
       assessments: true,
+      communityProject: true,
     },
   });
 
   if (!source) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  if (!source.communityProject?.published) {
+    return NextResponse.json({ error: "Published project not found." }, { status: 404 });
+  }
+
+  let clonedModel: {
+    generated3DUrl?: string;
+    generated3DKey?: string;
+    thumbnailUrl?: string | null;
+    sourceImageUrl?: string | null;
+    sourceFileUrl?: string | null;
+  } | null = null;
+  if (source.dentalModel) {
+    const asset = await streamProjectModelAsset(source.dentalModel);
+    if (!asset) {
+      return NextResponse.json({ error: "Published 3D asset is unavailable." }, { status: 502 });
+    }
+    const key = generateAssetKey(user.id, `${source.title || "community-model"}.glb`);
+    const generated3DUrl = await uploadAsset(key, await readBody(asset.body), asset.contentType);
+    clonedModel = {
+      generated3DUrl,
+      generated3DKey: key,
+      thumbnailUrl: await cloneAuxiliaryAsset(user.id, source.dentalModel.thumbnailUrl, "community-thumbnail.png"),
+      sourceImageUrl: await cloneAuxiliaryAsset(user.id, source.dentalModel.sourceImageUrl, "community-source-image.png"),
+      sourceFileUrl: await cloneAuxiliaryAsset(user.id, source.dentalModel.sourceFileUrl, "community-source-file.bin"),
+    };
+  }
 
   const cloned = await prisma.project.create({
     data: {
@@ -37,7 +94,11 @@ export async function POST(
         ? {
             create: {
               meshData: source.dentalModel.meshData ?? undefined,
-              sourceImageUrl: source.dentalModel.sourceImageUrl,
+              sourceImageUrl: clonedModel?.sourceImageUrl,
+              sourceFileUrl: clonedModel?.sourceFileUrl,
+              generated3DUrl: clonedModel?.generated3DUrl,
+              generated3DKey: clonedModel?.generated3DKey,
+              thumbnailUrl: clonedModel?.thumbnailUrl,
               processingStage: "complete",
             },
           }
@@ -69,14 +130,6 @@ export async function POST(
     },
   });
 
-  const community = await prisma.communityProject.findUnique({ where: { projectId } });
-  if (community) {
-    await prisma.communityProject.update({
-      where: { projectId },
-      data: { downloads: { increment: 1 } },
-    });
-  }
-
   await trackResearchEvent({
     userId: user.id,
     projectId: cloned.id,
@@ -84,5 +137,5 @@ export async function POST(
     metadata: { sourceProjectId: projectId },
   });
 
-  return NextResponse.redirect(new URL(`/editor/${cloned.id}`, process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"));
+  return NextResponse.redirect(new URL(`/editor/${cloned.id}`, req.url), 303);
 }

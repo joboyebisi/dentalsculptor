@@ -111,8 +111,12 @@ def _project_vertex_weights(
     if view.size != 16 or proj.size != 16:
         return weights
 
-    view = view.reshape(4, 4)
-    proj = proj.reshape(4, 4)
+    # THREE.Matrix4.toArray() serializes in column-major order. NumPy reshapes
+    # flat arrays in row-major order, so transpose both matrices before using
+    # them. Without this conversion the painted screen region is projected to
+    # the wrong part of the mesh (and commonly selects no vertices at all).
+    view = view.reshape(4, 4).T
+    proj = proj.reshape(4, 4).T
 
     ones = np.ones((n, 1), dtype=np.float64)
     v4 = np.hstack([vertices.astype(np.float64), ones])
@@ -127,11 +131,18 @@ def _project_vertex_weights(
     px = ((ndc_x * 0.5 + 0.5) * width).astype(int)
     py = ((1 - (ndc_y * 0.5 + 0.5)) * height).astype(int)
 
+    # A fracture line can be intentionally narrow. Sample a small screen-space
+    # neighbourhood so a valid line still intersects a decimated mesh whose
+    # projected vertices may fall between painted pixels.
+    tolerance = max(2, round(min(width, height) * 0.006))
     for i in range(n):
         if not visible[i]:
             continue
         x, y = px[i], py[i]
-        if 0 <= x < width and 0 <= y < height and mask[y, x]:
+        if 0 <= x < width and 0 <= y < height and mask[
+            max(0, y - tolerance) : min(height, y + tolerance + 1),
+            max(0, x - tolerance) : min(width, x + tolerance + 1),
+        ].any():
             weights[i] = 1.0
     return weights
 

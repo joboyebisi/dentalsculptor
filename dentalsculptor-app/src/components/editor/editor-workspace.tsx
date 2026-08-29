@@ -1244,6 +1244,8 @@ export function EditorWorkspace({
                   setMaskCoverage(0);
                   setMaskHasStrokes(false);
                 }}
+                allowFractureLine={selectedCase?.procedure === "pathology-add"}
+                lockOperation={Boolean(selectedCase)}
               />
             )}
 

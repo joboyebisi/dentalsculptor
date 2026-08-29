@@ -3,7 +3,7 @@
 import { useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from "react";
 import { cn } from "@/lib/utils";
 
-export type MaskBrushMode = "paint" | "erase";
+export type MaskBrushMode = "paint" | "erase" | "line";
 
 export interface MaskPaintOverlayHandle {
   clear: () => void;
@@ -35,6 +35,7 @@ export const MaskPaintOverlay = forwardRef<MaskPaintOverlayHandle, MaskPaintOver
     const drawingRef = useRef(false);
     const historyRef = useRef<ImageData[]>([]);
     const redoRef = useRef<ImageData[]>([]);
+    const lineStartRef = useRef<{ x: number; y: number; base: ImageData } | null>(null);
 
     const syncCanvasSize = useCallback(() => {
       const container = containerRef.current;
@@ -99,6 +100,19 @@ export const MaskPaintOverlay = forwardRef<MaskPaintOverlayHandle, MaskPaintOver
       ctx.beginPath();
       ctx.arc(x, y, brushSize / 2, 0, Math.PI * 2);
       ctx.fill();
+    };
+
+    const drawLine = (from: { x: number; y: number }, to: { x: number; y: number }) => {
+      const ctx = getCtx();
+      if (!ctx) return;
+      ctx.globalCompositeOperation = "source-over";
+      ctx.strokeStyle = "rgba(124, 58, 237, 0.55)";
+      ctx.lineWidth = brushSize;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x, to.y);
+      ctx.stroke();
     };
 
     const pointerPos = (e: React.PointerEvent) => {
@@ -221,16 +235,25 @@ export const MaskPaintOverlay = forwardRef<MaskPaintOverlayHandle, MaskPaintOver
             drawingRef.current = true;
             pushHistory();
             const { x, y } = pointerPos(e);
-            drawDot(x, y);
+            if (brushMode === "line") {
+              const canvas = canvasRef.current;
+              const ctx = getCtx();
+              if (canvas && ctx) lineStartRef.current = { x, y, base: ctx.getImageData(0, 0, canvas.width, canvas.height) };
+            } else drawDot(x, y);
           }}
           onPointerMove={(e) => {
             if (!interactive || !drawingRef.current) return;
             const { x, y } = pointerPos(e);
-            drawDot(x, y);
+            if (brushMode === "line" && lineStartRef.current) {
+              const ctx = getCtx();
+              ctx?.putImageData(lineStartRef.current.base, 0, 0);
+              drawLine(lineStartRef.current, { x, y });
+            } else drawDot(x, y);
           }}
           onPointerUp={(e) => {
             if (!interactive) return;
             drawingRef.current = false;
+            lineStartRef.current = null;
             e.currentTarget.releasePointerCapture(e.pointerId);
             onStrokeEnd?.();
             notifyStrokes();

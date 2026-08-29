@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Heart, Share2 } from "lucide-react";
+import { Check, Copy, Download, Heart, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -28,5 +28,5 @@ export function CommunityActions({ projectId, initialLikes, initialLiked }: { pr
     else { await navigator.clipboard.writeText(url); setCopied(true); window.setTimeout(() => setCopied(false), 1800); }
   }
 
-  return <div className="flex flex-wrap gap-2"><Button variant="outline" disabled={busy} onClick={() => void toggleLike()} className={cn(liked && "border-red-300 bg-red-50 text-red-700")}><Heart className={cn("mr-2 h-4 w-4", liked && "fill-current")} />{liked ? "Liked" : "Like"} · {likes}</Button><Button className="bg-primary-container text-on-primary" onClick={() => void share()}>{copied ? <Check className="mr-2 h-4 w-4" /> : <Share2 className="mr-2 h-4 w-4" />}{copied ? "Link copied" : "Share"}</Button></div>;
+  return <div className="flex flex-wrap gap-2"><Button variant="outline" disabled={busy} onClick={() => void toggleLike()} className={cn(liked && "border-red-300 bg-red-50 text-red-700")}><Heart className={cn("mr-2 h-4 w-4", liked && "fill-current")} />{liked ? "Liked" : "Like"} · {likes}</Button><Button variant="outline" asChild><a href={`/api/community/${projectId}/model?download=1`} download><Download className="mr-2 h-4 w-4" />Download</a></Button><form action={`/api/community/${projectId}/clone`} method="POST"><Button variant="outline" type="submit"><Copy className="mr-2 h-4 w-4" />Clone</Button></form><Button className="bg-primary-container text-on-primary" onClick={() => void share()}>{copied ? <Check className="mr-2 h-4 w-4" /> : <Share2 className="mr-2 h-4 w-4" />}{copied ? "Link copied" : "Share"}</Button></div>;
 }

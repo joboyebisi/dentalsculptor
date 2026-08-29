@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Download, FolderOpen, Layers3, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -246,8 +246,7 @@ export default function NewProjectPage() {
           <div>
             <h1 className="text-display-lg">3D Preview Ready</h1>
             <p className="mt-1 text-body-md text-on-surface-variant">
-              Your model has been generated and saved to this project. Open the editor to annotate
-              and author content.
+              Your model is ready. Download it, publish it for others, or optionally create a teaching case.
             </p>
             {lastGenerationSeconds != null && (
               <p className="mt-2 text-body-sm text-on-surface-variant">
@@ -257,13 +256,20 @@ export default function NewProjectPage() {
             <div className="mt-6 h-80 overflow-hidden rounded-xl border border-border-subtle">
               <DentalViewer ref={viewerRef} meshData={meshData} modelUrl={modelUrl} className="h-full" />
             </div>
-            <div className="mt-8 flex gap-3">
-              <Button className="flex-1" onClick={() => router.push(`/editor/${projectId}`)}>
-                Open Editor
+            <div className="mt-8 grid gap-3 sm:grid-cols-2">
+              <Button className="bg-primary-container text-on-primary" disabled={!projectId} onClick={() => router.push(`/projects/${projectId}/download`)}>
+                <Download className="mr-2 h-4 w-4" />Download or export
               </Button>
-              <Button variant="outline" onClick={() => router.push("/projects")}>
-                View All Projects
+              <Button variant="outline" disabled={!projectId} onClick={() => router.push(`/projects/${projectId}/publish`)}>
+                <Share2 className="mr-2 h-4 w-4" />Publish and share
               </Button>
+              <Button variant="outline" disabled={!projectId} onClick={() => router.push(`/editor/${projectId}?caseWizard=1`)}>
+                <Layers3 className="mr-2 h-4 w-4" />Create teaching case
+              </Button>
+              <Button variant="ghost" disabled={!projectId} onClick={() => router.push(`/editor/${projectId}`)}>
+                <FolderOpen className="mr-2 h-4 w-4" />Open free editor
+              </Button>
+              <Button variant="ghost" className="sm:col-span-2" onClick={() => router.push("/projects")}>View all projects</Button>
             </div>
           </div>
         )}

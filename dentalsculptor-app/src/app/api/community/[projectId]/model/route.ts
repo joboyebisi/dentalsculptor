@@ -5,7 +5,7 @@ import { streamProjectModelAsset } from "@/lib/project-model-asset.server";
 export const maxDuration = 60;
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ projectId: string }> }
 ) {
   const { projectId } = await params;
@@ -22,11 +22,21 @@ export async function GET(
     return NextResponse.json({ error: "Could not load the published model." }, { status: 502 });
   }
 
+  const download = req.nextUrl.searchParams.get("download") === "1";
+  if (download) {
+    await prisma.communityProject.update({
+      where: { projectId },
+      data: { downloads: { increment: 1 } },
+    });
+  }
   return new NextResponse(asset.body, {
     status: 200,
     headers: {
       "Content-Type": asset.contentType,
       "Cache-Control": "public, max-age=3600",
+      ...(download
+        ? { "Content-Disposition": `attachment; filename="dentalsculptor-${projectId}.glb"` }
+        : {}),
     },
   });
 }

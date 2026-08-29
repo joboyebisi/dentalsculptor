@@ -1,6 +1,20 @@
 # Case creation execution audit
 
-**Updated:** 28 August 2026
+**Updated:** 29 August 2026
+
+## Camera/mask execution correction
+
+The browser and geometry worker now share one tested projection convention.
+Three.js camera arrays are converted from column-major order before NumPy matrix
+multiplication. Narrow fracture-line masks use a small screen-space tolerance so
+decimated meshes do not miss a valid boundary between projected vertices. An
+off-tooth mask still selects nothing and fails safely.
+
+For guided cases, the case preset owns the operation. The compact toolbar does
+not expose Add/Remove/Replace switching, preventing a fracture or preparation
+case from contradicting its recipe. Cusp fracture alone adds a line tool; the
+other cases retain the same Goal → Target → Preview → Create layout with their
+case-specific target copy.
 
 ## Shared interaction contract
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { Brush, Eraser, Undo2, Trash2 } from "lucide-react";
+import { Brush, Eraser, Minus, Undo2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { EditOperation } from "@/lib/edit-types";
 import type { MaskBrushMode } from "@/components/editor/mask-paint-overlay";
@@ -20,6 +20,8 @@ interface EditorMaskToolbarProps {
   onOperationChange: (op: EditOperation) => void;
   onUndo: () => void;
   onClear: () => void;
+  allowFractureLine?: boolean;
+  lockOperation?: boolean;
 }
 
 const OPERATIONS: EditOperation[] = ["add", "remove", "replace"];
@@ -37,6 +39,8 @@ export function EditorMaskToolbar({
   onOperationChange,
   onUndo,
   onClear,
+  allowFractureLine = false,
+  lockOperation = false,
 }: EditorMaskToolbarProps) {
   if (!visible) return null;
 
@@ -65,6 +69,19 @@ export function EditorMaskToolbar({
         >
           <Brush className="h-3.5 w-3.5" />
         </button>
+        {allowFractureLine && <button
+          type="button"
+          title="Draw fracture line"
+          onClick={() => onBrushModeChange("line")}
+          className={cn(
+            "rounded-md p-1.5 transition-colors",
+            brushMode === "line"
+              ? "bg-primary-container/15 text-primary-container"
+              : "text-on-surface-variant hover:bg-surface-container-high"
+          )}
+        >
+          <Minus className="h-3.5 w-3.5 -rotate-45" />
+        </button>}
         <button
           type="button"
           title="Erase"
@@ -85,7 +102,7 @@ export function EditorMaskToolbar({
           {operationLabel(operation)}
         </span>
 
-        <select
+        {!lockOperation && <select
           value={operation}
           onChange={(e) => onOperationChange(e.target.value as EditOperation)}
           className="rounded-md border border-outline-variant bg-surface-container-lowest px-1.5 py-1 text-[10px] text-on-surface"
@@ -96,7 +113,7 @@ export function EditorMaskToolbar({
               {operationLabel(op)}
             </option>
           ))}
-        </select>
+        </select>}
 
         <span className="mx-0.5 h-5 w-px bg-outline-variant/60" />
 

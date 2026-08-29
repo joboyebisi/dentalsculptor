@@ -1,7 +1,10 @@
 import { resolveInviteCode } from "@/lib/research-invite";
 
 const WARM_SESSION_KEY = "ds-gpu-warm-at";
-const WARM_COOLDOWN_MS = 30 * 60_000;
+// Modal's development pool may scale down after 20 minutes. Refresh the warm
+// request sooner so returning from another dashboard workflow does not leave a
+// 10-minute window where the browser suppresses a needed warm-up.
+const WARM_COOLDOWN_MS = 10 * 60_000;
 
 export type GpuWarmupReason = "invite" | "upload" | "generate";
 
