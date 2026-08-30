@@ -14,9 +14,13 @@ import {
   isServerlessHost,
 } from "@/lib/ml-provider";
 import { prisma } from "@/lib/prisma";
-import { generationErrorMessage, logGeneration } from "@/lib/generation-log";
+import { logGeneration } from "@/lib/generation-log";
 import { DEFAULT_GENERATION_QUALITY } from "@/lib/generation-copy";
-import { isModalAsyncDisabledError, modalAsyncDisabledHint } from "@/lib/generation-errors";
+import {
+  generationErrorJson,
+  isModalAsyncDisabledError,
+  userFacingGenerationError,
+} from "@/lib/generation-errors";
 import { persistGeneratedModelToProject } from "@/lib/persist-generated-model.server";
 import { generateAssetKey, uploadAsset } from "@/lib/storage";
 
@@ -60,7 +64,7 @@ export async function POST(req: NextRequest) {
       ? qualityRaw
       : DEFAULT_GENERATION_QUALITY;
   const seedValue = formData.get("seed");
-  const seed =
+  const requestedSeed =
     typeof seedValue === "string" && /^\d+$/.test(seedValue)
       ? Number(seedValue)
       : undefined;
@@ -68,6 +72,17 @@ export async function POST(req: NextRequest) {
   if (!image?.size) {
     return NextResponse.json({ error: "Image file is required." }, { status: 400 });
   }
+  const imageBuffer = Buffer.from(await image.arrayBuffer());
+  const randomizeSeed = formData.get("randomizeSeed") === "true";
+  // Default reconstruction is content-stable: the prepared image and quality
+  // resolve to the same seed on every request. Randomization is opt-in for an
+  // educator explicitly asking for another interpretation.
+  const stableSeed = createHash("sha256")
+    .update(imageBuffer)
+    .update(`:${quality}`)
+    .digest()
+    .readUInt32BE(0) & 0x7fffffff;
+  const seed = requestedSeed ?? (randomizeSeed ? randomBytes(4).readUInt32BE(0) & 0x7fffffff : stableSeed);
 
   // Preserve the exact generation input. This is required for Nano3D's more
   // consistent image-input edit path and keeps library images visible when a
@@ -79,7 +94,6 @@ export async function POST(req: NextRequest) {
     if (!ownsProject) {
       return NextResponse.json({ error: "Project not found." }, { status: 404 });
     }
-    const sourceBuffer = Buffer.from(await image.arrayBuffer());
     const sourceExt = image.type === "image/png" ? "png" : "jpg";
     const sourceKey = generateAssetKey(
       user.id,
@@ -87,7 +101,7 @@ export async function POST(req: NextRequest) {
     );
     const sourceImageUrl = await uploadAsset(
       sourceKey,
-      sourceBuffer,
+      imageBuffer,
       image.type || "image/jpeg"
     );
     await prisma.dentalModel.upsert({
@@ -154,6 +168,7 @@ export async function POST(req: NextRequest) {
           ownerId: user?.id,
           projectId,
           quality,
+          seed,
           jobTokenHash,
         },
       });
@@ -176,6 +191,7 @@ export async function POST(req: NextRequest) {
             status: "queued",
             stage: "queued",
             progress: 0,
+            seed,
           },
           { status: 202 }
         );
@@ -199,10 +215,13 @@ export async function POST(req: NextRequest) {
           });
           await prisma.generationJob.delete({ where: { id: jobId } }).catch(() => undefined);
           if (isServerlessHost()) {
-            return NextResponse.json(
-              { error: modalAsyncDisabledHint(), traceId },
-              { status: 503 }
-            );
+            const { body, status } = generationErrorJson(errMsg, {
+              traceId,
+              jobId,
+              upstream: "createModalGenerationJob",
+              httpStatus: 503,
+            });
+            return NextResponse.json(body, { status });
           }
           // Fall through to sync MODAL_GENERATE_URL below (local dev only).
         } else {
@@ -223,14 +242,11 @@ export async function POST(req: NextRequest) {
 
     if (provider === "modal") {
       if (isServerlessHost() && !isModalAsyncS3Enabled()) {
-        return NextResponse.json(
-          {
-            error:
-              "Production generation requires Modal async job endpoints. Set MODAL_GENERATE_ASYNC_URL, MODAL_JOB_STATUS_URL, and MODAL_ASYNC_S3_ENABLED=true on Vercel.",
-            traceId,
-          },
-          { status: 503 }
+        const { body, status } = generationErrorJson(
+          "MODAL_GENERATE_ASYNC_URL or MODAL_JOB_STATUS_URL missing on serverless host",
+          { traceId, upstream: "generate/mesh", httpStatus: 503 }
         );
+        return NextResponse.json(body, { status });
       }
 
       const result = await generateMeshViaModal(image, user?.id ?? "anonymous", {
@@ -329,7 +345,7 @@ export async function POST(req: NextRequest) {
       phase: "failed",
       provider,
       error: errMsg,
-      detail: isModalAsyncDisabledError(errMsg) ? modalAsyncDisabledHint() : undefined,
+      detail: isModalAsyncDisabledError(errMsg) ? "Modal async S3 disabled on worker" : undefined,
     });
 
     const allowFallback =
@@ -348,7 +364,7 @@ export async function POST(req: NextRequest) {
       provider === "modal"
         ? error instanceof Error && error.message.startsWith("The tooth could not be isolated")
           ? error.message
-          : generationErrorMessage(error, traceId)
+          : userFacingGenerationError(error, { traceId, upstream: "generate/mesh" })
         : error instanceof Error
           ? error.message
           : "Mesh generation failed.";

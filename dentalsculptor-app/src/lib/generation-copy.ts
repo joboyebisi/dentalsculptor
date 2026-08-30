@@ -16,9 +16,13 @@ export const GENERATION_COPY = {
   timeoutError:
     "Generation took longer than expected. Please try again; the model may now be warm and complete faster.",
   gatewayTimeoutError:
-    "The server timed out before the 3D model finished. Retry in a moment — if this keeps happening, async GPU generation must be enabled on Vercel (MODAL_ASYNC_S3_ENABLED=true) and Modal redeployed with TRELLIS_ASYNC_S3_ENABLED=true.",
+    "The server timed out before the 3D model finished. Please wait a moment and try again — the GPU may still be starting.",
   serviceUnavailableError:
     "The reconstruction service is temporarily unavailable. Please wait a moment and try again.",
+  genericFailureError:
+    "We couldn't complete the 3D reconstruction. Please try again in a moment.",
+  coldStartRetryError:
+    "The GPU was still starting up. Please try again — the second attempt is usually faster.",
   notifyLabel: "Notify me when generation completes",
   notifyReadyTitle: "DentalSculptor",
   notifyReadyBody: "Your 3D model is ready to view.",

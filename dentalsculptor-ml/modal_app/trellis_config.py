@@ -53,7 +53,7 @@ ENABLE_TF32 = _env_bool("TRELLIS_ENABLE_TF32", True)
 # Warm CUDA kernels on every new container (scale-to-zero or warm pool).
 ENABLE_WARMUP = _env_bool("TRELLIS_ENABLE_WARMUP", True)
 HF_HUB_OFFLINE = _env_bool("TRELLIS_HF_HUB_OFFLINE", False)
-ASYNC_S3_ENABLED = _env_bool("TRELLIS_ASYNC_S3_ENABLED", False)
+ASYNC_S3_ENABLED = _env_bool("TRELLIS_ASYNC_S3_ENABLED", True)
 BASE64_COMPAT_ENABLED = _env_bool("TRELLIS_BASE64_COMPAT_ENABLED", True)
 
 HF_CACHE_PATH = "/cache/huggingface"
@@ -81,7 +81,10 @@ ALLOWED_IMAGE_MIME_TYPES = frozenset(
 # Match the higher-quality TRELLIS.2 Space preset used for dental evaluation.
 DEFAULT_PIPELINE_TYPE = "1024_cascade"
 DEFAULT_SEED = 0
-DEFAULT_RANDOMIZE_SEED = True
+# Dental reconstruction is repeatable by default. The web application derives a
+# stable seed from the prepared image; direct callers without a seed fall back
+# to DEFAULT_SEED. Variants must opt in by supplying another seed explicitly.
+DEFAULT_RANDOMIZE_SEED = False
 
 # Preserve anatomy for editing; simulator export performs target-specific reduction.
 DEFAULT_DECIMATION_TARGET = 300_000

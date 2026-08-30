@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getS3AssetUrl } from "@/lib/storage";
+import { logGeneration } from "@/lib/generation-log";
+import { userFacingGenerationError } from "@/lib/generation-errors";
 import type { Prisma } from "@/generated/prisma/client";
 
 function tokenMatches(supplied: string, expectedHash: string | null): boolean {
@@ -41,8 +43,23 @@ export async function GET(
   if (job.status === "QUEUED" || job.status === "RUNNING") {
     const statusUrl = process.env.MODAL_JOB_STATUS_URL;
     if (!statusUrl) {
+      logGeneration({
+        traceId: jobId,
+        phase: "failed",
+        jobId,
+        upstream: "MODAL_JOB_STATUS_URL",
+        error: "MODAL_JOB_STATUS_URL is not configured",
+      });
       return NextResponse.json(
-        { error: "MODAL_JOB_STATUS_URL is not configured." },
+        {
+          error: userFacingGenerationError("MODAL_JOB_STATUS_URL is not configured", {
+            traceId: jobId,
+            jobId,
+            upstream: "job-status",
+            httpStatus: 503,
+          }),
+          traceId: jobId,
+        },
         { status: 503 }
       );
     }
@@ -75,14 +92,68 @@ export async function GET(
     try {
       modalData = JSON.parse(raw) as typeof modalData;
     } catch {
+      logGeneration({
+        traceId: jobId,
+        phase: "poll",
+        jobId,
+        upstream: "modal-job-status",
+        httpStatus: modalRes.status,
+        error: raw.slice(0, 500),
+      });
       return NextResponse.json(
-        { error: `Generation status service failed (${modalRes.status}).` },
+        {
+          error: userFacingGenerationError(`Job status parse failed (${modalRes.status})`, {
+            traceId: jobId,
+            jobId,
+            upstream: "modal-job-status",
+            httpStatus: 502,
+          }),
+          traceId: jobId,
+        },
         { status: 502 }
       );
     }
+
+    // Job record may lag briefly right after accept — keep polling instead of failing.
+    if (modalRes.status === 404) {
+      logGeneration({
+        traceId: jobId,
+        phase: "poll",
+        jobId,
+        upstream: "modal-job-status",
+        httpStatus: 404,
+        detail: "Job not yet visible on worker — client should retry poll",
+      });
+      return NextResponse.json({
+        jobId: current.id,
+        status: "queued",
+        stage: current.stage ?? "queued",
+        progress: current.progress ?? 0,
+        quality: current.quality,
+        traceId: jobId,
+      });
+    }
+
     if (!modalRes.ok) {
+      const internal = modalData.error ?? modalData.detail ?? `Job status HTTP ${modalRes.status}`;
+      logGeneration({
+        traceId: jobId,
+        phase: "failed",
+        jobId,
+        upstream: "modal-job-status",
+        httpStatus: modalRes.status,
+        error: internal,
+      });
       return NextResponse.json(
-        { error: modalData.error ?? modalData.detail ?? "Job status unavailable." },
+        {
+          error: userFacingGenerationError(internal, {
+            traceId: jobId,
+            jobId,
+            upstream: "modal-job-status",
+            httpStatus: modalRes.status,
+          }),
+          traceId: jobId,
+        },
         { status: 502 }
       );
     }
@@ -128,9 +199,46 @@ export async function GET(
     }
   }
 
-  const modelUrl =
-    current.status === "COMPLETED" && current.resultKey
-      ? await getS3AssetUrl(current.resultKey)
+  let modelUrl: string | undefined;
+  if (current.status === "COMPLETED" && current.resultKey) {
+    try {
+      modelUrl = await getS3AssetUrl(current.resultKey);
+    } catch (storageError) {
+      const internal =
+        storageError instanceof Error ? storageError.message : String(storageError);
+      logGeneration({
+        traceId: jobId,
+        phase: "failed",
+        jobId,
+        upstream: "getS3AssetUrl",
+        error: internal,
+        resultKey: current.resultKey,
+      });
+      return NextResponse.json(
+        {
+          jobId: current.id,
+          status: "failed",
+          stage: "failed",
+          progress: 100,
+          error: userFacingGenerationError(internal, {
+            traceId: jobId,
+            jobId,
+            upstream: "getS3AssetUrl",
+          }),
+          traceId: jobId,
+        },
+        { status: 200 }
+      );
+    }
+  }
+
+  const safeError =
+    current.status === "FAILED" && current.error
+      ? userFacingGenerationError(current.error, {
+          traceId: jobId,
+          jobId,
+          upstream: "modal-generate-job",
+        })
       : undefined;
 
   return NextResponse.json({
@@ -146,6 +254,7 @@ export async function GET(
     pipelineType: current.pipelineType,
     timings: current.timings,
     metrics: current.metrics,
-    error: current.error,
+    error: safeError,
+    traceId: jobId,
   });
 }
