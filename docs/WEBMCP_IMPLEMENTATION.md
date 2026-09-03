@@ -12,6 +12,21 @@ cleanup is handled by Chrome Labs' `use-webmcp-tool` package. Page state control
 the `enabled` flag, so an agent cannot discover Create Variant before a marked
 target and approved preview exist.
 
+The hook is a React lifecycle adapter for the browser API illustrated by the
+WebMCP specification:
+
+```javascript
+document.modelContext.registerTool({
+  name: "dentalsculptor_inspect_app",
+  description: "Inspect the current DentalSculptor workspace and available next steps.",
+  inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  execute: async () => ({ content: [{ type: "text", text: "..." }] }),
+});
+```
+
+The production implementation uses typed React wrappers rather than registering
+this sample directly, preventing duplicate registrations across route changes.
+
 ## Human-agent boundary
 
 Agents can inspect state, navigate, start generation from an image the educator
@@ -59,3 +74,13 @@ Browser verification:
 WebMCP remains an early-preview API. Keep the wrapper isolated under
 `src/components/webmcp/` and update only that adapter if the specification
 changes.
+
+## Repository and hosting decision
+
+Keep the WebMCP adapter in the same repository and deployment as DentalSculptor.
+The tools need the production page's live React state, authenticated project,
+3D viewport, and revision history. The challenge accepts Vercel-hosted apps, and
+ChatGPT's in-app browser can open the same HTTPS deployment. ChatGPT Sites is an
+alternative host, not an additional runtime that a Vercel submission must use.
+A separate public mirror is appropriate only if the main repository cannot be
+public; it must not become a forked second implementation.

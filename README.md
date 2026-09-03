@@ -2,6 +2,29 @@
 
 **AI-Aided 3D authoring for dental educators** — an academic research platform for creating, editing, and sharing immersive dental learning experiences. Part of a doctoral research programme investigating educator agency, pedagogical ownership, and human–AI co-creation in dental education.
 
+**Live app:** [dentalsculptor.vercel.app](https://dentalsculptor.vercel.app)
+
+**WebMCP:** DentalSculptor exposes page-scoped tools so an educator and an agent can inspect generation state, create a 3D model from an educator-selected image, configure a teaching case, guide a reversible edit, and prepare the result for sharing or export in the same visible workspace.
+
+## WebMCP challenge quick start
+
+DentalSculptor keeps WebMCP inside the production application so tools share the
+same authenticated project, 3D scene, revision history, and educator approvals as
+the visible interface. A separate agent-only application would create a second
+source of truth and weaken the human-in-the-loop workflow.
+
+To try it:
+
+1. Open the [live app](https://dentalsculptor.vercel.app) in ChatGPT's in-app browser; or enable `chrome://flags/#enable-webmcp-testing` in a compatible Chrome build and open the same URL.
+2. Ask the agent to inspect DentalSculptor. On the landing page it can report generation readiness and navigate workspaces.
+3. Select a dental image in the visible UI, then ask the agent to generate the 3D model.
+4. Continue to a guided teaching case or Free Editor. The agent can synchronize a preset and open the marking tool; the educator marks the clinical target and approves the preview.
+5. Ask the agent to create the reversible variant, then use the visible export or share flow.
+
+WebMCP is additive: browsers without `document.modelContext` retain the existing
+DentalSculptor experience. Public or irreversible clinical actions remain under
+explicit educator control. See [WebMCP implementation and verification](./docs/WEBMCP_IMPLEMENTATION.md).
+
 | | |
 |---|---|
 | **App** | [`dentalsculptor-app/`](./dentalsculptor-app/) — Next.js 16 production application |
@@ -25,6 +48,8 @@
 | [**Sprint Roadmap**](./docs/SPRINT_ROADMAP.md) | **Active task tracker** — OAuth, edit, export, placement, multilayer |
 | [**Pilot release (27 Aug 2026)**](./docs/PILOT_RELEASE_2026-08-27.md) | **Latest push inventory** — Nano3D Modal fix, evaluation UX, benchmarks |
 | [**Real-time evaluation handoff**](./docs/REALTIME_EVALUATION_HANDOFF.md) | Pilot gates: generation → edit → export study path |
+| [**WebMCP implementation**](./docs/WEBMCP_IMPLEMENTATION.md) | Agent tool contract, human approval boundary and browser verification |
+| [**WebMCP Challenge submission**](./docs/WEBMCP_CHALLENGE_SUBMISSION.md) | Judge walkthrough, write-up draft and release checklist |
 | [**Supabase OAuth Setup**](./docs/SUPABASE_OAUTH_SETUP.md) | Google + Microsoft SSO configuration |
 | [**Design System**](./DESIGN.md) | Clinical Precision design tokens |
 | [App README](./dentalsculptor-app/README.md) | Setup, env vars, deployment |
@@ -89,4 +114,4 @@ See [Implementation Plan § Research](./docs/IMPLEMENTATION_PLAN.md#7-research-p
 
 ## License
 
-Proprietary — DentalSculptor Research Programme. Contact the research team for reuse permissions.
+Licensed under the [MIT License](./LICENSE).
