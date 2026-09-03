@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { extractStorageKeyFromUrl } from "@/lib/storage";
 import type { EditJobStatus } from "@/generated/prisma/client";
 
 export interface CreateEditJobInput {
@@ -96,6 +97,7 @@ export async function acceptEditJob(jobId: string, ownerId: string) {
       where: { projectId: job.projectId },
       data: {
         generated3DUrl: job.resultModelUrl,
+        generated3DKey: extractStorageKeyFromUrl(job.resultModelUrl),
         processingStage: JSON.stringify({
           format: job.resultFormat ?? "glb",
           source: "nano3d",
@@ -127,6 +129,7 @@ export async function rejectEditJob(jobId: string, ownerId: string) {
       where: { projectId: job.projectId },
       data: {
         generated3DUrl: job.sourceModelUrl,
+        generated3DKey: extractStorageKeyFromUrl(job.sourceModelUrl),
         processingStage: JSON.stringify({
           format: "glb",
           source: "nano3d-revert",

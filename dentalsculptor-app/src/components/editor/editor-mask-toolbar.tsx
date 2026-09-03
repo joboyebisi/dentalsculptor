@@ -1,6 +1,6 @@
 "use client";
 
-import { Brush, Eraser, Minus, Undo2, Trash2 } from "lucide-react";
+import { Brush, Eraser, Scissors, Undo2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { EditOperation } from "@/lib/edit-types";
 import type { MaskBrushMode } from "@/components/editor/mask-paint-overlay";
@@ -80,7 +80,7 @@ export function EditorMaskToolbar({
               : "text-on-surface-variant hover:bg-surface-container-high"
           )}
         >
-          <Minus className="h-3.5 w-3.5 -rotate-45" />
+          <Scissors className="h-3.5 w-3.5 -rotate-45" />
         </button>}
         <button
           type="button"

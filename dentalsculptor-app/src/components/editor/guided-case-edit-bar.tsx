@@ -13,6 +13,7 @@ export function GuidedCaseEditBar({
   onPaint,
   onPreview,
   onCreate,
+  canCreate = true,
   markLabel,
   previewLabel,
   createLabel,
@@ -25,6 +26,7 @@ export function GuidedCaseEditBar({
   onPaint: () => void;
   onPreview: () => void;
   onCreate: () => void;
+  canCreate?: boolean;
   markLabel: string;
   previewLabel: string;
   createLabel: string;
@@ -49,7 +51,7 @@ export function GuidedCaseEditBar({
       ) : !hasPreview ? (
         <Button onClick={onPreview} disabled={previewLoading} className="bg-primary-container text-on-primary"><Eye className="mr-2 h-4 w-4" />{previewLoading ? "Preparing preview…" : previewLabel}</Button>
       ) : (
-        <Button onClick={onCreate} disabled={editLoading} className="bg-primary-container text-on-primary"><Sparkles className="mr-2 h-4 w-4" />{editLoading ? "Creating…" : createLabel}</Button>
+        <Button onClick={onCreate} disabled={editLoading || !canCreate} className="bg-primary-container text-on-primary"><Sparkles className="mr-2 h-4 w-4" />{editLoading ? "Creating…" : createLabel}</Button>
       )}
     </div>
   );

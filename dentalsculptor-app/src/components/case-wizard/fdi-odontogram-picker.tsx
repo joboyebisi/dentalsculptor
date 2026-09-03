@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import Image from "next/image";
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { fdiToothType, toothTypeLabel, type ToothType } from "@/lib/tooth-taxonomy";
 
@@ -128,10 +127,6 @@ export function FdiOdontogramPicker({ value, onChange, onToothTypeChange }: FdiO
   const [numbering, setNumbering] = useState<"fdi" | "iso">("fdi");
   const [manualError, setManualError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (value) setManualInput(value);
-  }, [value]);
-
   const selectedType = useMemo(() => fdiToothType(value), [value]);
 
   const selectFdi = (fdi: string) => {
@@ -184,14 +179,14 @@ export function FdiOdontogramPicker({ value, onChange, onToothTypeChange }: FdiO
       </div>
 
       <div className="overflow-hidden rounded-xl border border-outline-variant/70 bg-white p-2 sm:p-3">
-        <div className="relative mx-auto aspect-[4/3] w-full max-w-xl">
-          <Image
+        <div className="relative mx-auto aspect-[4/3] w-full max-w-xl min-h-[200px]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
             src={CHART_IMAGE}
             alt="ISO 3950 permanent dentition chart showing all tooth types and numbers"
-            fill
-            className="object-contain"
-            sizes="(max-width: 768px) 100vw, 560px"
-            priority
+            className="h-full w-full object-contain"
+            loading="eager"
+            decoding="async"
           />
         </div>
         <p className="mt-2 text-center text-[10px] text-on-surface-variant">

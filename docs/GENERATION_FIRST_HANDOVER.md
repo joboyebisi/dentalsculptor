@@ -315,6 +315,26 @@ until annotation authoring is completed.
   no `previewImageKey` database column is required.
 - Cusp-fracture smoke test passes when edit jobs submit `sourceModel` inline.
 
+## 3 September 2026 deterministic-edit correction
+
+- `variant_geometry.py` now falls back from manifold Boolean subtraction to a
+  capped surface clip for non-watertight generated meshes. It does not silently
+  return the source model.
+- `edit-jobs.server.ts` updates/clears the storage key whenever an edited or
+  reverted URL becomes current, preventing export from resolving the stale
+  master asset.
+- `scripts/test_variant_geometry.py` includes a deliberately open source mesh
+  and asserts that source faces are removed, cap faces are created and the GLB
+  remains valid.
+- Verified locally: all 18 deterministic geometry presets, the open-mesh
+  fracture fallback, 9 guided case templates, 14 free-editor strategies and the
+  full Next.js production build.
+
+Post-deploy cusp-fracture gate: paint a visible cusp target, approve the 2D
+proposal, wait for the 3D revision, accept it, then download both GLB and STL.
+The editor mask must clear after completion, the revision must remain visibly
+fractured after reload, and exported geometry must differ from the master.
+
 ## Known infrastructure notes
 
 - Cold GPU start can still take several minutes; session warmup via

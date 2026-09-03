@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, Share2, X } from "lucide-react";
+import { Check, Copy, Download, Share2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { jsonResponseError, readJsonResponse } from "@/lib/safe-json-response";
 
@@ -60,6 +60,7 @@ export function ShareProjectDialog({ open, onClose, projectId, projectTitle, has
           {error && <p className="text-body-sm text-error">{error}</p>}
         </div>
         <div className="flex justify-end gap-2 border-t border-outline-variant px-5 py-4">
+          {published && <Button type="button" variant="outline" asChild><a href={`/projects/${projectId}/download`}><Download className="mr-2 h-4 w-4" />Download or export</a></Button>}
           {published && <Button type="button" variant="outline" onClick={() => void copyLink()}>{copied ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}{copied ? "Copied" : "Copy gallery link"}</Button>}
           <Button type="button" className="bg-primary-container text-on-primary" disabled={!hasModel || publishing || published} onClick={() => void publish()}>{publishing ? "Publishing…" : published ? "Published" : "Publish"}</Button>
         </div>

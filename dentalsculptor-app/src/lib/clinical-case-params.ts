@@ -91,7 +91,7 @@ export const CARIES_CLINICAL_FIELDS: ClinicalParameterField[] = [
     id: "surface",
     label: "Surface",
     type: "surface",
-    required: true,
+    required: false,
     options: [
       { value: "occlusal", label: "Occlusal" },
       { value: "buccal", label: "Buccal" },
@@ -106,7 +106,7 @@ export const CARIES_CLINICAL_FIELDS: ClinicalParameterField[] = [
     id: "site",
     label: "Site / location detail",
     type: "site",
-    required: true,
+    required: false,
     helpText: "e.g. central fissure, buccal pit, proximal box",
     mapsTo: "pathology",
   },
@@ -114,7 +114,7 @@ export const CARIES_CLINICAL_FIELDS: ClinicalParameterField[] = [
     id: "depth",
     label: "Lesion depth",
     type: "depth",
-    required: true,
+    required: false,
     options: [
       { value: "enamel-only", label: "Enamel only" },
       { value: "outer-dentin", label: "Outer dentin" },
@@ -127,7 +127,7 @@ export const CARIES_CLINICAL_FIELDS: ClinicalParameterField[] = [
     id: "tissueInvolvement",
     label: "Tissue involvement",
     type: "tissue-involvement",
-    required: true,
+    required: false,
     options: [
       { value: "enamel", label: "Enamel" },
       { value: "dentin", label: "Dentin" },
@@ -139,7 +139,7 @@ export const CARIES_CLINICAL_FIELDS: ClinicalParameterField[] = [
     id: "pulpProximity",
     label: "Pulp proximity",
     type: "pulp-proximity",
-    required: true,
+    required: false,
     options: [
       { value: "not-involved", label: "Not involved" },
       { value: "near", label: "Near pulp" },
@@ -163,7 +163,7 @@ export const ANATOMY_CLINICAL_FIELDS: ClinicalParameterField[] = [
     id: "toothType",
     label: "Tooth type",
     type: "select",
-    required: true,
+    required: false,
     options: [
       { value: "incisor", label: "Incisor" },
       { value: "canine", label: "Canine" },
@@ -175,7 +175,7 @@ export const ANATOMY_CLINICAL_FIELDS: ClinicalParameterField[] = [
     id: "structuresToLabel",
     label: "Structures to identify",
     type: "multiselect",
-    required: true,
+    required: false,
     options: [
       { value: "cusps", label: "Cusps" },
       { value: "fossae", label: "Fossae" },
@@ -242,7 +242,7 @@ export const CROWN_PREP_CLINICAL_FIELDS: ClinicalParameterField[] = [
     id: "archContext",
     label: "Arch context",
     type: "select",
-    required: true,
+    required: false,
     options: [
       { value: "lower", label: "Lower jaw" },
       { value: "upper", label: "Upper jaw" },
@@ -252,7 +252,7 @@ export const CROWN_PREP_CLINICAL_FIELDS: ClinicalParameterField[] = [
     id: "marginType",
     label: "Margin design",
     type: "select",
-    required: true,
+    required: false,
     options: [
       { value: "chamfer", label: "Chamfer" },
       { value: "shoulder", label: "Shoulder" },
@@ -264,7 +264,7 @@ export const CROWN_PREP_CLINICAL_FIELDS: ClinicalParameterField[] = [
     id: "occlusalReductionMm",
     label: "Target occlusal reduction (mm)",
     type: "number",
-    required: true,
+    required: false,
     helpText: "Typical full crown: 1.5–2.0 mm",
     mapsTo: "assessment",
   },
@@ -272,7 +272,7 @@ export const CROWN_PREP_CLINICAL_FIELDS: ClinicalParameterField[] = [
     id: "protectedTissues",
     label: "Protected tissues",
     type: "multiselect",
-    required: true,
+    required: false,
     options: [
       { value: "pulp", label: "Pulp chamber" },
       { value: "neighbours", label: "Adjacent contacts" },
@@ -296,7 +296,7 @@ export const ENDO_ACCESS_INTRO_FIELDS: ClinicalParameterField[] = [
     id: "accessType",
     label: "Access type",
     type: "select",
-    required: true,
+    required: false,
     options: [
       { value: "molars", label: "Molar (trapezoidal)" },
       { value: "premolars", label: "Premolar" },
@@ -320,7 +320,7 @@ export const ENDO_ACCESS_CLINICAL_FIELDS: ClinicalParameterField[] = [
     id: "accessType",
     label: "Access type",
     type: "select",
-    required: true,
+    required: false,
     options: [
       { value: "molars", label: "Molar (trapezoidal)" },
       { value: "premolars", label: "Premolar" },
@@ -332,7 +332,7 @@ export const ENDO_ACCESS_CLINICAL_FIELDS: ClinicalParameterField[] = [
     id: "canalsExpected",
     label: "Canals to locate",
     type: "multiselect",
-    required: true,
+    required: false,
     options: [
       { value: "mb", label: "MB" },
       { value: "db", label: "DB" },
@@ -346,7 +346,7 @@ export const ENDO_ACCESS_CLINICAL_FIELDS: ClinicalParameterField[] = [
     id: "pulpProximity",
     label: "Pulp chamber status",
     type: "pulp-proximity",
-    required: true,
+    required: false,
     options: [
       { value: "vital", label: "Vital — roof intact" },
       { value: "partial-calc", label: "Partially calcified chamber" },

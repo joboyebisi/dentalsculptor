@@ -72,9 +72,9 @@ export const EDUCATOR_CASE_PICKS: EducatorCasePick[] = [
   {
     id: "caries",
     label: "Caries appearance",
-    subtitle: "Add or remove a localized visual lesion for teaching.",
-    primaryTemplateId: "caries-occlusal-excavation",
-    alternateTemplateIds: [],
+    subtitle: "Add a visual lesion, or choose excavation as a separate geometry case.",
+    primaryTemplateId: "caries-smooth-surface",
+    alternateTemplateIds: ["caries-occlusal-excavation"],
     studentYearLevels: [2, 3],
     exportTargets: ["simodont", "simtocare", "teaching-bundle"],
     teachingUses: ["Caries recognition", "Excavation discussion", "Visual case demonstrations"],

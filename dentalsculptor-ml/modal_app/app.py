@@ -49,7 +49,7 @@ from modal_app.trellis_config import (
 )
 from modal_app.workers.mesh_utils import generate_response_from_image
 from modal_app.workers.nano3d_utils import run_nano3d_edit
-from modal_app.workers.variant_geometry import run_case_variant
+from modal_app.workers.variant_geometry import run_case_variant, validate_variant_recipe
 from modal_app.workers.s3_results import (
     download_mesh_state,
     upload_generation_result,
@@ -471,6 +471,8 @@ class Nano3DEditService:
         operation: str,
         seed: int,
         source_model_bytes: bytes | None = None,
+        mask_bytes: bytes | None = None,
+        camera_json: str | None = None,
     ) -> None:
         def update_stage(stage: str, progress: int) -> None:
             jobs_dict[job_id] = {
@@ -496,6 +498,7 @@ class Nano3DEditService:
                 edited_image,
                 source_model,
                 operation,
+                mask_bytes,
                 seed=seed,
                 stage_callback=update_stage,
             )
@@ -521,6 +524,12 @@ class Nano3DEditService:
                 "inferenceSeconds": result["inferenceSeconds"],
                 "upstreamCommit": result["upstreamCommit"],
                 "boundsNormalizedToSource": result["boundsNormalizedToSource"],
+                "metrics": {
+                    "boundsDriftRatio": result.get("boundsDriftRatio"),
+                    "maskCoverageRatio": result.get("maskCoverageRatio"),
+                    "outsidePreviewChangeRatio": result.get("outsidePreviewChangeRatio"),
+                    "insidePreviewChangeRatio": result.get("insidePreviewChangeRatio"),
+                },
                 **stored,
             }
         except Exception as exc:
@@ -749,20 +758,33 @@ async def edit(
     jobs_dict[job_id] = {"jobId": job_id, "status": "queued", "progress": 0, "stage": "queued"}
     if variantRecipe:
         try:
-            recipe = json.loads(variantRecipe)
-        except json.JSONDecodeError as exc:
+            recipe = validate_variant_recipe(variantRecipe)
+        except (json.JSONDecodeError, ValueError) as exc:
             raise HTTPException(status_code=422, detail="Invalid teaching variant recipe.") from exc
-        if recipe.get("technique") in ("boolean", "material"):
-            if not sourceModelUrl or not mask_bytes or not camera:
+        if recipe.get("operation") != operation:
+            raise HTTPException(status_code=422, detail="Variant operation does not match its recipe.")
+        if not mask_bytes or not camera:
+            raise HTTPException(
+                status_code=422,
+                detail="A marked region and captured camera view are required for every teaching variant.",
+            )
+        if recipe.get("technique") in ("boolean", "deform", "material"):
+            if not sourceModelUrl:
                 raise HTTPException(status_code=422, detail="A source model, marked region, and camera view are required.")
             run_variant_job.spawn(job_id, sourceModelUrl, variantRecipe, mask_bytes, camera)
             return {"jobId": job_id, "status": "queued", "provider": "dentalsculptor-geometry"}
     gpu_enabled = os.environ.get("NANO3D_GPU_ENABLED", "1").strip().lower() in ("1", "true", "yes")
     if gpu_enabled:
-        if (not sourceModelUrl and not source_model_bytes) or not source_image_bytes or not edited_image_bytes:
+        if (
+            (not sourceModelUrl and not source_model_bytes)
+            or not source_image_bytes
+            or not edited_image_bytes
+            or not mask_bytes
+            or not camera
+        ):
             raise HTTPException(
                 status_code=422,
-                detail="DentalSculptor requires the source model and both images from an approved preview.",
+                detail="DentalSculptor requires the source model, approved image pair, mask, and camera.",
             )
         Nano3DEditService().edit_job.spawn(
             job_id,
@@ -772,14 +794,18 @@ async def edit(
             operation,
             seed,
             source_model_bytes,
+            mask_bytes,
+            camera or None,
         )
         return {"jobId": job_id, "status": "queued", "provider": "nano3d-flowedit"}
 
-    run_edit_job.spawn(
-        job_id, sourceModelUrl, operation, instruction, mask_bytes,
-        reference_bytes, camera or None, regionMarks or None, ref_edited,
+    raise HTTPException(
+        status_code=503,
+        detail=(
+            "Generative 3D editing is unavailable on this deployment. "
+            "Enable NANO3D_GPU_ENABLED or choose a deterministic edit preset."
+        ),
     )
-    return {"jobId": job_id, "status": "queued", "provider": "cpu-v1"}
 
 
 inpaint_image = trellis_gpu_image.pip_install(

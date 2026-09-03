@@ -1,6 +1,21 @@
 # Case creation execution audit
 
-**Updated:** 29 August 2026
+**Updated:** 3 September 2026
+
+## Deterministic removal and export correction
+
+Clinical removal no longer depends exclusively on a watertight solid Boolean.
+The worker first attempts the manifold Boolean; if a reconstruction has holes or
+non-manifold edges, it deterministically removes cutter-intersecting surface
+faces and caps each newly-created cut boundary. The master mesh remains
+immutable, the result records removed/cap face counts, and global bounds and
+centroid safety gates still apply. This fallback covers fracture, Class I/II,
+external endodontic access, excavation and crown-reduction recipes.
+
+Accepting or rejecting a revision now updates both `generated3DUrl` and
+`generated3DKey`. This is required because export/model streaming deliberately
+prefers a storage key; retaining the master's old key caused downloads to return
+unchanged geometry even after a valid edited URL had been accepted.
 
 ## Camera/mask execution correction
 
@@ -34,7 +49,7 @@ location and order of the controls do not.
 | Case | Default executable preset | Technique | Guided target | Result contract | Current limitation |
 |---|---|---|---|---|---|
 | Tooth identification | None | Annotation | Mark an anatomical point/region | Labels on unchanged master | Annotation authoring in the current CAM viewer is not complete; do not route this case into geometry editing. |
-| Cusp fracture | Oblique cusp fracture | Local Boolean removal | Paint enamel fragment to remove | Visibly missing localized cusp fragment | Imported non-watertight meshes may use localized deformation fallback. |
+| Cusp fracture | Oblique cusp fracture | Boolean or capped surface removal | Paint enamel fragment to remove | Visibly missing localized cusp fragment | Cut-face texture is approximated from the nearest source colour. |
 | Simple Class I | Standard Class I | Local Boolean removal | Paint preparation outline | Localized occlusal cavity | Depth is a requested recipe value, not yet a calibrated simulator measurement. |
 | Endodontic access | Conservative access | Local Boolean removal | Paint external access outline | External opening only | Does not assert or generate true pulp/canal anatomy. |
 | Caries appearance | Visual lesion for smooth-surface; excavation for occlusal | Vertex material or Boolean removal | Paint lesion area | Visual lesion or excavated cavity | Visual caries is not soft tissue and has no haptic hardness map. |

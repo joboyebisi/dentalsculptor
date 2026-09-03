@@ -68,7 +68,11 @@ export function filterPresetsForContext(
       ctx.templateId &&
       !preset.linkedTemplateIds.includes(ctx.templateId)
     ) {
-      return { preset, compatible: true };
+      return {
+        preset,
+        compatible: false,
+        reason: "This edit is not validated for the selected case template.",
+      };
     }
     if (preset.preferredSurfaces?.length && ctx.surface) {
       if (!preset.preferredSurfaces.includes(ctx.surface)) {

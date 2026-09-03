@@ -5,6 +5,9 @@ docs/benchmarks/
 *.jpg
 *.jpeg
 *.webp
+# Keep bundled clinical assets (ISO FDI chart lives here).
+!public/dental/**
+!dentalsculptor-app/public/dental/**
 screen.png
 *.log
 .env.local

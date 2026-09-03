@@ -46,23 +46,44 @@ export function editErrorMessage(error: unknown, fallback = "Edit job failed."):
   return fallback;
 }
 
+export interface EditProofMetrics {
+  techniqueUsed?: string;
+  boundsDriftRatio?: number;
+  centroidDriftRatio?: number;
+  volumeChangeRatio?: number;
+  watertight?: boolean;
+  maskCoverageRatio?: number;
+  outsidePreviewChangeRatio?: number;
+}
+
 export function formatEditProofDetail(input: {
   maskedVertexRatio?: number;
   regionMarkCount?: number;
   stage?: string;
+  metrics?: EditProofMetrics;
 }): string | null {
   const parts: string[] = [];
-  if (input.stage) parts.push(`DentalSculptor ${input.stage}`);
+  if (input.metrics?.techniqueUsed) {
+    parts.push(input.metrics.techniqueUsed.replace(/-/g, " "));
+  } else if (input.stage) {
+    parts.push(`DentalSculptor ${input.stage}`);
+  }
   if (typeof input.maskedVertexRatio === "number") {
     const pct = (input.maskedVertexRatio * 100).toFixed(1);
     parts.push(
       input.maskedVertexRatio > 0
-        ? `${pct}% mesh vertices in mask — deformation applied`
+        ? `${pct}% mesh vertices targeted`
         : "0% vertices in mask — try repainting or adjusting the view"
     );
   }
   if (input.regionMarkCount) {
     parts.push(`${input.regionMarkCount} region mark${input.regionMarkCount === 1 ? "" : "s"}`);
+  }
+  if (typeof input.metrics?.boundsDriftRatio === "number") {
+    parts.push(`${(input.metrics.boundsDriftRatio * 100).toFixed(1)}% bounds drift`);
+  }
+  if (typeof input.metrics?.outsidePreviewChangeRatio === "number") {
+    parts.push(`${(input.metrics.outsidePreviewChangeRatio * 100).toFixed(1)}% outside-mask preview change`);
   }
   return parts.length > 0 ? parts.join(" · ") : null;
 }

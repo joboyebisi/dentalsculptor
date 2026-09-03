@@ -30,6 +30,7 @@ export const EDIT_PRESETS: EditPreset[] = [
     operation: "remove",
     category: "pathology",
     editMode: "both",
+    linkedTemplateIds: ["caries-occlusal-excavation"],
     prompt: "Remove dark carious dentin in the masked region, preserve surrounding sound enamel",
     hapticNote:
       "Visual cavity only — Simodont STL import drills with uniform hardness. Soft caries feel requires native Simodont cariology or TrueTeethLab.",
@@ -40,6 +41,7 @@ export const EDIT_PRESETS: EditPreset[] = [
     operation: "add",
     category: "pathology",
     editMode: "texture",
+    linkedTemplateIds: ["caries-smooth-surface"],
     prompt: "Add realistic brown carious lesion texture in the masked occlusal region",
     hapticNote:
       "Adds visual lesion texture only. Target simulator applies its own haptic material after import.",
@@ -66,6 +68,16 @@ export const EDIT_PRESETS: EditPreset[] = [
     prompt: "Class I occlusal cavity preparation with uniform depth and defined margins",
   },
   {
+    id: "class2-prep",
+    label: "Class II proximal box",
+    operation: "remove",
+    category: "restorative",
+    editMode: "geometry",
+    compatibleToothTypes: ["premolar", "molar"],
+    linkedTemplateIds: ["prep-class-2-box"],
+    prompt: "Create a conservative proximal box only inside the masked mesial or distal region",
+  },
+  {
     id: "endo-access",
     label: "Endo access",
     operation: "remove",
@@ -82,6 +94,7 @@ export const EDIT_PRESETS: EditPreset[] = [
     operation: "remove",
     category: "restorative",
     editMode: "geometry",
+    linkedTemplateIds: ["crown-prep-premolar"],
     prompt: "Reduce axial and occlusal surfaces for full crown clearance with chamfer margin",
   },
   {
@@ -153,4 +166,26 @@ export function getEditPresetsByCategory(category: EditPresetCategory): EditPres
 
 export function getEditPreset(id: string): EditPreset | undefined {
   return EDIT_PRESETS.find((p) => p.id === id);
+}
+
+/** Case templates bind to edit presets; variant preset ids (e.g. fracture-oblique) are not edit presets. */
+export function resolveActiveEditPreset(input: {
+  selectedCaseEditPresetIds?: string[];
+  activePresetId?: string | null;
+  activeOperation?: EditOperation;
+}): EditPreset | null {
+  const casePresets = input.selectedCaseEditPresetIds
+    ?.map(getEditPreset)
+    .filter((preset): preset is EditPreset => Boolean(preset));
+  if (casePresets?.length) {
+    return (
+      casePresets.find((preset) => preset.operation === input.activeOperation) ??
+      casePresets[0] ??
+      null
+    );
+  }
+  if (input.activePresetId) {
+    return getEditPreset(input.activePresetId) ?? null;
+  }
+  return null;
 }

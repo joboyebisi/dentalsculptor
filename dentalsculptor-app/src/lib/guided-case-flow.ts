@@ -10,7 +10,7 @@ export interface GuidedCaseFlowCopy {
 export function guidedCaseFlowCopy(caseTemplate: CaseTemplate): GuidedCaseFlowCopy {
   switch (caseTemplate.procedure) {
     case "pathology-add":
-      return { mark: "Mark fragment or draw fracture line", preview: "Preview fracture", create: "Create fracture variant", targetHint: "Paint the missing fragment, or use the line tool to draw its fracture boundary." };
+      return { mark: "Paint, draw fracture line, or mark region", preview: "Preview fracture", create: "Create fracture variant", targetHint: "Use the Mask brush or line tool on the cusp, or draw a region rectangle over the fragment to remove." };
     case "prep-class-1":
     case "prep-class-2":
       return { mark: "Paint preparation outline", preview: "Preview cavity", create: "Create cavity variant", targetHint: "Paint the intended preparation boundary on the occlusal surface." };

@@ -9,9 +9,12 @@ import { CASE_VARIANT_PRESETS, type CaseVariantPreset, type CaseVariantRecipe, t
 const CASES: { id: VariantCase; label: string; note: string }[] = [
   { id: "fracture", label: "Fracture", note: "Deterministic removal" },
   { id: "class-i", label: "Class I cavity", note: "Deterministic removal" },
+  { id: "class-ii", label: "Class II box", note: "Deterministic removal" },
   { id: "endo", label: "Endo access", note: "External opening" },
   { id: "caries", label: "Caries", note: "Appearance or excavation" },
   { id: "crown", label: "Crown reduction", note: "Advanced" },
+  { id: "morphology", label: "Cusp morphology", note: "Localized deformation" },
+  { id: "surface", label: "Surface edit", note: "Material or smoothing" },
   { id: "cusp-restoration", label: "Restore cusp", note: "Generative" },
 ];
 

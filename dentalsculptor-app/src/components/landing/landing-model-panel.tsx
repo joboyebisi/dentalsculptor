@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
-import { Download, Loader2, BookOpen, Share2 } from "lucide-react";
+import { Download, Loader2, BookOpen, Share2, SlidersHorizontal } from "lucide-react";
 import { DentalViewer, type DentalViewerHandle } from "@/components/three/dental-viewer";
 import { Button } from "@/components/ui/button";
 import { useLandingModel } from "@/context/landing-model-context";
@@ -211,10 +211,22 @@ export function LandingModelPanel() {
                   )}
                   Optional: create a teaching case
                 </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => resumeAfterAuth("editor")}
+                  disabled={!modelUrl || busy !== null}
+                >
+                  {busy === "editor" ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <SlidersHorizontal className="mr-2 h-4 w-4" />
+                  )}
+                  Free editor
+                </Button>
               </div>
               <p className="text-center text-body-sm text-on-surface-variant">
                 Download opens destination-specific export without entering the editor. Publishing
-                creates a shareable community project. Editing is optional.
+                creates a shareable community project. Teaching cases guide the workflow; Free editor keeps a compact mark → instruction → preview flow.
               </p>
             </>
           )}

@@ -7,7 +7,8 @@ import { isValidGlbBuffer, glbValidationError } from "@/lib/glb-utils";
 import { prisma } from "@/lib/prisma";
 import { createEditJobRecord, updateEditJobProgress } from "@/lib/edit-jobs.server";
 import { logEdit } from "@/lib/edit-log";
-import { getCaseVariantPreset, type CaseVariantRecipe } from "@/lib/case-variant-recipes";
+import type { EditProofMetrics } from "@/lib/edit-log";
+import { validateCaseVariantRecipe, type CaseVariantRecipe } from "@/lib/case-variant-recipes";
 import { projectModelServePath, resolveProjectModelUrl } from "@/lib/project-model-asset.server";
 
 export const maxDuration = 300;
@@ -35,6 +36,21 @@ function parseJsonField(raw: string): unknown | undefined {
   }
 }
 
+function isValidCameraPayload(value: unknown): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const camera = value as Record<string, unknown>;
+  return (
+    Array.isArray(camera.viewMatrix) &&
+    camera.viewMatrix.length === 16 &&
+    Array.isArray(camera.projectionMatrix) &&
+    camera.projectionMatrix.length === 16 &&
+    (camera.modelMatrix === undefined ||
+      (Array.isArray(camera.modelMatrix) && camera.modelMatrix.length === 16)) &&
+    Number(camera.width) > 0 &&
+    Number(camera.height) > 0
+  );
+}
+
 /**
  * Submit a masked 3D edit job (Nano3D on Modal when deployed).
  */
@@ -60,13 +76,13 @@ export async function POST(
   const sourceImage = formData.get("sourceImage");
   const editedImage = formData.get("editedImage");
   const variantRecipeRaw = (formData.get("variantRecipe") as string) || "";
-  const parsedVariantRecipe = parseJsonField(variantRecipeRaw) as CaseVariantRecipe | undefined;
-  const variantPreset = parsedVariantRecipe ? getCaseVariantPreset(parsedVariantRecipe.presetId) : undefined;
-  const variantRecipe = variantPreset && parsedVariantRecipe?.caseId === variantPreset.caseId && parsedVariantRecipe.technique === variantPreset.technique
-    ? parsedVariantRecipe
-    : undefined;
-  if (variantRecipeRaw && !variantRecipe) {
-    return NextResponse.json({ error: "Invalid teaching variant recipe." }, { status: 400 });
+  let variantRecipe: CaseVariantRecipe | undefined;
+  if (variantRecipeRaw) {
+    const validation = validateCaseVariantRecipe(parseJsonField(variantRecipeRaw), operation);
+    if ("error" in validation) {
+      return NextResponse.json({ error: validation.error }, { status: 400 });
+    }
+    variantRecipe = validation.recipe;
   }
 
   if (!instruction.trim()) {
@@ -77,6 +93,26 @@ export async function POST(
   }
   if (!["add", "remove", "replace"].includes(operation)) {
     return NextResponse.json({ error: "Unsupported edit operation." }, { status: 400 });
+  }
+  const maskImage = formData.get("maskImage");
+  if (!(maskImage instanceof File) || maskImage.size < 64) {
+    return NextResponse.json({ error: "A non-empty edit mask is required." }, { status: 400 });
+  }
+  if (!isValidCameraPayload(parseJsonField(camera))) {
+    return NextResponse.json({ error: "A valid captured camera view is required." }, { status: 400 });
+  }
+  const usesGenerativePath = !variantRecipe || variantRecipe.technique === "generative";
+  if (
+    usesGenerativePath &&
+    (!(sourceImage instanceof File) ||
+      sourceImage.size < 64 ||
+      !(editedImage instanceof File) ||
+      editedImage.size < 64)
+  ) {
+    return NextResponse.json(
+      { error: "Approve a localized 2D preview before running a generative 3D edit." },
+      { status: 400 }
+    );
   }
 
   const project = await prisma.project.findFirst({
@@ -142,8 +178,7 @@ export async function POST(
     if (regionMarks) proxyForm.append("regionMarks", regionMarks);
     if (variantRecipe) proxyForm.append("variantRecipe", JSON.stringify(variantRecipe));
     if (referenceEdited) proxyForm.append("referenceEdited", "true");
-    const mask = formData.get("maskImage");
-    if (mask instanceof File) proxyForm.append("maskImage", mask);
+    proxyForm.append("maskImage", maskImage);
     if (referenceImage instanceof File) {
       proxyForm.append("referenceImage", referenceImage);
     }
@@ -269,6 +304,7 @@ export async function POST(
       maskedVertexRatio: data.maskedVertexRatio as number | undefined,
       stage: data.stage as string | undefined,
       regionMarkCount: data.regionMarkCount as number | undefined,
+      metrics: data.metrics as EditProofMetrics | undefined,
     });
   }
 

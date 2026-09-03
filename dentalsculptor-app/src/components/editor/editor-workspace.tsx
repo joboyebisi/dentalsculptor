@@ -16,10 +16,10 @@ import { EditorEditWorkflowPanel } from "@/components/editor/editor-edit-workflo
 import { EditorRevisionReview } from "@/components/editor/editor-revision-review";
 import { EditorEditPresetsBar, EditPresetHapticNotice } from "@/components/editor/editor-edit-presets-bar";
 import { resolveEditPresetContext } from "@/lib/edit-preset-context";
-import { getEditPreset, EDIT_PRESETS } from "@/lib/edit-presets";
+import { EDIT_PRESETS, resolveActiveEditPreset } from "@/lib/edit-presets";
 import { readJsonResponse, jsonResponseError } from "@/lib/safe-json-response";
 import { resolveEditWorkflowStep } from "@/lib/edit-workflow-steps";
-import { formatEditProofDetail, logEditClient, editErrorMessage } from "@/lib/edit-log";
+import { formatEditProofDetail, logEditClient, editErrorMessage, type EditProofMetrics } from "@/lib/edit-log";
 import {
   EditPreviewModal,
   EditorEditActions,
@@ -45,12 +45,12 @@ import {
   prepareGenerationNotification,
 } from "@/lib/generation-notifications";
 import { GENERATION_COPY } from "@/lib/generation-copy";
-import { pollGenerationJob } from "@/lib/generation-jobs";
+import { pollGenerationJob, type GenerationJobResult } from "@/lib/generation-jobs";
 import { captureAndUploadCardPreview } from "@/lib/upload-project-preview-image";
 import { projectModelServePath } from "@/lib/project-model-path";
 import { EDITOR_SURFACE } from "@/lib/constants";
 import { expandDentalPrompt } from "@/lib/dental-prompt-glossary";
-import { applyMasked2dPreview } from "@/lib/edit-2d-preview";
+import { applyMasked2dPreview, compositePreviewThroughMask } from "@/lib/edit-2d-preview";
 import type { EditOperation } from "@/lib/edit-types";
 import {
   attachmentFromRectMark,
@@ -62,8 +62,23 @@ import type { ViewerInteractionMode } from "@/components/editor/cam-model-viewer
 import { ShareProjectDialog } from "@/components/editor/share-project-dialog";
 import { CaseVariantBuilderDialog } from "@/components/editor/case-variant-builder-dialog";
 import { GuidedCaseEditBar } from "@/components/editor/guided-case-edit-bar";
-import { defaultVariantPresetForCase, recipeFromVariantPreset, type CaseVariantPreset, type CaseVariantRecipe } from "@/lib/case-variant-recipes";
+import { defaultVariantPresetForCase, getCaseVariantPreset, recipeFromVariantPreset, variantPresetForEditPreset, type CaseVariantPreset, type CaseVariantRecipe } from "@/lib/case-variant-recipes";
 import { guidedCaseFlowCopy } from "@/lib/guided-case-flow";
+import { rasterizeRectMarksToMask } from "@/lib/mask-from-regions";
+
+async function resolveEditMaskBlob(
+  maskOverlay: MaskPaintOverlayHandle | null | undefined,
+  rectMarks: RectMark[],
+  width: number,
+  height: number
+): Promise<Blob | null> {
+  const painted = await maskOverlay?.toMaskBlob();
+  if (painted) return painted;
+  if (rectMarks.length > 0) {
+    return rasterizeRectMarksToMask(width, height, rectMarks);
+  }
+  return null;
+}
 
 export interface EditorProject {
   id: string;
@@ -89,6 +104,13 @@ export interface EditorProject {
   communityProject?: { published: boolean } | null;
 }
 
+type GenerationMeshResponse = Partial<GenerationJobResult> & {
+  jobToken?: string;
+  mtlUrl?: string;
+  meshData?: GeneratedMesh;
+  source?: string;
+};
+
 interface EditorWorkspaceProps {
   project: EditorProject;
   projectId: string;
@@ -107,6 +129,7 @@ export function EditorWorkspace({
     ? getCaseTemplate(initialRecipe.templateId) ?? null
     : null;
   const initialVariantPreset = initialTemplate ? defaultVariantPresetForCase(initialTemplate) : null;
+  const initialEditPresetId = initialTemplate?.editPresetIds?.[0] ?? null;
 
   const { track } = useResearchTracker();
   const viewerRef = useRef<CamViewerHandle>(null);
@@ -165,6 +188,8 @@ export function EditorWorkspace({
   const [previewProvider, setPreviewProvider] = useState<string | null>(null);
   const [previewIsAi, setPreviewIsAi] = useState(false);
   const [previewNotice, setPreviewNotice] = useState<string | null>(null);
+  const [targetRevision, setTargetRevision] = useState(0);
+  const [approvedTargetRevision, setApprovedTargetRevision] = useState<number | null>(null);
   const [editJobLoading, setEditJobLoading] = useState(false);
   const [editStatus, setEditStatus] = useState<string | null>(null);
   const [editProgress, setEditProgress] = useState(0);
@@ -179,7 +204,9 @@ export function EditorWorkspace({
   const [beforePreview, setBeforePreview] = useState<string | null>(null);
   const [afterPreview, setAfterPreview] = useState<string | null>(null);
   const [editedReferenceBlob, setEditedReferenceBlob] = useState<Blob | null>(null);
-  const [activePresetId, setActivePresetId] = useState<string | null>(initialVariantPreset?.id ?? null);
+  const [activePresetId, setActivePresetId] = useState<string | null>(
+    initialEditPresetId ?? initialVariantPreset?.id ?? null
+  );
   const [selectedSuggestedPrompt, setSelectedSuggestedPrompt] = useState<string | null>(initialVariantPreset?.instruction ?? null);
   const [referenceImage, setReferenceImage] = useState<Blob | null>(null);
   const [referenceCamera, setReferenceCamera] = useState<SerializedCameraState | null>(null);
@@ -230,6 +257,7 @@ export function EditorWorkspace({
     initialModelUrl ? "loading" : "none"
   );
   const [modelLoadDetail, setModelLoadDetail] = useState<string | undefined>();
+  const [viewerReloadGeneration, setViewerReloadGeneration] = useState(0);
   const handleModelStatusChange = useCallback((status: ModelLoadStatus, detail?: string) => {
     setModelLoadStatus(status);
     setModelLoadDetail(detail);
@@ -262,35 +290,67 @@ export function EditorWorkspace({
   const selectMode = activeTool === "select" && !maskMode;
   const hasModel = Boolean(meshData?.vertices?.length) || Boolean(modelUrl);
   const hasPartSelection = segmentParts.some((p) => p.visible);
-  /** Mask canvas is screen-fixed — only show while the Mask tool is active. */
-  const maskOverlayVisible = maskMode && hasModel;
+  /** Keep mask strokes when switching tools so preview/3D edit can read the canvas. */
+  const maskOverlayVisible = hasModel && (maskMode || maskHasStrokes || maskCoverage > 0);
   const maskVisible = hasModel && (maskMode || maskHasStrokes || maskCoverage > 0);
   const regionAttachments = rectMarks.map((m, i) => attachmentFromRectMark(m, i + 1));
-  const hasSpatialEditTarget =
-    regionAttachments.length > 0 || maskHasStrokes || maskCoverage > 0;
-  const canApply =
-    hasModel && (modelSelected || hasPartSelection || hasSpatialEditTarget);
+  const hasPaintedMask = maskHasStrokes || maskCoverage > 0;
+  const variantRequiresMask = activeVariantRecipe
+    ? getCaseVariantPreset(activeVariantRecipe.presetId)?.requiresMask ?? true
+    : true;
+  const hasMaskForWorkflow = hasPaintedMask || rectMarks.length > 0;
+  const canApply = hasModel && hasMaskForWorkflow && Boolean(aiPrompt.trim());
 
   const editPresetContext = useMemo(
     () => resolveEditPresetContext(caseRecipe, selectedCase, null),
     [caseRecipe, selectedCase]
   );
-  const activeEditPreset = activePresetId ? getEditPreset(activePresetId) ?? null : null;
+  const activeEditPreset = useMemo(
+    () =>
+      resolveActiveEditPreset({
+        selectedCaseEditPresetIds: selectedCase?.editPresetIds,
+        activePresetId,
+        activeOperation: editOperation,
+      }),
+    [selectedCase, activePresetId, editOperation]
+  );
+  const geometryVariantPreview =
+    activeVariantRecipe?.technique === "boolean" || activeEditPreset?.editMode === "geometry";
+  const previewApprovedFor3d =
+    Boolean(afterPreview) &&
+    approvedTargetRevision === targetRevision &&
+    (previewIsAi || geometryVariantPreview);
   const caseAllowsEdit = selectedCase?.requiresGeometryEdit !== false;
   const showEditPresets = caseAllowsEdit && (Boolean(selectedCase) || maskVisible);
   const editWorkflowStep = resolveEditWorkflowStep({
-    hasMask: maskHasStrokes || maskCoverage > 0 || rectMarks.length > 0,
+    hasMask: hasMaskForWorkflow,
     hasInstruction: Boolean(aiPrompt.trim()),
-    hasPreview: Boolean(afterPreview),
+    hasPreview: previewApprovedFor3d,
   });
   const guidedFlow = selectedCase ? guidedCaseFlowCopy(selectedCase) : null;
+
+  const invalidateApprovedPreview = useCallback(() => {
+    setAfterPreview((current) => {
+      if (current?.startsWith("blob:")) URL.revokeObjectURL(current);
+      return null;
+    });
+    setEditedReferenceBlob(null);
+    setPreviewIsAi(false);
+    setApprovedTargetRevision(null);
+  }, []);
+
+  const markTargetChanged = useCallback(() => {
+    setTargetRevision((revision) => revision + 1);
+    invalidateApprovedPreview();
+  }, [invalidateApprovedPreview]);
 
   const clearMaskPaint = useCallback((notice?: string) => {
     maskOverlayRef.current?.clear();
     setMaskCoverage(0);
     setMaskHasStrokes(false);
+    markTargetChanged();
     if (notice) setMaskNotice(notice);
-  }, []);
+  }, [markTargetChanged]);
 
   const handleViewChange = useCallback(() => {
     if (!maskModeRef.current || navigateHeldRef.current) return;
@@ -374,9 +434,10 @@ export function EditorWorkspace({
       };
       setRectMarks((prev) => [...prev, mark]);
       setMarkRedoStack([]);
+      markTargetChanged();
       track("ANNOTATION_CREATED", projectId, { text: label, type: "rect", index });
     },
-    [rectMarks.length, projectId, track]
+    [rectMarks.length, projectId, track, markTargetChanged]
   );
 
   const handleRemoveRegionAttachment = useCallback((id: string) => {
@@ -391,8 +452,9 @@ export function EditorWorkspace({
         }))
     );
     setMarkRedoStack([]);
+    markTargetChanged();
     triggerSFX("toggle");
-  }, []);
+  }, [markTargetChanged]);
 
   const handleToolChange = (tool: EditorTool) => {
     if (tool === "edit") {
@@ -423,6 +485,7 @@ export function EditorWorkspace({
         const last = rectMarks[rectMarks.length - 1]!;
         setRectMarks((prev) => prev.slice(0, -1));
         setMarkRedoStack((prev) => [...prev, last]);
+        markTargetChanged();
       }
       triggerSFX("tool-click");
       return;
@@ -432,6 +495,7 @@ export function EditorWorkspace({
         const mark = markRedoStack[markRedoStack.length - 1]!;
         setMarkRedoStack((prev) => prev.slice(0, -1));
         setRectMarks((prev) => [...prev, mark]);
+        markTargetChanged();
       } else {
         maskOverlayRef.current?.redo();
         bumpMaskCoverage();
@@ -465,8 +529,7 @@ export function EditorWorkspace({
   };
 
   const handleApplyAi = async () => {
-    const hasMask = maskHasStrokes || maskCoverage > 0;
-    if (!aiPrompt.trim() || !hasMask) return;
+    if (!aiPrompt.trim() || !hasMaskForWorkflow) return;
     await handlePreview2d();
   };
 
@@ -502,12 +565,15 @@ export function EditorWorkspace({
       const defaultVariant = defaultVariantPresetForCase(payload.template);
       if (defaultVariant) {
         setActiveVariantRecipe(recipeFromVariantPreset(defaultVariant));
-        setActivePresetId(defaultVariant.id);
+        const editPresetId = payload.template.editPresetIds?.[0] ?? null;
+        setActivePresetId(editPresetId ?? defaultVariant.id);
         setSelectedSuggestedPrompt(defaultVariant.instruction);
         setAiPrompt(defaultVariant.instruction);
         setEditOperation(defaultVariant.operation);
       } else {
         setActiveVariantRecipe(null);
+        const editPresetId = payload.template.editPresetIds?.[0] ?? null;
+        if (editPresetId) setActivePresetId(editPresetId);
       }
       setCaseRecipe(data.recipe as CaseRecipe);
       const nextTitle = data.project?.title ?? payload.template.title;
@@ -515,7 +581,7 @@ export function EditorWorkspace({
       await onSave({ title: nextTitle });
       if (!defaultVariant && data.editPrompt) setAiPrompt(data.editPrompt);
       if (!defaultVariant && payload.template.defaultOperation) setEditOperation(payload.template.defaultOperation);
-      setActiveTool("select");
+      setActiveTool(payload.template.requiresGeometryEdit !== false ? "mask" : "select");
       setFloatingPanels({
         maskContext: { minimized: false },
         workflow: { minimized: true },
@@ -525,6 +591,10 @@ export function EditorWorkspace({
         caseContext: { minimized: true },
       });
       setCaseWizardOpen(false);
+      // A full viewer remount prevents stale WebGL/camera state after the
+      // full-screen case wizard closes. This is intentionally independent of
+      // the unchanged master model URL.
+      setViewerReloadGeneration((generation) => generation + 1);
       openMaskEditPanels();
       track("LEARNING_OBJECTIVE_CREATED", projectId, {
         caseTemplateId: payload.template.id,
@@ -546,6 +616,7 @@ export function EditorWorkspace({
     setPreviewStage("Capturing 3D view…");
     setPreviewProvider(null);
     setPreviewIsAi(false);
+    setApprovedTargetRevision(null);
     setPreviewNotice(null);
     try {
       const capture = await viewerRef.current?.captureView();
@@ -561,12 +632,29 @@ export function EditorWorkspace({
       setPreviewProgress(25);
       setPreviewStage("Reading mask…");
 
-      const maskBlob = await maskOverlayRef.current?.toMaskBlob();
+      const maskWidth = capture.camera.width ?? 512;
+      const maskHeight = capture.camera.height ?? 512;
+      const maskBlob = await resolveEditMaskBlob(
+        maskOverlayRef.current,
+        rectMarks,
+        maskWidth,
+        maskHeight
+      );
+      if (!maskBlob && variantRequiresMask) {
+        throw new Error(
+          "Paint the target region with the Mask brush (or draw a fracture line) before previewing."
+        );
+      }
       const instruction = instructionWithRegionRefs(aiPrompt, rectMarks);
       let previewBlob: Blob | null = null;
       let providerLabel: string | null = null;
 
-      if (maskBlob) {
+      // Teaching variants use deterministic, mask-local previews. Generative
+      // inpainting can alter the camera, tooth silhouette, or unrelated anatomy,
+      // which is unsuitable as evidence for a precise clinical edit.
+      const usesDeterministicVariant =
+        Boolean(activeVariantRecipe) && activeVariantRecipe?.technique !== "generative";
+      if (maskBlob && !usesDeterministicVariant) {
         setPreviewProgress(45);
         setPreviewStage("DentalSculptor is creating the proposed change…");
         const previewForm = new FormData();
@@ -595,10 +683,15 @@ export function EditorWorkspace({
           const bytes = Uint8Array.from(atob(previewData.previewBase64 as string), (c) =>
             c.charCodeAt(0)
           );
-          previewBlob = new Blob([bytes], {
+          const generatedPreview = new Blob([bytes], {
             type: (previewData.contentType as string) ?? "image/png",
           });
-          providerLabel = "DentalSculptor";
+          previewBlob = await compositePreviewThroughMask(
+            capture.image,
+            generatedPreview,
+            maskBlob
+          );
+          providerLabel = previewData.provider ?? "DentalSculptor";
           setPreviewIsAi(true);
           setPreviewNotice("DentalSculptor preview completed. Confirm that the change is confined to the painted region before running the 3D edit.");
         }
@@ -613,15 +706,17 @@ export function EditorWorkspace({
           editOperation,
           instruction
         );
+        const verifiedCasePreview = usesDeterministicVariant;
         const deterministicGeometryPreview =
           editOperation === "remove" && activeEditPreset?.editMode === "geometry";
-        providerLabel = deterministicGeometryPreview
+        const verifiedPreview = verifiedCasePreview || deterministicGeometryPreview;
+        providerLabel = verifiedPreview
           ? "DentalSculptor region preview"
           : "Illustrative preview";
-        setPreviewIsAi(deterministicGeometryPreview);
+        setPreviewIsAi(verifiedPreview);
         setPreviewNotice(
-          deterministicGeometryPreview
-            ? "Region preview completed. DentalSculptor will apply the removal only to the marked model area; review the boundary before continuing."
+          verifiedPreview
+            ? "Region preview completed without changing the camera or surrounding anatomy. Review the marked boundary before continuing."
             : "Illustrative preview only — the editing service did not produce a verified proposal. A 3D edit cannot be approved from this preview."
         );
       }
@@ -634,6 +729,7 @@ export function EditorWorkspace({
         URL.revokeObjectURL(afterPreview);
       }
       setAfterPreview(URL.createObjectURL(previewBlob));
+      setApprovedTargetRevision(targetRevision);
       const expanded = expandDentalPrompt(instruction);
       track("AI_PROMPT_SUBMITTED", projectId, {
         stage: "2d-mask-approval",
@@ -655,10 +751,13 @@ export function EditorWorkspace({
     operation: EditOperation;
     prompt: string;
   }) => {
+    invalidateApprovedPreview();
     setActivePresetId(preset.id);
     setSelectedSuggestedPrompt(preset.prompt);
     setEditOperation(preset.operation);
     setAiPrompt(preset.prompt);
+    const variantPreset = variantPresetForEditPreset(preset.id);
+    setActiveVariantRecipe(variantPreset ? recipeFromVariantPreset(variantPreset) : null);
     if (activeTool !== "mask" && activeTool !== "mark") {
       setActiveTool("mask");
     }
@@ -666,14 +765,20 @@ export function EditorWorkspace({
   };
 
   const handleSelectSuggestedPrompt = (prompt: string) => {
+    invalidateApprovedPreview();
     setSelectedSuggestedPrompt(prompt);
     setAiPrompt(prompt);
     const matchingPreset = EDIT_PRESETS.find((p) => p.prompt === prompt);
     if (matchingPreset) {
       setActivePresetId(matchingPreset.id);
       setEditOperation(matchingPreset.operation);
+      const variantPreset = variantPresetForEditPreset(matchingPreset.id);
+      setActiveVariantRecipe(variantPreset ? recipeFromVariantPreset(variantPreset) : null);
     } else if (selectedCase?.defaultOperation) {
       setEditOperation(selectedCase.defaultOperation);
+      setActiveVariantRecipe(null);
+    } else {
+      setActiveVariantRecipe(null);
     }
     if (activeTool !== "mask" && activeTool !== "mark") {
       setActiveTool("mask");
@@ -683,12 +788,28 @@ export function EditorWorkspace({
 
   const handleGenerate3dEdit = async () => {
     if (!modelUrl || !aiPrompt.trim()) return;
+    if (!previewApprovedFor3d) {
+      setUiError("Review and approve the 2D preview before creating the 3D variant.");
+      return;
+    }
     const sourceBeforeEdit = activeVariantRecipe && masterModelUrl ? masterModelUrl : modelUrl;
     setEditJobLoading(true);
     setEditProgress(5);
     setEditStatus("Submitting DentalSculptor edit…");
     logEditClient({ phase: "start", projectId, operation: editOperation, detail: "generate3d" });
-    const maskBlob = await maskOverlayRef.current?.toMaskBlob();
+    const maskWidth = referenceCamera?.width ?? 512;
+    const maskHeight = referenceCamera?.height ?? 512;
+    const maskBlob = await resolveEditMaskBlob(
+      maskOverlayRef.current,
+      rectMarks,
+      maskWidth,
+      maskHeight
+    );
+    if (variantRequiresMask && !maskBlob) {
+      setEditJobLoading(false);
+      setUiError("Paint the target region with the Mask brush before creating the variant.");
+      return;
+    }
     const instruction = instructionWithRegionRefs(aiPrompt, rectMarks);
     const formData = new FormData();
     formData.append("instruction", instruction);
@@ -732,6 +853,7 @@ export function EditorWorkspace({
         maskedVertexRatio?: number;
         stage?: string;
         regionMarkCount?: number;
+        metrics?: EditProofMetrics;
       }>(res);
       if (!data) {
         throw new Error(jsonResponseError(res, raw, "Edit service returned an empty response."));
@@ -755,7 +877,12 @@ export function EditorWorkspace({
         fmt: string | undefined,
         jobId: string,
         revisionNumber?: number,
-        proof?: { maskedVertexRatio?: number; stage?: string; regionMarkCount?: number }
+        proof?: {
+          maskedVertexRatio?: number;
+          stage?: string;
+          regionMarkCount?: number;
+          metrics?: EditProofMetrics;
+        }
       ) => {
         setModelUrl(resultUrl);
         setModelFormat(fmt ?? detectModelFormat(resultUrl));
@@ -793,6 +920,7 @@ export function EditorWorkspace({
             maskedVertexRatio: data.maskedVertexRatio,
             stage: data.stage,
             regionMarkCount: data.regionMarkCount,
+            metrics: data.metrics,
           }
         );
         return;
@@ -818,6 +946,7 @@ export function EditorWorkspace({
           message?: string;
           maskedVertexRatio?: number;
           regionMarkCount?: number;
+          metrics?: EditProofMetrics;
         }>(statusRes);
         if (!status) {
           throw new Error(jsonResponseError(statusRes, statusRaw, "Edit status unavailable."));
@@ -853,6 +982,7 @@ export function EditorWorkspace({
               maskedVertexRatio: status.maskedVertexRatio,
               stage: status.stage,
               regionMarkCount: status.regionMarkCount,
+              metrics: status.metrics,
             }
           );
           return;
@@ -926,6 +1056,7 @@ export function EditorWorkspace({
 
   const bumpMaskCoverage = () => {
     setMaskCoverage(maskOverlayRef.current?.getCoveragePercent() ?? 0);
+    markTargetChanged();
   };
 
   const handleSourceUpload = (file: File) => {
@@ -998,7 +1129,7 @@ export function EditorWorkspace({
         body: formData,
       });
 
-      const parsed = await readJsonResponse<Record<string, any>>(res);
+      const parsed = await readJsonResponse<GenerationMeshResponse>(res);
       if (!parsed.data) {
         throw new Error(jsonResponseError(res, parsed.raw, "Generation service returned an invalid response."));
       }
@@ -1103,6 +1234,7 @@ export function EditorWorkspace({
         >
           <div className="relative min-h-0 flex-1">
             <CamModelViewer
+              key={`${modelUrl ?? "procedural"}:${viewerReloadGeneration}`}
               ref={viewerRef}
               meshData={meshData}
               modelUrl={modelUrl}
@@ -1156,7 +1288,7 @@ export function EditorWorkspace({
             )}
 
             <EditorMaskContextPanel
-              visible={maskVisible && !selectedCase}
+              visible={false}
               minimized={floatingPanels.maskContext.minimized}
               onMinimize={() => minimizeFloatingPanel("maskContext")}
               onRestore={() => restoreFloatingPanel("maskContext")}
@@ -1167,7 +1299,7 @@ export function EditorWorkspace({
             />
 
             <EditorEditWorkflowPanel
-              visible={maskVisible && !selectedCase}
+              visible={false}
               minimized={floatingPanels.workflow.minimized}
               onMinimize={() => minimizeFloatingPanel("workflow")}
               onRestore={() => restoreFloatingPanel("workflow")}
@@ -1214,14 +1346,14 @@ export function EditorWorkspace({
             />
 
             <EditorEditActions
-              visible={maskVisible && !selectedCase}
+              visible={false}
               minimized={floatingPanels.editActions.minimized}
               onMinimize={() => minimizeFloatingPanel("editActions")}
               onRestore={() => restoreFloatingPanel("editActions")}
               previewLoading={previewLoading}
               generateLoading={editJobLoading}
-              canPreview={Boolean(aiPrompt.trim()) && hasSpatialEditTarget}
-              canGenerate={Boolean(afterPreview) && previewIsAi && !previewLoading}
+              canPreview={Boolean(aiPrompt.trim()) && hasMaskForWorkflow}
+              canGenerate={previewApprovedFor3d && !previewLoading}
               onPreview2d={handlePreview2d}
               onGenerate3d={() => void handleGenerate3dEdit()}
             />
@@ -1243,6 +1375,7 @@ export function EditorWorkspace({
                   maskOverlayRef.current?.clear();
                   setMaskCoverage(0);
                   setMaskHasStrokes(false);
+                  markTargetChanged();
                 }}
                 allowFractureLine={selectedCase?.procedure === "pathology-add"}
                 lockOperation={Boolean(selectedCase)}
@@ -1268,6 +1401,7 @@ export function EditorWorkspace({
               onPaint={() => { setActiveTool("mask"); openMaskEditPanels(); }}
               onPreview={handlePreview2d}
               onCreate={() => void handleGenerate3dEdit()}
+              canCreate={previewApprovedFor3d}
               markLabel={guidedFlow?.mark ?? "Mark target area"}
               previewLabel={guidedFlow?.preview ?? "Preview change"}
               createLabel={guidedFlow?.create ?? "Create 3D variant"}
@@ -1276,7 +1410,12 @@ export function EditorWorkspace({
             value={aiPrompt}
             onChange={(v) => {
               setAiPrompt(v);
-              if (v.trim() !== selectedSuggestedPrompt) setSelectedSuggestedPrompt(null);
+              if (v.trim() !== selectedSuggestedPrompt) {
+                invalidateApprovedPreview();
+                setSelectedSuggestedPrompt(null);
+                setActivePresetId(null);
+                setActiveVariantRecipe(null);
+              }
             }}
             onApply={handleApplyAi}
             loading={previewLoading || editJobLoading}
@@ -1284,7 +1423,7 @@ export function EditorWorkspace({
             maskMode={maskMode}
             regionAttachments={regionAttachments}
             onRemoveAttachment={handleRemoveRegionAttachment}
-            hasMask={maskHasStrokes || maskCoverage > 0}
+            hasMask={hasPaintedMask}
             workflowStep={editWorkflowStep}
           />}
         </section>
@@ -1331,7 +1470,10 @@ export function EditorWorkspace({
         previewProvider={previewProvider}
         previewIsAi={previewIsAi}
         previewNotice={previewNotice}
-        onRefineMask={() => setPreviewOpen(false)}
+        onRefineMask={() => {
+          setPreviewOpen(false);
+          invalidateApprovedPreview();
+        }}
         onApprove={() => {
           setPreviewOpen(false);
           void handleGenerate3dEdit();
@@ -1367,8 +1509,12 @@ export function EditorWorkspace({
         open={variantBuilderOpen}
         onClose={() => setVariantBuilderOpen(false)}
         onPrepare={(preset: CaseVariantPreset, recipe: CaseVariantRecipe) => {
-          setActiveVariantRecipe(recipe);
-          setActivePresetId(preset.id);
+          setActiveVariantRecipe({
+            ...recipe,
+            schemaVersion: 1,
+            operation: preset.operation,
+          });
+          setActivePresetId(selectedCase?.editPresetIds?.[0] ?? preset.id);
           setSelectedSuggestedPrompt(preset.instruction);
           setEditOperation(preset.operation);
           setAiPrompt(preset.instruction);
