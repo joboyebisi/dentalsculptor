@@ -58,7 +58,7 @@ export default async function CommunityProjectPage({ params }: { params: Promise
             <h1 className="text-display-lg">{entry.project.title}</h1>
             <p className="mt-1 text-on-surface-variant">Published by {entry.project.owner.name ?? "Educator"}{entry.project.owner.institution ? ` · ${entry.project.owner.institution}` : ""}</p>
           </div>
-          <CommunityActions projectId={projectId} initialLikes={entry.likes} initialLiked={liked} signedIn={Boolean(user)} />
+          <CommunityActions projectId={projectId} projectTitle={entry.project.title} initialLikes={entry.likes} initialLiked={liked} signedIn={Boolean(user)} />
         </div>
         <div className="h-[min(65vh,680px)] overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-low">{modelUrl ? <DentalViewer modelUrl={modelUrl} modelFormat={detectModelFormat(modelUrl)} className="h-full" /> : <div className="flex h-full items-center justify-center text-on-surface-variant">Model unavailable</div>}</div>
         {entry.project.description && <p className="max-w-3xl text-body-md text-on-surface-variant">{entry.project.description}</p>}

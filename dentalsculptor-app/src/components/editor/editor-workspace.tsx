@@ -65,6 +65,7 @@ import { GuidedCaseEditBar } from "@/components/editor/guided-case-edit-bar";
 import { defaultVariantPresetForCase, getCaseVariantPreset, recipeFromVariantPreset, variantPresetForEditPreset, type CaseVariantPreset, type CaseVariantRecipe } from "@/lib/case-variant-recipes";
 import { guidedCaseFlowCopy } from "@/lib/guided-case-flow";
 import { rasterizeRectMarksToMask } from "@/lib/mask-from-regions";
+import { EditorWebMcpTools } from "@/components/webmcp/editor-webmcp-tools";
 
 async function resolveEditMaskBlob(
   maskOverlay: MaskPaintOverlayHandle | null | undefined,
@@ -1191,6 +1192,28 @@ export function EditorWorkspace({
 
   return (
     <div className="editor-chrome flex h-screen flex-col overflow-hidden">
+      <EditorWebMcpTools
+        projectId={projectId}
+        title={title}
+        hasModel={hasModel}
+        selectedCase={selectedCase?.title ?? null}
+        activePresetId={activePresetId}
+        allowedPresetIds={EDIT_PRESETS.map((preset) => preset.id)}
+        targetReady={hasMaskForWorkflow}
+        previewReady={previewApprovedFor3d}
+        revisionPending={Boolean(pendingRevision)}
+        busy={previewLoading || editJobLoading || revisionActionLoading || applyingTemplate}
+        choosePreset={(presetId) => {
+          const preset = EDIT_PRESETS.find((candidate) => candidate.id === presetId);
+          if (preset) handlePresetSelect(preset);
+        }}
+        openCaseSelector={() => setCaseWizardOpen(true)}
+        openMaskTool={() => { setActiveTool("mask"); openMaskEditPanels(); }}
+        previewEdit={handlePreview2d}
+        createVariant={handleGenerate3dEdit}
+        openExport={() => setExportWizardOpen(true)}
+        openShare={() => setShareDialogOpen(true)}
+      />
       <EditorHeader
         projectTitle={title}
         projectStatus={project.status}

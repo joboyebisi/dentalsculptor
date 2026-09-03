@@ -15,7 +15,8 @@
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
     "test:export-stl": "npx tsx scripts/test-export-stl.ts",
-    "test:case-workflows": "npx tsx scripts/test-case-workflows.ts"
+    "test:case-workflows": "npx tsx scripts/test-case-workflows.ts",
+    "test:webmcp": "npx tsx scripts/test-webmcp.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1101.0",
@@ -56,6 +57,7 @@
     "recharts": "^3.10.1",
     "tailwind-merge": "^3.6.0",
     "three": "^0.185.1",
+    "use-webmcp-tool": "^0.2.0",
     "uuid": "^14.0.1",
     "zod": "^4.4.3"
   },
