@@ -256,6 +256,13 @@ Deploy scale-to-zero (production default):
 .\dentalsculptor-ml\scripts\deploy-scale-to-zero.ps1
 ```
 
+Do not deploy `modal_app/app.py` directly from an arbitrary shell. The deployment
+evaluates environment-dependent function definitions locally; use the script
+above so async S3, the AWS secret, GPU type, warmup and scale settings are baked
+into the same release. After every Modal deployment, open
+`https://dentalsculptor--generation-health.modal.run` and require
+`asyncS3Enabled: true` before testing the web application.
+
 **Optional — always-warm for live demo days only:**
 
 ```powershell

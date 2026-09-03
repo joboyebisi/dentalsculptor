@@ -40,6 +40,7 @@ from modal_app.trellis_config import (
     ASYNC_S3_ENABLED,
     BUFFER_CONTAINERS,
     DEFAULT_QUALITY,
+    DEPLOYMENT_ENV,
     HF_REPOSITORIES,
     MAX_CONTAINERS,
     MIN_CONTAINERS,
@@ -551,6 +552,19 @@ async def warm_gpu(request: Request):
     authorize(request)
     TrellisGenerateService().warm.spawn()
     return JSONResponse({"status": "warming"}, status_code=202)
+
+
+@app.function(image=cpu_image, timeout=30)
+@modal.fastapi_endpoint(method="GET", label=web_label("generation-health"))
+async def generation_health():
+    """Expose only non-secret deployment capabilities for post-deploy checks."""
+    return {
+        "ok": bool(ASYNC_S3_ENABLED),
+        "asyncS3Enabled": bool(ASYNC_S3_ENABLED),
+        "gpu": GPU_TYPE,
+        "minContainers": MIN_CONTAINERS,
+        "deploymentEnvironment": DEPLOYMENT_ENV,
+    }
 
 
 @app.function(image=cpu_image, timeout=60, secrets=[webhook_secret])
