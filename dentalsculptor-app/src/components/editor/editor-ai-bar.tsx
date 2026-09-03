@@ -85,8 +85,8 @@ export function EditorAiBar({
     if (regionAttachments.length > 0) {
       return `${regionAttachments.length} region${regionAttachments.length === 1 ? "" : "s"} attached — describe the edit`;
     }
-    if (canApply) return "Model or parts selected — ready to edit";
-    return "Mark a region, paint a mask, or select the model to enable Send";
+    if (canApply) return "Target and instruction ready — Send opens the 2D review";
+    return "Paint or mark the target, then choose a suggested instruction";
   })();
 
   return (

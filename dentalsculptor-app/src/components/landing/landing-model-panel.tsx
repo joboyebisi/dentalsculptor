@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
-import { Download, Loader2, BookOpen, Share2 } from "lucide-react";
+import { Download, Loader2, BookOpen, Share2, SlidersHorizontal } from "lucide-react";
 import { DentalViewer, type DentalViewerHandle } from "@/components/three/dental-viewer";
 import { Button } from "@/components/ui/button";
 import { useLandingModel } from "@/context/landing-model-context";
@@ -16,6 +16,7 @@ import { createProjectFromLandingPayload } from "@/lib/create-landing-project";
 import { captureAndUploadCardPreview } from "@/lib/upload-project-preview-image";
 import { GENERATION_COPY } from "@/lib/generation-copy";
 import { GenerationProgressDisplay } from "@/components/generation/generation-progress-display";
+import { LandingWebMcpTools } from "@/components/webmcp/landing-webmcp-tools";
 
 export function LandingModelPanel() {
   const router = useRouter();
@@ -37,6 +38,7 @@ export function LandingModelPanel() {
     canEnhance,
     isFinalModel,
     lastGenerationSeconds,
+    generateModel,
   } = useLandingModel();
   const [busy, setBusy] = useState<PendingNextStep | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -112,6 +114,13 @@ export function LandingModelPanel() {
 
   return (
     <div className="flex w-full flex-col">
+      <LandingWebMcpTools
+        hasSourceImage={Boolean(uploadedFile)}
+        hasModel={hasModel}
+        busy={Boolean(isLoading || isEnhancing || busy)}
+        generate={generateModel}
+        continueWithModel={resumeAfterAuth}
+      />
       <div
         className="relative h-[420px] overflow-hidden rounded-xl border border-border-subtle bg-surface-container-low sm:h-[480px] lg:h-[calc(100dvh-14rem)] lg:min-h-[520px]"
       >
@@ -211,10 +220,22 @@ export function LandingModelPanel() {
                   )}
                   Optional: create a teaching case
                 </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => resumeAfterAuth("editor")}
+                  disabled={!modelUrl || busy !== null}
+                >
+                  {busy === "editor" ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <SlidersHorizontal className="mr-2 h-4 w-4" />
+                  )}
+                  Free editor
+                </Button>
               </div>
               <p className="text-center text-body-sm text-on-surface-variant">
                 Download opens destination-specific export without entering the editor. Publishing
-                creates a shareable community project. Editing is optional.
+                creates a shareable community project. Teaching cases guide the workflow; Free editor keeps a compact mark → instruction → preview flow.
               </p>
             </>
           )}

@@ -7,6 +7,8 @@ export interface SerializedCameraState {
   projectionMatrix: number[];
   viewMatrix: number[];
   worldMatrix: number[];
+  /** Render transform applied to the source model before camera projection. */
+  modelMatrix?: number[];
   position: [number, number, number];
   quaternion: [number, number, number, number];
   target: [number, number, number];

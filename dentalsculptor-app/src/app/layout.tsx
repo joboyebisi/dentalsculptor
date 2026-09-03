@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { PostHogProvider } from "@/components/providers/posthog-provider";
 import { PreviewBanner } from "@/components/layout/preview-banner";
 import { APP_NAME, APP_TAGLINE } from "@/lib/constants";
+import { GlobalWebMcpTools } from "@/components/webmcp/global-webmcp-tools";
 import "./globals.css";
 
 const inter = Inter({
@@ -47,6 +48,7 @@ export default function RootLayout({
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <body className="min-h-screen bg-background font-sans antialiased">
         <PreviewBanner />
+        <GlobalWebMcpTools />
         <Suspense fallback={null}>
           <PostHogProvider>{children}</PostHogProvider>
         </Suspense>

@@ -96,6 +96,7 @@ def _project_vertex_weights(
     vertices: np.ndarray,
     camera: dict[str, Any] | None,
     mask: np.ndarray | None,
+    normals: np.ndarray | None = None,
 ) -> np.ndarray:
     """Map vertices to mask coverage using captured camera matrices."""
     n = len(vertices)
@@ -107,8 +108,9 @@ def _project_vertex_weights(
     height = int(camera.get("height") or mask.shape[0])
     view = np.array(camera.get("viewMatrix"), dtype=np.float64)
     proj = np.array(camera.get("projectionMatrix"), dtype=np.float64)
+    model = np.array(camera.get("modelMatrix") or np.eye(4).reshape(-1), dtype=np.float64)
 
-    if view.size != 16 or proj.size != 16:
+    if view.size != 16 or proj.size != 16 or model.size != 16:
         return weights
 
     # THREE.Matrix4.toArray() serializes in column-major order. NumPy reshapes
@@ -117,17 +119,26 @@ def _project_vertex_weights(
     # the wrong part of the mesh (and commonly selects no vertices at all).
     view = view.reshape(4, 4).T
     proj = proj.reshape(4, 4).T
+    model = model.reshape(4, 4).T
 
     ones = np.ones((n, 1), dtype=np.float64)
     v4 = np.hstack([vertices.astype(np.float64), ones])
-    clip = (proj @ view @ v4.T).T
+    world = (model @ v4.T).T
+    clip = (proj @ view @ world.T).T
 
     w = np.clip(clip[:, 3], 1e-8, None)
     ndc_x = clip[:, 0] / w
     ndc_y = clip[:, 1] / w
     ndc_z = clip[:, 2] / w
 
-    visible = (ndc_z >= -1) & (ndc_z <= 1)
+    visible = (ndc_z >= -1) & (ndc_z <= 1) & (clip[:, 3] > 1e-8)
+    if normals is not None and len(normals) == n and len(camera.get("position") or []) == 3:
+        normal_matrix = np.linalg.inv(model[:3, :3]).T
+        world_normals = (normal_matrix @ np.asarray(normals, dtype=np.float64).T).T
+        world_normals /= np.clip(np.linalg.norm(world_normals, axis=1, keepdims=True), 1e-8, None)
+        to_camera = np.asarray(camera["position"], dtype=np.float64) - world[:, :3]
+        to_camera /= np.clip(np.linalg.norm(to_camera, axis=1, keepdims=True), 1e-8, None)
+        visible &= np.einsum("ij,ij->i", world_normals, to_camera) > -0.05
     px = ((ndc_x * 0.5 + 0.5) * width).astype(int)
     py = ((1 - (ndc_y * 0.5 + 0.5)) * height).astype(int)
 
@@ -135,6 +146,7 @@ def _project_vertex_weights(
     # neighbourhood so a valid line still intersects a decimated mesh whose
     # projected vertices may fall between painted pixels.
     tolerance = max(2, round(min(width, height) * 0.006))
+    candidates: list[int] = []
     for i in range(n):
         if not visible[i]:
             continue
@@ -143,6 +155,18 @@ def _project_vertex_weights(
             max(0, y - tolerance) : min(height, y + tolerance + 1),
             max(0, x - tolerance) : min(width, x + tolerance + 1),
         ].any():
+            candidates.append(i)
+
+    # Coarse software depth test: where front and rear vertices project into
+    # the same screen neighbourhood, keep only the nearest layer.
+    cell_size = tolerance * 2 + 1
+    nearest: dict[tuple[int, int], float] = {}
+    for i in candidates:
+        key = (int(px[i]) // cell_size, int(py[i]) // cell_size)
+        nearest[key] = min(nearest.get(key, float("inf")), float(ndc_z[i]))
+    for i in candidates:
+        key = (int(px[i]) // cell_size, int(py[i]) // cell_size)
+        if float(ndc_z[i]) <= nearest[key] + 0.08:
             weights[i] = 1.0
     return weights
 
@@ -221,7 +245,9 @@ def run_nano3d_edit(
 
     mesh = _load_mesh_from_url(source_model_url)
     mask_arr = _mask_array(mask_bytes, width, height)
-    weights = _project_vertex_weights(np.array(mesh.vertices), camera, mask_arr)
+    weights = _project_vertex_weights(
+        np.array(mesh.vertices), camera, mask_arr, np.array(mesh.vertex_normals)
+    )
 
     if weights.max() <= 0:
         raise ValueError(

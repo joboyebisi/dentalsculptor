@@ -189,14 +189,14 @@ export const CASE_TEMPLATES: CaseTemplate[] = [
   {
     id: "caries-occlusal-excavation",
     procedure: "caries-occlusal",
-    title: "Caries — single tooth",
+    title: "Caries excavation — single tooth",
     shortDescription:
       "Define lesion site, depth and pulp proximity; shape cavity for operative practice. Uniform drill feel on Simodont import.",
     workflow: "single-tooth-clinical",
     primaryTemplate: true,
     pilotOrder: 5,
     requiresGeometryEdit: true,
-    editPresetIds: ["add-caries", "remove-caries"],
+    editPresetIds: ["remove-caries"],
     studentYearLevels: [2, 3],
     clinicalParameterFields: CARIES_CLINICAL_FIELDS,
     defaultAnatomyRoles: [
@@ -238,8 +238,10 @@ export const CASE_TEMPLATES: CaseTemplate[] = [
     id: "caries-smooth-surface",
     procedure: "caries-smooth-surface",
     title: "Smooth-surface early lesion",
-    shortDescription: "Prepare a smooth-surface lesion for preventive and restorative discussion.",
+    shortDescription: "Add a localized visual caries lesion for preventive and restorative discussion.",
     workflow: "single-tooth-clinical",
+    requiresGeometryEdit: true,
+    editPresetIds: ["add-caries"],
     studentYearLevels: [2, 3],
     clinicalParameterFields: CARIES_CLINICAL_FIELDS,
     defaultAnatomyRoles: [
@@ -252,10 +254,10 @@ export const CASE_TEMPLATES: CaseTemplate[] = [
       "Plan minimal intervention for smooth-surface caries.",
     ],
     suggestedPrompts: [
-      "remove chalky demineralized enamel on the buccal surface",
-      "create a small cavitation for resin infiltration simulation",
+      "add a localized brown caries lesion on the marked smooth surface",
+      "add a chalky demineralized enamel appearance only inside the marked region",
     ],
-    defaultOperation: "remove",
+    defaultOperation: "add",
     exportRecommendation: "simtocare",
     studentHints: ["Compare lesion depth before and after your edit."],
     assessmentPrompts: ["When would you monitor vs restore this lesion?"],
@@ -303,6 +305,8 @@ export const CASE_TEMPLATES: CaseTemplate[] = [
     title: "Class II proximal box",
     shortDescription: "Mesial or distal box preparation for Class II restoration training.",
     workflow: "from-existing-model",
+    requiresGeometryEdit: true,
+    editPresetIds: ["class2-prep"],
     studentYearLevels: [3, 4],
     clinicalParameterFields: CARIES_CLINICAL_FIELDS,
     defaultAnatomyRoles: [
@@ -402,6 +406,8 @@ export const CASE_TEMPLATES: CaseTemplate[] = [
     shortDescription: "Open pulp chamber roof; locate canal orifices.",
     workflow: "single-tooth-clinical",
     primaryTemplate: false,
+    requiresGeometryEdit: true,
+    editPresetIds: ["endo-access"],
     studentYearLevels: [4, 5],
     clinicalParameterFields: ENDO_ACCESS_CLINICAL_FIELDS,
     defaultAnatomyRoles: [

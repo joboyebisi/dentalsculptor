@@ -40,7 +40,7 @@ def run_sdxl_inpaint(
     """Run SDXL inpainting — requires CUDA."""
     import torch
     from diffusers import AutoPipelineForInpainting
-    from PIL import Image
+    from PIL import Image, ImageFilter
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     dtype = torch.float16 if device == "cuda" else torch.float32
@@ -59,14 +59,21 @@ def run_sdxl_inpaint(
         mask = mask.resize(ref.size, Image.Resampling.NEAREST)
 
     prompt = _build_prompt(instruction, operation)
-    result = pipe(
+    generated = pipe(
         prompt=prompt,
         image=ref,
         mask_image=mask,
         num_inference_steps=num_inference_steps,
         guidance_scale=guidance_scale,
         strength=0.99,
-    ).images[0]
+    ).images[0].convert("RGB")
+
+    # Diffusion models can subtly reframe or repaint the entire image even when
+    # given a mask. Composite the proposal back through a feathered copy of the
+    # authoritative mask so FlowEdit never sees changes outside the target.
+    feather_radius = max(1.0, min(ref.size) * 0.004)
+    feathered_mask = mask.filter(ImageFilter.GaussianBlur(radius=feather_radius))
+    result = Image.composite(generated, ref, feathered_mask)
 
     buf = io.BytesIO()
     result.save(buf, format="PNG")

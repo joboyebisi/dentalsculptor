@@ -44,10 +44,20 @@ export const MaskPaintOverlay = forwardRef<MaskPaintOverlayHandle, MaskPaintOver
       const { width, height } = container.getBoundingClientRect();
       if (width < 1 || height < 1) return;
       if (canvas.width !== Math.floor(width) || canvas.height !== Math.floor(height)) {
-        const prev = canvas.width > 0 ? getCtx()?.getImageData(0, 0, canvas.width, canvas.height) : null;
+        const previous = document.createElement("canvas");
+        previous.width = canvas.width;
+        previous.height = canvas.height;
+        if (canvas.width > 0 && canvas.height > 0) {
+          previous.getContext("2d")?.drawImage(canvas, 0, 0);
+        }
         canvas.width = Math.floor(width);
         canvas.height = Math.floor(height);
-        if (prev) getCtx()?.putImageData(prev, 0, 0);
+        if (previous.width > 0 && previous.height > 0) {
+          getCtx()?.drawImage(previous, 0, 0, canvas.width, canvas.height);
+        }
+        // ImageData snapshots cannot be replayed at a different resolution.
+        historyRef.current = [];
+        redoRef.current = [];
       }
     }, []);
 
@@ -213,7 +223,7 @@ export const MaskPaintOverlay = forwardRef<MaskPaintOverlayHandle, MaskPaintOver
     if (!visible) return null;
 
     return (
-      <div ref={containerRef} className="absolute inset-0 z-10 touch-none pointer-events-none">
+      <div ref={containerRef} className="absolute inset-0 z-20 touch-none pointer-events-none">
         <canvas
           ref={canvasRef}
           className={cn(

@@ -2,6 +2,55 @@
 
 export type Preview2dMode = "add" | "remove" | "replace";
 
+/** Enforce pixel locality even when an inpaint provider repaints the full frame. */
+export async function compositePreviewThroughMask(
+  referenceBlob: Blob,
+  generatedBlob: Blob,
+  maskBlob: Blob
+): Promise<Blob> {
+  const [reference, generated, mask] = await Promise.all([
+    createImageBitmap(referenceBlob),
+    createImageBitmap(generatedBlob),
+    createImageBitmap(maskBlob),
+  ]);
+  const canvas = document.createElement("canvas");
+  canvas.width = reference.width;
+  canvas.height = reference.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    reference.close();
+    generated.close();
+    mask.close();
+    return referenceBlob;
+  }
+
+  ctx.drawImage(reference, 0, 0);
+  const referencePixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(generated, 0, 0, canvas.width, canvas.height);
+  const generatedPixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(mask, 0, 0, canvas.width, canvas.height);
+  const maskPixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+  for (let i = 0; i < referencePixels.data.length; i += 4) {
+    const strength = maskPixels.data[i]! / 255;
+    for (let channel = 0; channel < 3; channel++) {
+      referencePixels.data[i + channel] = Math.round(
+        referencePixels.data[i + channel]! * (1 - strength) +
+          generatedPixels.data[i + channel]! * strength
+      );
+    }
+  }
+  ctx.putImageData(referencePixels, 0, 0);
+  reference.close();
+  generated.close();
+  mask.close();
+  return new Promise((resolve) =>
+    canvas.toBlob((blob) => resolve(blob ?? referenceBlob), "image/png")
+  );
+}
+
 export async function applyMasked2dPreview(
   referenceBlob: Blob,
   maskBlob: Blob | null,

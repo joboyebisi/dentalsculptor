@@ -5,6 +5,7 @@ import { isValidGlbBuffer, glbValidationError } from "@/lib/glb-utils";
 import { updateEditJobProgress } from "@/lib/edit-jobs.server";
 import { prisma } from "@/lib/prisma";
 import { logEdit } from "@/lib/edit-log";
+import type { EditProofMetrics } from "@/lib/edit-log";
 
 async function persistModalModelBase64(
   modelBase64: string,
@@ -111,6 +112,7 @@ export async function GET(
     seed?: number;
     inferenceSeconds?: number;
     upstreamCommit?: string;
+    metrics?: EditProofMetrics;
   } = {};
 
   if (raw.trim()) {
@@ -189,6 +191,7 @@ export async function GET(
       metadata: {
         maskedVertexRatio: data.maskedVertexRatio,
         regionMarkCount: data.regionMarkCount,
+        metrics: data.metrics,
       },
     }).catch(() => undefined);
 
@@ -233,6 +236,7 @@ export async function GET(
         seed: data.seed,
         inferenceSeconds: data.inferenceSeconds,
         upstreamCommit: data.upstreamCommit,
+        metrics: data.metrics,
       },
     });
     return NextResponse.json({
@@ -254,6 +258,7 @@ export async function GET(
       metadata: {
         maskedVertexRatio: data.maskedVertexRatio,
         regionMarkCount: data.regionMarkCount,
+        metrics: data.metrics,
       },
     }).catch(() => undefined);
   }

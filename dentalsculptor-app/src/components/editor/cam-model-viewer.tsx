@@ -527,10 +527,12 @@ function ZoomBridge({
 
 function CaptureBridge({
   controlsRef,
+  meshGroupRef,
   captureRef,
   captureRegionRef,
 }: {
   controlsRef: React.RefObject<OrbitControlsImpl | null>;
+  meshGroupRef: React.RefObject<THREE.Group | null>;
   captureRef: React.MutableRefObject<() => Promise<ViewerCapture | null>>;
   captureRegionRef: React.MutableRefObject<
     (mark: Pick<RectMark, "x" | "y" | "width" | "height">) => Promise<string | null>
@@ -561,6 +563,8 @@ function CaptureBridge({
           return;
         }
         const target = controlsRef.current?.target ?? new THREE.Vector3();
+        const renderedRoot = meshGroupRef.current?.children[0];
+        renderedRoot?.updateMatrixWorld(true);
         resolve({
           image,
           camera: {
@@ -568,6 +572,9 @@ function CaptureBridge({
             projectionMatrix: camera.projectionMatrix.toArray(),
             viewMatrix: camera.matrixWorldInverse.toArray(),
             worldMatrix: camera.matrixWorld.toArray(),
+            modelMatrix: Array.from(
+              renderedRoot?.matrixWorld.elements ?? new THREE.Matrix4().elements
+            ),
             position: camera.position.toArray(),
             quaternion: camera.quaternion.toArray(),
             target: target.toArray(),
@@ -877,6 +884,7 @@ export const CamModelViewer = forwardRef<CamViewerHandle, CamModelViewerProps>(f
           <RaycastBridge meshGroupRef={meshGroupRef} raycastRef={raycastRef} />
           <CaptureBridge
             controlsRef={controlsRef}
+            meshGroupRef={meshGroupRef}
             captureRef={captureRef}
             captureRegionRef={captureRegionRef}
           />

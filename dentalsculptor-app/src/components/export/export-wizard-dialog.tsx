@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { Check, Download, X, AlertTriangle, XCircle } from "lucide-react";
+import { Check, Download, Share2, X, AlertTriangle, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -483,6 +483,11 @@ export function ExportWizardDialog({
             {step === 3 ? "Close" : "Cancel"}
           </Button>
           <div className="flex gap-2">
+            {step === 3 && (
+              <Button type="button" variant="outline" asChild>
+                <a href={`/projects/${projectId}/publish`}><Share2 className="mr-2 h-4 w-4" />Publish and share</a>
+              </Button>
+            )}
             {validateError && step === 1 && (
               <p className="self-center text-body-sm text-error">{validateError}</p>
             )}

@@ -6,9 +6,9 @@ import { getExportPreset, type ExportTarget } from "@/lib/export-presets";
 import { exportMeshForPreset, type ExportScope, type MeshExportFormat } from "@/lib/export-mesh";
 import { trackResearchEvent } from "@/lib/research-events";
 import { parseModelProcessingStage } from "@/lib/model-processing-stage";
-import { getS3AssetUrl } from "@/lib/storage";
 import type { ExportAssetId } from "@/lib/export-asset-options";
 import { buildProjectExportBundle } from "@/lib/build-export-bundle.server";
+import { resolveProjectModelUrl } from "@/lib/project-model-asset.server";
 
 export const maxDuration = 120;
 export const runtime = "nodejs";
@@ -26,7 +26,6 @@ export async function POST(
   const validateOnly = Boolean(body.validateOnly);
   const outputFormat = body.outputFormat as MeshExportFormat | undefined;
   const scope = (body.scope as ExportScope | undefined) ?? "full";
-  const modelUrlOverride = body.modelUrl as string | undefined;
   const assets = (body.assets as ExportAssetId[] | undefined) ?? ["mesh-primary"];
   const bundle = Boolean(body.bundle);
 
@@ -39,10 +38,14 @@ export async function POST(
     include: { dentalModel: true },
   });
 
-  let modelUrl = modelUrlOverride ?? project?.dentalModel?.generated3DUrl ?? null;
-  if (!modelUrl && project?.dentalModel?.generated3DKey) {
-    modelUrl = await getS3AssetUrl(project.dentalModel.generated3DKey);
+  if (!project) {
+    return NextResponse.json({ error: "Project not found." }, { status: 404 });
   }
+
+  // Never pass the browser's same-origin `/api/projects/.../model` path to
+  // server-side loaders. Resolve a fresh URL from the authenticated project
+  // record, which also avoids expired signed URLs and arbitrary URL fetching.
+  const modelUrl = await resolveProjectModelUrl(project.dentalModel);
 
   if (!modelUrl) {
     return NextResponse.json({ error: "No generated model to export." }, { status: 400 });
@@ -78,14 +81,14 @@ export async function POST(
 
     if (useBundle) {
       const bundleResult = await buildProjectExportBundle({
-        projectTitle: project?.title ?? "model",
+        projectTitle: project.title,
         target,
         modelUrl,
         modelFormat: format,
         outputFormat: resolvedFormat,
         scope,
         assets: assets.includes("mesh-primary") ? assets : ["mesh-primary", ...assets],
-        sourceImageUrl: project?.dentalModel?.sourceImageUrl,
+        sourceImageUrl: project.dentalModel?.sourceImageUrl,
       });
 
       await trackResearchEvent({
@@ -118,7 +121,7 @@ export async function POST(
       return NextResponse.json({ error: "Export failed." }, { status: 500 });
     }
 
-    const safeTitle = (project?.title ?? "model").replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 64);
+    const safeTitle = project.title.replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 64);
     const filename = `${safeTitle}-${target}.${result.extension}`;
 
     await trackResearchEvent({
