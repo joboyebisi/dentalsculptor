@@ -32,11 +32,19 @@ const IMAGE_SCHEMA = {
   additionalProperties: false,
 };
 
+const LIBRARY_SCHEMA = {
+  type: "object" as const,
+  properties: { libraryId: { type: "string", description: "An image ID returned by dentalsculptor_list_image_library." } },
+  required: ["libraryId"], additionalProperties: false,
+};
+
 export function LandingWebMcpTools({
   hasSourceImage,
   hasModel,
   busy,
   importImage,
+  listLibrary,
+  selectLibraryImage,
   generate,
   continueWithModel,
 }: {
@@ -44,6 +52,8 @@ export function LandingWebMcpTools({
   hasModel: boolean;
   busy: boolean;
   importImage: (imageUrl: string, fileName: string) => Promise<void>;
+  listLibrary: () => Promise<unknown[]>;
+  selectLibraryImage: (libraryId: string) => Promise<{ id: string; title: string }>;
   generate: () => Promise<void>;
   continueWithModel: (nextStep: PendingNextStep) => Promise<void>;
 }) {
@@ -60,6 +70,24 @@ export function LandingWebMcpTools({
             busy,
           })
         }
+      />
+      <WebMcpTool
+        name="dentalsculptor_list_image_library"
+        description="List DentalSculptor's curated single-tooth teaching images that can be selected for generation."
+        readOnly enabled={!busy}
+        execute={async () => {
+          const items = await listLibrary();
+          return webMcpResult(`Found ${items.length} curated dental images.`, { items });
+        }}
+      />
+      <WebMcpTool
+        name="dentalsculptor_select_library_image"
+        description="Select a curated DentalSculptor image by its library ID and attach it visibly as the generation source."
+        inputSchema={LIBRARY_SCHEMA} enabled={!busy}
+        execute={async ({ libraryId }) => {
+          const item = await selectLibraryImage(String(libraryId ?? ""));
+          return webMcpResult(`Selected library image: ${item.title}.`, item);
+        }}
       />
       <WebMcpTool
         name="dentalsculptor_import_source_image"
@@ -84,7 +112,7 @@ export function LandingWebMcpTools({
       />
       <WebMcpTool
         name="dentalsculptor_continue_with_model"
-        description="Continue with a ready 3D model by opening download, publishing, guided teaching-case creation, or the free editor. Authentication and onboarding remain enforced by DentalSculptor."
+        description="Continue with a ready 3D model. An active educator invite permits direct model download without sign-in; saved projects, publishing, guided cases, and Free Editor require authentication and onboarding."
         inputSchema={CONTINUE_SCHEMA}
         enabled={hasModel && !busy}
         execute={async ({ nextStep }) => {
