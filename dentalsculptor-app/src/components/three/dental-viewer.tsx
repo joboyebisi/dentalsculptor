@@ -322,9 +322,12 @@ export interface DentalViewerHandle {
   focusModel: () => boolean;
 }
 
+export type DentalViewerLoadState = "loading" | "ready" | "error";
+
 export interface DentalViewerProps extends DentalModelProps {
   className?: string;
   showGrid?: boolean;
+  onLoadStateChange?: (state: DentalViewerLoadState, error?: string) => void;
 }
 
 export const DentalViewer = forwardRef<DentalViewerHandle, DentalViewerProps>(function DentalViewer(
@@ -334,7 +337,7 @@ export const DentalViewer = forwardRef<DentalViewerHandle, DentalViewerProps>(fu
   const captureRef = useRef<(() => Promise<Blob | null>) | null>(null);
   const focusRef = useRef<(() => boolean) | null>(null);
   const [fitGeneration, setFitGeneration] = useState(props.modelUrl ? 0 : 1);
-  const [loadState, setLoadState] = useState<"loading" | "ready" | "error">(
+  const [loadState, setLoadState] = useState<DentalViewerLoadState>(
     props.modelUrl ? "loading" : "ready"
   );
   const [loadError, setLoadError] = useState("");
@@ -350,7 +353,20 @@ export const DentalViewer = forwardRef<DentalViewerHandle, DentalViewerProps>(fu
       setLoadState("ready");
       setFitGeneration((value) => value + 1);
     }
-  }, [props.meshData, props.modelUrl]);
+  }, [props.meshData, props.modelFormat, props.modelUrl, props.mtlUrl]);
+
+  useEffect(() => {
+    props.onLoadStateChange?.(loadState, loadError || undefined);
+  }, [loadError, loadState, props.onLoadStateChange]);
+
+  useEffect(() => {
+    if (loadState !== "loading") return;
+    const timeout = window.setTimeout(() => {
+      setLoadError("The model loaded too slowly. Re-open the project or try again.");
+      setLoadState("error");
+    }, 65_000);
+    return () => window.clearTimeout(timeout);
+  }, [loadState, props.modelUrl]);
 
   const focusModel = useCallback(() => focusRef.current?.() ?? false, []);
   const handleLoaded = useCallback(() => {
