@@ -5,7 +5,11 @@ import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { Download, Loader2, BookOpen, Share2, SlidersHorizontal } from "lucide-react";
-import { DentalViewer, type DentalViewerHandle } from "@/components/three/dental-viewer";
+import {
+  DentalViewer,
+  type DentalViewerHandle,
+  type DentalViewerLoadState,
+} from "@/components/three/dental-viewer";
 import { Button } from "@/components/ui/button";
 import { useLandingModel } from "@/context/landing-model-context";
 import {
@@ -49,6 +53,7 @@ export function LandingModelPanel() {
   const [busy, setBusy] = useState<PendingNextStep | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [elapsedSec, setElapsedSec] = useState(0);
+  const [viewerState, setViewerState] = useState<DentalViewerLoadState | "idle">("idle");
   const viewerRef = useRef<DentalViewerHandle>(null);
 
   async function importImageFromUrl(imageUrl: string, requestedName: string) {
@@ -92,6 +97,10 @@ export function LandingModelPanel() {
     anchor.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
+
+  useEffect(() => {
+    if (!hasModel) setViewerState("idle");
+  }, [hasModel]);
 
   useEffect(() => {
     if (!isLoading && !isEnhancing) {
@@ -169,6 +178,7 @@ export function LandingModelPanel() {
       <LandingWebMcpTools
         hasSourceImage={Boolean(uploadedFile)}
         hasModel={hasModel}
+        viewerState={viewerState}
         busy={Boolean(isLoading || isEnhancing || busy)}
         importImage={importImageFromUrl}
         listLibrary={loadLibrary}
@@ -197,6 +207,7 @@ export function LandingModelPanel() {
             modelFormat={format}
             mtlUrl={mtlUrl}
             className="h-full"
+            onLoadStateChange={setViewerState}
           />
         ) : isLoading || isEnhancing ? (
           <GenerationProgressDisplay

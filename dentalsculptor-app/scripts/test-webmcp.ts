@@ -59,6 +59,10 @@ assert(source.includes("hasInvite && nextStep === \"download\""), "Invited guest
 assert(source.includes('"case-wizard", "editor"'), "Free Editor handoff must use the persisted `editor` next-step value.");
 assert(!source.includes('"free-editor"'), "WebMCP must not emit an unsupported pending next-step value.");
 assert(source.includes("if (!outcome.ok)"), "Generation failures must propagate to the WebMCP caller.");
+assert(
+  source.includes('viewerState === "ready"'),
+  "WebMCP must distinguish a generated model URL from a visible, loaded model."
+);
 assert(!/TRELLIS|Nano3D|MODAL_|AWS_|SUPABASE_/i.test(source), "WebMCP surface must not expose infrastructure or secrets.");
 
 const layout = readFileSync(resolve(root, "src/app/layout.tsx"), "utf8");

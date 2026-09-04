@@ -2,6 +2,7 @@
 
 import type { PendingNextStep } from "@/lib/landing-session";
 import type { GenerationOutcome } from "@/context/landing-model-context";
+import type { DentalViewerLoadState } from "@/components/three/dental-viewer";
 import { WebMcpTool, webMcpResult } from "@/components/webmcp/webmcp-tool";
 
 const CONTINUE_SCHEMA = {
@@ -42,6 +43,7 @@ const LIBRARY_SCHEMA = {
 export function LandingWebMcpTools({
   hasSourceImage,
   hasModel,
+  viewerState,
   busy,
   importImage,
   listLibrary,
@@ -51,6 +53,7 @@ export function LandingWebMcpTools({
 }: {
   hasSourceImage: boolean;
   hasModel: boolean;
+  viewerState: DentalViewerLoadState | "idle";
   busy: boolean;
   importImage: (imageUrl: string, fileName: string) => Promise<void>;
   listLibrary: () => Promise<unknown[]>;
@@ -65,11 +68,20 @@ export function LandingWebMcpTools({
         description="Inspect whether the educator has selected a source image and whether a generated 3D model is ready."
         readOnly
         execute={() =>
-          webMcpResult(hasModel ? "A generated 3D model is ready." : "No generated 3D model is ready yet.", {
+          webMcpResult(
+            viewerState === "ready"
+              ? "A generated 3D model is loaded and visible."
+              : hasModel
+                ? `A model was generated, but the viewer is ${viewerState}.`
+                : "No generated 3D model is ready yet.",
+            {
             sourceImageSelected: hasSourceImage,
-            modelReady: hasModel,
+            modelGenerated: hasModel,
+            modelReady: hasModel && viewerState === "ready",
+            viewerState,
             busy,
-          })
+            }
+          )
         }
       />
       <WebMcpTool
@@ -111,7 +123,7 @@ export function LandingWebMcpTools({
           if (!outcome.ok) throw new Error(outcome.error);
           return webMcpResult(
             "3D generation finished and the model is loading in the visible DentalSculptor viewer.",
-            { modelReady: true, format: outcome.format, source: outcome.source }
+            { modelGenerated: true, modelReady: false, viewerState: "loading", format: outcome.format, source: outcome.source }
           );
         }}
       />
@@ -119,9 +131,12 @@ export function LandingWebMcpTools({
         name="dentalsculptor_continue_with_model"
         description="Continue with a ready 3D model. An active educator invite permits direct model download without sign-in; saved projects, publishing, guided cases, and Free Editor require authentication and onboarding."
         inputSchema={CONTINUE_SCHEMA}
-        enabled={hasModel && !busy}
+        enabled={hasModel && viewerState === "ready" && !busy}
         execute={async ({ nextStep }) => {
           if (!hasModel) throw new Error("Generate a 3D model before continuing.");
+          if (viewerState !== "ready") {
+            throw new Error(`Wait for the generated model to become visible; viewer state is ${viewerState}.`);
+          }
           const allowed: PendingNextStep[] = ["download", "publish", "case-wizard", "editor"];
           const requested = String(nextStep);
           if (!allowed.some((step) => step === requested)) throw new Error("Choose a supported nextStep.");

@@ -219,15 +219,26 @@ async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Respons
   }
 }
 
+async function upstreamError(res: Response, fallback: string): Promise<string> {
+  try {
+    const data = (await res.json()) as { error?: unknown };
+    if (typeof data.error === "string" && data.error.trim()) return data.error;
+  } catch {
+    // The upstream may return HTML or an empty response.
+  }
+  return `${fallback} (${res.status})`;
+}
+
 async function fetchModelBytes(url: string): Promise<ArrayBuffer> {
 
   const fetchUrl = resolveModelFetchUrl(url);
 
-  const res = await fetchWithTimeout(fetchUrl, 45_000);
+  // The server proxy stops at 50 seconds; leave enough time for its JSON error
+  // response to reach slower embedded browsers.
+  const res = await fetchWithTimeout(fetchUrl, 55_000);
 
   if (!res.ok) {
-
-    throw new Error(`Could not fetch model (${res.status})`);
+    throw new Error(await upstreamError(res, "Could not fetch model"));
 
   }
 
@@ -244,8 +255,7 @@ async function fetchTextAsset(url: string): Promise<string> {
   const res = await fetchWithTimeout(fetchUrl, 15_000);
 
   if (!res.ok) {
-
-    throw new Error(`Could not fetch material file (${res.status})`);
+    throw new Error(await upstreamError(res, "Could not fetch material file"));
 
   }
 

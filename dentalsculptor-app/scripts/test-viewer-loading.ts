@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { resolveModelFetchUrl } from "../src/lib/model-asset-url";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -22,8 +23,9 @@ assert(
 );
 assert(viewer.includes("onModelLoaded={handleLoaded}"), "The viewer must observe model readiness.");
 assert(viewer.includes("CameraFitRig"), "Loaded geometry must be fitted to the viewport.");
-assert(loader.includes("fetchWithTimeout(fetchUrl, 45_000)"), "Model downloads need a bounded timeout.");
+assert(loader.includes("fetchWithTimeout(fetchUrl, 55_000)"), "Model downloads need a bounded timeout.");
 assert(loader.includes("AbortController"), "Model download timeouts need embedded-browser support.");
+assert(loader.includes("upstreamError(res"), "Proxy errors must reach the viewer.");
 assert(
   loader.includes("never hold geometry rendering hostage"),
   "OBJ geometry must not wait for optional remote textures."
@@ -37,5 +39,12 @@ assert(
   !assetUrls.includes('parsed.hostname.endsWith("supabase.co")'),
   "Cross-origin Supabase models must use the same-origin proxy in embedded browsers."
 );
+assert(
+  resolveModelFetchUrl("https://example.supabase.co/storage/v1/object/model.glb").startsWith(
+    "/api/models/proxy?url="
+  ),
+  "Supabase model URLs must resolve through the same-origin proxy."
+);
+assert(viewer.includes("65_000"), "The landing viewer needs a load watchdog.");
 
 console.log("Validated embedded-browser-safe 3D viewer loading and framing.");
