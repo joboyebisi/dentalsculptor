@@ -44,7 +44,7 @@ final simulator/export configuration.
 
 ## Implementation
 
-The React application registers 17 page-scoped tools through the Chrome Labs
+The React application registers 19 page-scoped tools through the Chrome Labs
 `use-webmcp-tool` package. The package drives the browser's
 `document.modelContext.registerTool(...)` API and unregisters tools when their
 React surface unmounts. Each tool has a JSON input schema, concise clinical
@@ -52,6 +52,13 @@ description, availability derived from live page state, and an abort-aware
 handler. The adapter is isolated under
 `dentalsculptor-app/src/components/webmcp/`; it does not replace existing APIs,
 authentication, storage, generation, editing, or UI behavior.
+
+For protected actions, the agent first inspects authentication state. When the
+educator is signed out, it can return a clickable, same-origin sign-in or
+registration URL with a validated post-auth destination. The educator completes
+authentication visibly in the browser and then asks the agent to re-check the
+session. Passwords, OAuth credentials, cookies, and access tokens are never
+returned through WebMCP.
 
 ## Under-three-minute demo outline
 

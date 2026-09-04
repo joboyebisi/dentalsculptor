@@ -40,7 +40,8 @@ keys or secrets are returned through WebMCP.
 
 ## Tool surfaces
 
-- Global: inspect app and open a workspace.
+- Global: inspect app/authentication, return a clickable sign-in or registration
+  handoff, and open a workspace.
 - Landing generation: inspect readiness, generate 3D, continue to download,
   publish, teaching-case creation or Free Editor.
 - Editor: inspect state, open case selection, choose a synchronized preset, open
@@ -64,11 +65,15 @@ Browser verification:
 2. Open the site in ChatGPT's in-app browser; or use a compatible Chromium build
    with `chrome://flags/#enable-webmcp-testing` enabled.
 3. On the landing page, verify the agent sees global and generation tools.
-4. Select an image manually and invoke `dentalsculptor_generate_3d`.
-5. Continue to a teaching case or Free Editor.
-6. Verify editor tools appear/disappear as target, preview and revision state
+4. When signed out, invoke `dentalsculptor_get_auth_link`, click the returned
+   URL, authenticate visibly, and invoke `dentalsculptor_inspect_auth` after the
+   browser returns to DentalSculptor. Credentials and session tokens must never
+   appear in the tool result or chat.
+5. Select an image manually and invoke `dentalsculptor_generate_3d`.
+6. Continue to a teaching case or Free Editor.
+7. Verify editor tools appear/disappear as target, preview and revision state
    changes.
-7. Confirm ordinary Chrome with WebMCP unavailable retains the existing UI and
+8. Confirm ordinary Chrome with WebMCP unavailable retains the existing UI and
    workflows with no console or rendering failure.
 
 WebMCP remains an early-preview API. Keep the wrapper isolated under

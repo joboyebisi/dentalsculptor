@@ -17,6 +17,8 @@ const source = files.map((file) => readFileSync(resolve(root, file), "utf8")).jo
 const names = [...source.matchAll(/name="(dentalsculptor_[a-z0-9_]+)"/g)].map((match) => match[1]);
 const required = [
   "dentalsculptor_inspect_app",
+  "dentalsculptor_inspect_auth",
+  "dentalsculptor_get_auth_link",
   "dentalsculptor_inspect_generation",
   "dentalsculptor_generate_3d",
   "dentalsculptor_continue_with_model",
@@ -35,6 +37,8 @@ assert(names.length === new Set(names).size, "WebMCP tool names must be globally
 for (const name of required) assert(names.includes(name), `Missing required WebMCP tool: ${name}`);
 assert(source.includes("readOnlyHint"), "Read-only tools must advertise readOnlyHint.");
 assert(source.includes("enabled={"), "Page tools must feature-detect prerequisites through enabled state.");
+assert(source.includes("user_action_required"), "Authentication must return a user-clickable handoff rather than credentials.");
+assert(source.includes("redirect_url"), "Authentication links must preserve a safe post-auth destination.");
 assert(!/TRELLIS|Nano3D|MODAL_|AWS_|SUPABASE_/i.test(source), "WebMCP surface must not expose infrastructure or secrets.");
 
 const layout = readFileSync(resolve(root, "src/app/layout.tsx"), "utf8");
