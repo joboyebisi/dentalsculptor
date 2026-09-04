@@ -201,11 +201,29 @@ function resolveLoadFormat(
 
 
 
+async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, {
+      credentials: "same-origin",
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("The model server took too long to respond.");
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
 async function fetchModelBytes(url: string): Promise<ArrayBuffer> {
 
   const fetchUrl = resolveModelFetchUrl(url);
 
-  const res = await fetch(fetchUrl, { credentials: "same-origin" });
+  const res = await fetchWithTimeout(fetchUrl, 45_000);
 
   if (!res.ok) {
 
@@ -223,7 +241,7 @@ async function fetchTextAsset(url: string): Promise<string> {
 
   const fetchUrl = resolveModelFetchUrl(url);
 
-  const res = await fetch(fetchUrl, { credentials: "same-origin" });
+  const res = await fetchWithTimeout(fetchUrl, 15_000);
 
   if (!res.ok) {
 
@@ -252,9 +270,6 @@ function parseObj(text: string, materials?: MTLLoader.MaterialCreator): THREE.Gr
   const loader = new OBJLoader();
 
   if (materials) {
-
-    materials.preload();
-
     loader.setMaterials(materials);
 
   }
@@ -270,26 +285,23 @@ async function loadMaterials(mtlUrl: string): Promise<MTLLoader.MaterialCreator 
     const mtlText = await fetchTextAsset(mtlUrl);
     const mtlBase = getAssetBaseUrl(mtlUrl);
 
-    return await new Promise((resolve) => {
-      const manager = new THREE.LoadingManager(
-        () => resolve(materials),
-        undefined,
-        () => resolve(materials)
-      );
-      manager.setURLModifier((path) => {
-        try {
-          const absolute = /^https?:\/\//i.test(path) ? path : new URL(path, mtlBase).href;
-          return resolveModelFetchUrl(absolute);
-        } catch {
-          return resolveModelFetchUrl(path);
-        }
-      });
-
-      const mtlLoader = new MTLLoader(manager);
-      mtlLoader.setResourcePath(mtlBase);
-      const materials = mtlLoader.parse(mtlText, mtlBase);
-      materials.preload();
+    const manager = new THREE.LoadingManager();
+    manager.setURLModifier((path) => {
+      try {
+        const absolute = /^https?:\/\//i.test(path) ? path : new URL(path, mtlBase).href;
+        return resolveModelFetchUrl(absolute);
+      } catch {
+        return resolveModelFetchUrl(path);
+      }
     });
+
+    const mtlLoader = new MTLLoader(manager);
+    mtlLoader.setResourcePath(mtlBase);
+    const materials = mtlLoader.parse(mtlText, mtlBase);
+    // Start optional texture loading, but never hold geometry rendering hostage to it.
+    // Embedded browsers may block a remote texture host while still allowing the OBJ.
+    materials.preload();
+    return materials;
   } catch (error) {
     console.warn("[RemoteModelMesh] MTL load failed, continuing without materials:", error);
     return undefined;

@@ -56,6 +56,9 @@ assert(source.includes("noPatientInformationConfirmed"), "Publishing must requir
 assert(source.includes("confirmation !== true"), "External release actions must require confirmation.");
 assert(source.includes("invited_guest"), "WebMCP authentication inspection must distinguish invited guests.");
 assert(source.includes("hasInvite && nextStep === \"download\""), "Invited guests must be able to download without project authentication.");
+assert(source.includes('"case-wizard", "editor"'), "Free Editor handoff must use the persisted `editor` next-step value.");
+assert(!source.includes('"free-editor"'), "WebMCP must not emit an unsupported pending next-step value.");
+assert(source.includes("if (!outcome.ok)"), "Generation failures must propagate to the WebMCP caller.");
 assert(!/TRELLIS|Nano3D|MODAL_|AWS_|SUPABASE_/i.test(source), "WebMCP surface must not expose infrastructure or secrets.");
 
 const layout = readFileSync(resolve(root, "src/app/layout.tsx"), "utf8");

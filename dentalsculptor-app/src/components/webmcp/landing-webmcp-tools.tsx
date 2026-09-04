@@ -1,6 +1,7 @@
 "use client";
 
 import type { PendingNextStep } from "@/lib/landing-session";
+import type { GenerationOutcome } from "@/context/landing-model-context";
 import { WebMcpTool, webMcpResult } from "@/components/webmcp/webmcp-tool";
 
 const CONTINUE_SCHEMA = {
@@ -8,7 +9,7 @@ const CONTINUE_SCHEMA = {
   properties: {
     nextStep: {
       type: "string",
-      enum: ["download", "publish", "case-wizard", "free-editor"],
+      enum: ["download", "publish", "case-wizard", "editor"],
       description: "What the educator wants to do with the generated model.",
     },
   },
@@ -54,7 +55,7 @@ export function LandingWebMcpTools({
   importImage: (imageUrl: string, fileName: string) => Promise<void>;
   listLibrary: () => Promise<unknown[]>;
   selectLibraryImage: (libraryId: string) => Promise<{ id: string; title: string }>;
-  generate: () => Promise<void>;
+  generate: () => Promise<GenerationOutcome>;
   continueWithModel: (nextStep: PendingNextStep) => Promise<void>;
 }) {
   return (
@@ -106,8 +107,12 @@ export function LandingWebMcpTools({
         execute={async () => {
           if (!hasSourceImage) throw new Error("Ask the educator to select a dental image first.");
           if (busy) throw new Error("DentalSculptor is already working. Wait for the current operation.");
-          await generate();
-          return webMcpResult("3D generation finished. Inspect generation before choosing the next workflow.");
+          const outcome = await generate();
+          if (!outcome.ok) throw new Error(outcome.error);
+          return webMcpResult(
+            "3D generation finished and the model is loading in the visible DentalSculptor viewer.",
+            { modelReady: true, format: outcome.format, source: outcome.source }
+          );
         }}
       />
       <WebMcpTool
@@ -117,10 +122,11 @@ export function LandingWebMcpTools({
         enabled={hasModel && !busy}
         execute={async ({ nextStep }) => {
           if (!hasModel) throw new Error("Generate a 3D model before continuing.");
-          const allowed = ["download", "publish", "case-wizard", "free-editor"];
-          if (!allowed.includes(String(nextStep))) throw new Error("Choose a supported nextStep.");
-          await continueWithModel(nextStep as PendingNextStep);
-          return webMcpResult(`Opened the ${String(nextStep)} workflow.`, { nextStep });
+          const allowed: PendingNextStep[] = ["download", "publish", "case-wizard", "editor"];
+          const requested = String(nextStep);
+          if (!allowed.some((step) => step === requested)) throw new Error("Choose a supported nextStep.");
+          await continueWithModel(requested as PendingNextStep);
+          return webMcpResult(`Opened the ${requested} workflow.`, { nextStep: requested });
         }}
       />
     </>

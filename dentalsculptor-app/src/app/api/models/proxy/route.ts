@@ -20,8 +20,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Invalid url." }, { status: 400 });
   }
 
-  if (target.protocol !== "https:" && target.protocol !== "http:") {
-    return NextResponse.json({ error: "Unsupported protocol." }, { status: 400 });
+  if (target.protocol !== "https:") {
+    return NextResponse.json({ error: "Only HTTPS model URLs are supported." }, { status: 400 });
   }
 
   if (!isAllowedModelAssetUrl(target.toString())) {
@@ -32,7 +32,9 @@ export async function GET(req: NextRequest) {
     const upstream = await fetch(target.toString(), {
       headers: { "User-Agent": "DentalSculptor/1.0" },
       cache: "no-store",
-      signal: AbortSignal.timeout(120_000),
+      // Finish before the Vercel function deadline so clients receive a useful
+      // JSON error instead of waiting indefinitely on a terminated connection.
+      signal: AbortSignal.timeout(50_000),
     });
 
     if (!upstream.ok) {
@@ -56,15 +58,13 @@ export async function GET(req: NextRequest) {
     const contentType =
       upstream.headers.get("content-type") ??
       guessModelContentType(target.pathname);
-    const contentLength = upstream.headers.get("content-length");
-
     return new NextResponse(upstream.body, {
       status: 200,
       headers: {
         "Content-Type": contentType,
-        ...(contentLength ? { "Content-Length": contentLength } : {}),
         "Cache-Control": "public, max-age=3600",
         "Access-Control-Allow-Origin": "*",
+        "X-Content-Type-Options": "nosniff",
       },
     });
   } catch (error) {

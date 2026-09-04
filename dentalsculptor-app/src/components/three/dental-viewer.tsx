@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Suspense,
   useRef,
   useMemo,
   useState,
@@ -11,7 +10,7 @@ import {
   useImperativeHandle,
 } from "react";
 import { Canvas, ThreeEvent, useThree } from "@react-three/fiber";
-import { OrbitControls, PerspectiveCamera, Html, Grid, Environment } from "@react-three/drei";
+import { OrbitControls, PerspectiveCamera, Html, Grid } from "@react-three/drei";
 import * as THREE from "three";
 import type { GeneratedMesh } from "@/lib/model-generator";
 import { RemoteModelMesh } from "@/components/three/remote-model-mesh";
@@ -264,7 +263,6 @@ function SceneContent(
         onFramed={props.onFramed}
       />
       <color attach="background" args={[VIEWPORT_THEME.background]} />
-      <Environment preset="studio" environmentIntensity={0.55} />
       <ambientLight intensity={0.65} />
       <hemisphereLight args={["#ffffff", "#d1d5db", 0.55]} />
       <directionalLight position={[5, 8, 5]} intensity={1.1} castShadow />
@@ -389,17 +387,15 @@ export const DentalViewer = forwardRef<DentalViewerHandle, DentalViewerProps>(fu
           gl.toneMappingExposure = 1.05;
         }}
       >
-        <Suspense fallback={null}>
-          <SceneContent
-            {...props}
-            captureRef={captureRef}
-            focusRef={focusRef}
-            fitGeneration={fitGeneration}
-            onModelLoaded={handleLoaded}
-            onModelError={handleError}
-            onFramed={handleFramed}
-          />
-        </Suspense>
+        <SceneContent
+          {...props}
+          captureRef={captureRef}
+          focusRef={focusRef}
+          fitGeneration={fitGeneration}
+          onModelLoaded={handleLoaded}
+          onModelError={handleError}
+          onFramed={handleFramed}
+        />
       </Canvas>
       {loadState === "loading" && (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
