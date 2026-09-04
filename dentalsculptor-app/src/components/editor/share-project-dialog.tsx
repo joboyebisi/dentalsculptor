@@ -4,6 +4,23 @@ import { useState } from "react";
 import { Check, Copy, Download, Share2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { jsonResponseError, readJsonResponse } from "@/lib/safe-json-response";
+import { WebMcpTool, webMcpResult } from "@/components/webmcp/webmcp-tool";
+
+const PUBLISH_CONFIRMATION_SCHEMA = {
+  type: "object" as const,
+  properties: {
+    confirmation: {
+      type: "boolean",
+      description: "True only after the educator explicitly approves publishing this project publicly.",
+    },
+    noPatientInformationConfirmed: {
+      type: "boolean",
+      description: "True only after the educator confirms the project contains no identifiable patient information.",
+    },
+  },
+  required: ["confirmation", "noPatientInformationConfirmed"],
+  additionalProperties: false,
+};
 
 interface ShareProjectDialogProps {
   open: boolean;
@@ -22,7 +39,7 @@ export function ShareProjectDialog({ open, onClose, projectId, projectTitle, has
   const [error, setError] = useState<string | null>(null);
   if (!open) return null;
 
-  async function publish() {
+  async function publish(): Promise<string> {
     setPublishing(true);
     setError(null);
     try {
@@ -30,10 +47,13 @@ export function ShareProjectDialog({ open, onClose, projectId, projectTitle, has
       const { data, raw } = await readJsonResponse<{ error?: string; communityUrl?: string }>(res);
       if (!data) throw new Error(jsonResponseError(res, raw, "Publishing returned an invalid response."));
       if (!res.ok) throw new Error(data.error ?? "Could not publish project.");
-      setCommunityUrl(data.communityUrl ?? `/community/${projectId}`);
+      const relativeUrl = data.communityUrl ?? `/community/${projectId}`;
+      setCommunityUrl(relativeUrl);
       setPublished(true);
+      return new URL(relativeUrl, window.location.origin).toString();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not publish project.");
+      throw err;
     } finally {
       setPublishing(false);
     }
@@ -47,6 +67,25 @@ export function ShareProjectDialog({ open, onClose, projectId, projectTitle, has
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-on-surface/65 p-4 backdrop-blur-sm">
+      <WebMcpTool
+        name="dentalsculptor_confirm_publish"
+        description="Publish the prepared DentalSculptor project to the public community gallery and return its canonical shareable URL. Requires explicit public-release and patient-privacy confirmation."
+        inputSchema={PUBLISH_CONFIRMATION_SCHEMA}
+        enabled={hasModel && !publishing && !published}
+        execute={async ({ confirmation, noPatientInformationConfirmed }) => {
+          if (confirmation !== true || noPatientInformationConfirmed !== true) {
+            throw new Error(
+              "Publishing requires explicit educator approval and confirmation that no identifiable patient information is present."
+            );
+          }
+          const shareUrl = await publish();
+          return webMcpResult(`Published successfully. Shareable project: ${shareUrl}`, {
+            published: true,
+            projectId,
+            communityUrl: shareUrl,
+          });
+        }}
+      />
       <div className="w-full max-w-lg overflow-hidden rounded-xl border border-outline-variant bg-surface shadow-2xl">
         <div className="flex items-center justify-between border-b border-outline-variant px-5 py-4">
           <div><h2 className="text-title-lg font-semibold text-on-surface">Share project</h2><p className="mt-0.5 text-body-sm text-on-surface-variant">{projectTitle}</p></div>
@@ -62,7 +101,7 @@ export function ShareProjectDialog({ open, onClose, projectId, projectTitle, has
         <div className="flex justify-end gap-2 border-t border-outline-variant px-5 py-4">
           {published && <Button type="button" variant="outline" asChild><a href={`/projects/${projectId}/download`}><Download className="mr-2 h-4 w-4" />Download or export</a></Button>}
           {published && <Button type="button" variant="outline" onClick={() => void copyLink()}>{copied ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}{copied ? "Copied" : "Copy gallery link"}</Button>}
-          <Button type="button" className="bg-primary-container text-on-primary" disabled={!hasModel || publishing || published} onClick={() => void publish()}>{publishing ? "Publishing…" : published ? "Published" : "Publish"}</Button>
+          <Button type="button" className="bg-primary-container text-on-primary" disabled={!hasModel || publishing || published} onClick={() => void publish().catch(() => undefined)}>{publishing ? "Publishing…" : published ? "Published" : "Publish"}</Button>
         </div>
       </div>
     </div>
