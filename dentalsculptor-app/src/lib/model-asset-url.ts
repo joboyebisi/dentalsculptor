@@ -31,7 +31,6 @@ export function resolveModelFetchUrl(url: string): string {
     if (typeof window !== "undefined") {
       const parsed = new URL(url, window.location.origin);
       if (parsed.origin === window.location.origin) return url;
-      if (parsed.hostname.endsWith("supabase.co")) return url;
     }
   } catch {
     return url;

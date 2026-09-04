@@ -3,7 +3,7 @@
 import { useRef, useMemo, useCallback, useEffect, useState, forwardRef, useImperativeHandle } from "react";
 import { Loader2 } from "lucide-react";
 import { Canvas, useThree } from "@react-three/fiber";
-import { OrbitControls, Line, Grid, Environment } from "@react-three/drei";
+import { OrbitControls, Line, Grid } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
 import type { GeneratedMesh } from "@/lib/model-generator";
@@ -408,7 +408,6 @@ function SceneContent({
   return (
     <>
       <color attach="background" args={[VIEWPORT_THEME.background]} />
-      <Environment preset="studio" environmentIntensity={0.55} />
       <ambientLight intensity={0.65} />
       <hemisphereLight args={["#ffffff", "#d1d5db", 0.55]} />
       <directionalLight position={[8, 10, 6]} intensity={1.2} castShadow />

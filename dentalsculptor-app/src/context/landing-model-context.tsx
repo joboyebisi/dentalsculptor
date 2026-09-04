@@ -45,10 +45,14 @@ interface LandingModelState {
   lastGenerationSeconds: number | null;
 }
 
+export type GenerationOutcome =
+  | { ok: true; format: string; source: "modal" | "fal" | "mock" }
+  | { ok: false; error: string };
+
 interface LandingModelContextType extends LandingModelState {
   setUploadedFile: (file: File | null) => void;
   prepareAndSetUploadedFile: (file: File | null) => Promise<void>;
-  generateModel: () => Promise<void>;
+  generateModel: () => Promise<GenerationOutcome>;
   enhanceModel: () => Promise<void>;
   rotateUploadedImage: (direction: "cw" | "ccw") => Promise<void>;
   clearAll: () => void;
@@ -155,8 +159,9 @@ export function LandingModelProvider({ children }: { children: React.ReactNode }
 
   const generateModel = useCallback(async () => {
     if (!uploadedFile) {
-      setError("Select an image first.");
-      return;
+      const message = "Select an image first.";
+      setError(message);
+      return { ok: false, error: message } as const;
     }
 
     const inviteCode = resolveInviteCode(searchParams.get(INVITE_QUERY_PARAM));
@@ -244,31 +249,36 @@ export function LandingModelProvider({ children }: { children: React.ReactNode }
       }
 
       if (data.modelUrl) {
+        const source = data.source === "modal" ? "modal" : data.source === "fal" ? "fal" : "mock";
+        const resultFormat = data.format ?? "glb";
         setModelUrl(data.modelUrl);
         setModelKey(data.modelKey ?? null);
         setThumbnailUrl(data.thumbnailUrl ?? null);
         setMtlUrl(data.mtlUrl ?? null);
-        setFormat(data.format ?? "glb");
+        setFormat(resultFormat);
         setModelQuality(
           data.quality === "final" || data.quality === "standard"
             ? data.quality
             : DEFAULT_GENERATION_QUALITY
         );
-        setGenerationSource(
-          data.source === "modal" ? "modal" : data.source === "fal" ? "fal" : "mock"
-        );
+        setGenerationSource(source);
         setLastGenerationSeconds(Math.max(1, Math.round((Date.now() - startedAt) / 1000)));
         notifyGenerationComplete();
+        return { ok: true, format: resultFormat, source } as const;
       } else if (data.meshData) {
         setMeshData(data.meshData);
         setGenerationSource("mock");
         setLastGenerationSeconds(Math.max(1, Math.round((Date.now() - startedAt) / 1000)));
         notifyGenerationComplete();
+        return { ok: true, format: "mesh", source: "mock" } as const;
       } else {
         throw new Error("No model was returned.");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not process the image. Try another file.");
+      const message =
+        err instanceof Error ? err.message : "Could not process the image. Try another file.";
+      setError(message);
+      return { ok: false, error: message } as const;
     } finally {
       setIsLoading(false);
     }
