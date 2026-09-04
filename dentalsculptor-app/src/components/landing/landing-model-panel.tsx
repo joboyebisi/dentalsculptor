@@ -38,6 +38,7 @@ export function LandingModelPanel() {
     canEnhance,
     isFinalModel,
     lastGenerationSeconds,
+    prepareAndSetUploadedFile,
     generateModel,
   } = useLandingModel();
   const [busy, setBusy] = useState<PendingNextStep | null>(null);
@@ -118,6 +119,24 @@ export function LandingModelPanel() {
         hasSourceImage={Boolean(uploadedFile)}
         hasModel={hasModel}
         busy={Boolean(isLoading || isEnhancing || busy)}
+        importImage={async (imageUrl, requestedName) => {
+          const parsed = new URL(imageUrl, window.location.origin);
+          if (parsed.protocol !== "https:" && parsed.protocol !== "data:") {
+            throw new Error("Use an HTTPS or data:image URL.");
+          }
+          const response = await fetch(parsed.toString(), { cache: "no-store" });
+          if (!response.ok) throw new Error(`Could not retrieve the image (${response.status}).`);
+          const blob = await response.blob();
+          const type = blob.type.toLowerCase();
+          if (!type.includes("image/png") && !type.includes("image/jpeg")) {
+            throw new Error("DentalSculptor accepts PNG or JPEG source images only.");
+          }
+          if (blob.size > 15 * 1024 * 1024) throw new Error("The source image must be 15 MB or smaller.");
+          const fallbackExtension = type.includes("png") ? ".png" : ".jpg";
+          const safeBase = requestedName.replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 80) || `dental-source${fallbackExtension}`;
+          const fileName = /\.(png|jpe?g)$/i.test(safeBase) ? safeBase : `${safeBase}${fallbackExtension}`;
+          await prepareAndSetUploadedFile(new File([blob], fileName, { type }));
+        }}
         generate={generateModel}
         continueWithModel={resumeAfterAuth}
       />

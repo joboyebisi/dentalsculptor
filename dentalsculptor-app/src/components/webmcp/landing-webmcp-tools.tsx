@@ -16,16 +16,34 @@ const CONTINUE_SCHEMA = {
   additionalProperties: false,
 };
 
+const IMAGE_SCHEMA = {
+  type: "object" as const,
+  properties: {
+    imageUrl: {
+      type: "string",
+      description: "An HTTPS or data:image URL for a PNG or JPEG containing one tooth.",
+    },
+    fileName: {
+      type: "string",
+      description: "A short PNG or JPG filename used inside DentalSculptor.",
+    },
+  },
+  required: ["imageUrl", "fileName"],
+  additionalProperties: false,
+};
+
 export function LandingWebMcpTools({
   hasSourceImage,
   hasModel,
   busy,
+  importImage,
   generate,
   continueWithModel,
 }: {
   hasSourceImage: boolean;
   hasModel: boolean;
   busy: boolean;
+  importImage: (imageUrl: string, fileName: string) => Promise<void>;
   generate: () => Promise<void>;
   continueWithModel: (nextStep: PendingNextStep) => Promise<void>;
 }) {
@@ -42,6 +60,16 @@ export function LandingWebMcpTools({
             busy,
           })
         }
+      />
+      <WebMcpTool
+        name="dentalsculptor_import_source_image"
+        description="Attach a single-tooth PNG or JPEG from an HTTPS or data:image URL to the visible generation workspace. Remote servers must permit browser access."
+        inputSchema={IMAGE_SCHEMA}
+        enabled={!busy}
+        execute={async ({ imageUrl, fileName }) => {
+          await importImage(String(imageUrl ?? ""), String(fileName ?? ""));
+          return webMcpResult("The source image is attached and visible. Inspect generation readiness before generating.", { fileName });
+        }}
       />
       <WebMcpTool
         name="dentalsculptor_generate_3d"
