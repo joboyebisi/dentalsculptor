@@ -2,6 +2,12 @@
 
 import { useWebMCP } from "use-webmcp-tool";
 
+const EMPTY_INPUT_SCHEMA = {
+  type: "object" as const,
+  properties: {},
+  additionalProperties: false,
+};
+
 type JsonSchema = {
   type: "object";
   properties?: Record<string, unknown>;
@@ -18,11 +24,15 @@ export type DentalSculptorWebMcpTool = {
   execute: (input: Record<string, unknown>) => unknown | Promise<unknown>;
 };
 
-/** Registers one page-scoped WebMCP tool and renders no additional UI. */
+/**
+ * Registers one page-scoped WebMCP tool and renders no additional UI.
+ * Chrome Labs' lifecycle hook calls:
+ * document.modelContext.registerTool(descriptor, { signal })
+ */
 export function WebMcpTool({
   name,
   description,
-  inputSchema,
+  inputSchema = EMPTY_INPUT_SCHEMA,
   readOnly = false,
   enabled = true,
   execute,

@@ -53,6 +53,9 @@ function NavBrand() {
     <div className="flex items-center gap-4">
       <AppLogo size="sm" />
       <div className="hidden items-center gap-1 md:flex">
+        <Link href="/webmcp" className="px-3 py-2 text-body-sm text-on-surface-variant hover:text-primary-container">
+          WebMCP
+        </Link>
         <Link href="#workbench" className="px-3 py-2 text-body-sm text-on-surface-variant hover:text-primary-container">
           Try it
         </Link>

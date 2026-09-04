@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { resolve } from "node:path";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -6,6 +7,7 @@ function assert(condition: unknown, message: string): asserts condition {
 }
 
 const root = resolve(import.meta.dirname, "..");
+const require = createRequire(import.meta.url);
 const files = [
   "src/components/webmcp/webmcp-tool.tsx",
   "src/components/webmcp/global-webmcp-tools.tsx",
@@ -22,6 +24,7 @@ const required = [
   "dentalsculptor_inspect_auth",
   "dentalsculptor_get_auth_link",
   "dentalsculptor_open_auth",
+  "dentalsculptor_open_workspace",
   "dentalsculptor_inspect_generation",
   "dentalsculptor_import_source_image",
   "dentalsculptor_list_image_library",
@@ -29,6 +32,7 @@ const required = [
   "dentalsculptor_generate_3d",
   "dentalsculptor_continue_with_model",
   "dentalsculptor_inspect_editor",
+  "dentalsculptor_open_case_selector",
   "dentalsculptor_apply_teaching_case",
   "dentalsculptor_choose_edit_preset",
   "dentalsculptor_open_target_tool",
@@ -40,9 +44,10 @@ const required = [
   "dentalsculptor_open_export",
   "dentalsculptor_export_model",
   "dentalsculptor_open_share",
-  "dentalsculptor_publish_project",
   "dentalsculptor_confirm_publish",
   "dentalsculptor_inspect_published_model",
+  "dentalsculptor_get_published_share_link",
+  "dentalsculptor_toggle_published_like",
   "dentalsculptor_download_published_model",
 ];
 
@@ -64,12 +69,26 @@ assert(
   "WebMCP must distinguish a generated model URL from a visible, loaded model."
 );
 assert(!/TRELLIS|Nano3D|MODAL_|AWS_|SUPABASE_/i.test(source), "WebMCP surface must not expose infrastructure or secrets.");
+const adapterSource = readFileSync(require.resolve("use-webmcp-tool"), "utf8");
+assert(
+  adapterSource.includes("document.modelContext.registerTool"),
+  "The installed React adapter must call the standard document.modelContext.registerTool API."
+);
 
 const layout = readFileSync(resolve(root, "src/app/layout.tsx"), "utf8");
 const landing = readFileSync(resolve(root, "src/components/landing/landing-model-panel.tsx"), "utf8");
 const editor = readFileSync(resolve(root, "src/components/editor/editor-workspace.tsx"), "utf8");
+const community = readFileSync(resolve(root, "src/app/community/[projectId]/page.tsx"), "utf8");
+const diagnostics = readFileSync(resolve(root, "src/components/webmcp/webmcp-diagnostics.tsx"), "utf8");
 assert(layout.includes("<GlobalWebMcpTools"), "Global WebMCP tools are not mounted.");
 assert(landing.includes("<LandingWebMcpTools"), "Landing WebMCP tools are not mounted.");
 assert(editor.includes("<EditorWebMcpTools"), "Editor WebMCP tools are not mounted.");
+assert(editor.includes("<ShareProjectDialog"), "The confirmed publish tool is not mounted through the share dialog.");
+assert(community.includes("<CommunityActions"), "Published-model WebMCP tools are not mounted.");
+assert(diagnostics.includes("modelContext.getTools()"), "The public diagnostics page must use live tool discovery.");
+assert(
+  editor.includes('modelLoadStatus === "ready"'),
+  "Editor tools must wait until the 3D model is visibly loaded."
+);
 
 console.log(`Validated ${names.length} DentalSculptor WebMCP tools and page-scoped mounts.`);

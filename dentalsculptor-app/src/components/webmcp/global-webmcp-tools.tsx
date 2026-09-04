@@ -139,6 +139,7 @@ export function GlobalWebMcpTools() {
         name="dentalsculptor_open_auth"
         description="Open DentalSculptor's visible sign-in or registration page in the current browser tab. Use when the chat client does not make a returned URL clickable."
         inputSchema={AUTH_LINK_SCHEMA}
+        enabled={!authLoading && !isSignedIn}
         execute={({ mode, destination }) => {
           const { authenticationUrl, returnPath } = buildAuthUrl(mode, destination, pathname);
           window.location.assign(authenticationUrl);
