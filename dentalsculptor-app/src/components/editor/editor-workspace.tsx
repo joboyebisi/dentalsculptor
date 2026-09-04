@@ -1206,15 +1206,6 @@ export function EditorWorkspace({
     return { fileName };
   };
 
-  const handleWebMcpPublish = async () => {
-    const res = await fetch(`/api/projects/${projectId}/publish`, { method: "POST" });
-    const { data, raw } = await readJsonResponse<{ error?: string; communityUrl?: string }>(res);
-    if (!data) throw new Error(jsonResponseError(res, raw, "Publishing returned an invalid response."));
-    if (!res.ok) throw new Error(data.error ?? "Could not publish project.");
-    const relativeUrl = data.communityUrl ?? `/community/${projectId}`;
-    return { communityUrl: new URL(relativeUrl, window.location.origin).toString() };
-  };
-
   const handlePartActivate = (id: string) => {
     triggerSFX("select");
     setActivePartId(id);
@@ -1235,6 +1226,8 @@ export function EditorWorkspace({
         projectId={projectId}
         title={title}
         hasModel={hasModel}
+        modelViewerReady={modelLoadStatus === "ready"}
+        modelLoadStatus={modelLoadStatus}
         selectedCase={selectedCase?.title ?? null}
         activePresetId={activePresetId}
         allowedPresetIds={EDIT_PRESETS.map((preset) => preset.id)}
@@ -1278,7 +1271,6 @@ export function EditorWorkspace({
           else await handleRejectRevision();
         }}
         exportModel={handleWebMcpExport}
-        publishProject={handleWebMcpPublish}
       />
       <EditorHeader
         projectTitle={title}

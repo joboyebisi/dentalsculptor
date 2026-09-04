@@ -1,10 +1,30 @@
 # DentalSculptor
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
+
 **AI-Aided 3D authoring for dental educators** — an academic research platform for creating, editing, and sharing immersive dental learning experiences. Part of a doctoral research programme investigating educator agency, pedagogical ownership, and human–AI co-creation in dental education.
 
 **Live app:** [dentalsculptor.vercel.app](https://dentalsculptor.vercel.app)
 
-**WebMCP:** DentalSculptor exposes page-scoped tools so an educator and an agent can inspect generation state, create a 3D model from an educator-selected image, configure a teaching case, guide a reversible edit, and prepare the result for sharing or export in the same visible workspace.
+**WebMCP diagnostics:** [dentalsculptor.vercel.app/webmcp](https://dentalsculptor.vercel.app/webmcp)
+
+**Public source:** [github.com/joboyebisi/dentalsculptor](https://github.com/joboyebisi/dentalsculptor)
+
+## Why WebMCP
+
+Dental case authoring combines long-running generation, spatial 3D decisions, clinical presets,
+reversible revisions, and simulator exports. UI automation has to guess whether a model is loaded
+or which action is valid; full autonomy would hide decisions an educator needs to own.
+
+DentalSculptor exposes 29 structured, page-scoped WebMCP tools from the same visible workspace.
+The agent inspects state, coordinates generation and case setup, and prepares reuse. The educator
+selects source material, marks anatomy, approves revisions, confirms privacy, and authorizes
+release.
+
+> **The agent coordinates the workflow. The educator owns the anatomy, approval, and release.**
+
+Read the [WebMCP submission pack](./docs/webmcp/README.md), [project story](./docs/webmcp/PROJECT_STORY.md),
+and [judge guide](./docs/webmcp/JUDGE_GUIDE.md).
 
 ## WebMCP challenge quick start
 
@@ -20,6 +40,8 @@ To try it:
 3. Select a dental image in the visible UI, then ask the agent to generate the 3D model.
 4. Continue to a guided teaching case or Free Editor. The agent can synchronize a preset and open the marking tool; the educator marks the clinical target and approves the preview.
 5. Ask the agent to create the reversible variant, then use the visible export or share flow.
+6. Open the [diagnostics page](https://dentalsculptor.vercel.app/webmcp) to inspect the browser's
+   live `document.modelContext.getTools()` result.
 
 WebMCP is additive: browsers without `document.modelContext` retain the existing
 DentalSculptor experience. Public or irreversible clinical actions remain under
@@ -48,8 +70,9 @@ explicit educator control. See [WebMCP implementation and verification](./docs/W
 | [**Sprint Roadmap**](./docs/SPRINT_ROADMAP.md) | **Active task tracker** — OAuth, edit, export, placement, multilayer |
 | [**Pilot release (27 Aug 2026)**](./docs/PILOT_RELEASE_2026-08-27.md) | **Latest push inventory** — Nano3D Modal fix, evaluation UX, benchmarks |
 | [**Real-time evaluation handoff**](./docs/REALTIME_EVALUATION_HANDOFF.md) | Pilot gates: generation → edit → export study path |
-| [**WebMCP implementation**](./docs/WEBMCP_IMPLEMENTATION.md) | Agent tool contract, human approval boundary and browser verification |
-| [**WebMCP Challenge submission**](./docs/WEBMCP_CHALLENGE_SUBMISSION.md) | Judge walkthrough, write-up draft and release checklist |
+| [**WebMCP implementation**](./docs/webmcp/README.md) | Agent tool contract, human approval boundary and browser verification |
+| [**WebMCP Challenge story**](./docs/webmcp/PROJECT_STORY.md) | Copy-ready Devpost narrative: inspiration, implementation and learning |
+| [**WebMCP judge guide**](./docs/webmcp/JUDGE_GUIDE.md) | Private invite template, prompts, expected states and diagnostics |
 | [**Supabase OAuth Setup**](./docs/SUPABASE_OAUTH_SETUP.md) | Google + Microsoft SSO configuration |
 | [**Design System**](./DESIGN.md) | Clinical Precision design tokens |
 | [App README](./dentalsculptor-app/README.md) | Setup, env vars, deployment |
@@ -62,8 +85,8 @@ explicit educator control. See [WebMCP implementation and verification](./docs/W
 ```bash
 cd dentalsculptor-app
 npm install
-cp .env.example .env
-# Configure Clerk, DATABASE_URL, optional AWS/PostHog
+cp .env.example .env.local
+# Configure Supabase, DATABASE_URL and Modal endpoints as needed
 npm run db:push
 npm run dev
 ```
