@@ -40,11 +40,13 @@ keys or secrets are returned through WebMCP.
 
 ## Tool surfaces
 
-- Global: inspect app/authentication, return a clickable sign-in or registration
-  handoff, and open a workspace.
-- Landing generation: import an HTTPS/data-URL PNG or JPEG, inspect readiness,
-  generate 3D, and continue to download, publishing, teaching-case creation or
-  Free Editor.
+- Global: inspect app/authentication/invite entitlement, return a clickable
+  sign-in or registration handoff, open authentication directly when a chat
+  client does not link tool text, and open a workspace.
+- Landing generation: list/select curated library images or import an
+  HTTPS/data-URL PNG/JPEG, inspect readiness, generate 3D, and continue to
+  download, publishing, teaching-case creation or Free Editor. Invited guests
+  can generate and directly download without creating an account.
 - Editor: inspect state and case requirements, apply a structured case, choose
   a synchronized preset, mark a normalized viewport target, preview an edit,
   create and accept/reject a reversible variant, save, export/download, and

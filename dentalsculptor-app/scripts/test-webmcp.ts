@@ -10,6 +10,7 @@ const files = [
   "src/components/webmcp/webmcp-tool.tsx",
   "src/components/webmcp/global-webmcp-tools.tsx",
   "src/components/webmcp/landing-webmcp-tools.tsx",
+  "src/components/landing/landing-model-panel.tsx",
   "src/components/webmcp/editor-webmcp-tools.tsx",
   "src/components/community/community-actions.tsx",
 ];
@@ -19,8 +20,11 @@ const required = [
   "dentalsculptor_inspect_app",
   "dentalsculptor_inspect_auth",
   "dentalsculptor_get_auth_link",
+  "dentalsculptor_open_auth",
   "dentalsculptor_inspect_generation",
   "dentalsculptor_import_source_image",
+  "dentalsculptor_list_image_library",
+  "dentalsculptor_select_library_image",
   "dentalsculptor_generate_3d",
   "dentalsculptor_continue_with_model",
   "dentalsculptor_inspect_editor",
@@ -48,6 +52,8 @@ assert(source.includes("user_action_required"), "Authentication must return a us
 assert(source.includes("redirect_url"), "Authentication links must preserve a safe post-auth destination.");
 assert(source.includes("noPatientInformationConfirmed"), "Publishing must require an explicit privacy confirmation.");
 assert(source.includes("confirmation !== true"), "External release actions must require confirmation.");
+assert(source.includes("invited_guest"), "WebMCP authentication inspection must distinguish invited guests.");
+assert(source.includes("hasInvite && nextStep === \"download\""), "Invited guests must be able to download without project authentication.");
 assert(!/TRELLIS|Nano3D|MODAL_|AWS_|SUPABASE_/i.test(source), "WebMCP surface must not expose infrastructure or secrets.");
 
 const layout = readFileSync(resolve(root, "src/app/layout.tsx"), "utf8");

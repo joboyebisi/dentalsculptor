@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { Download, Loader2, BookOpen, Share2, SlidersHorizontal } from "lucide-react";
 import { DentalViewer, type DentalViewerHandle } from "@/components/three/dental-viewer";
@@ -17,10 +18,14 @@ import { captureAndUploadCardPreview } from "@/lib/upload-project-preview-image"
 import { GENERATION_COPY } from "@/lib/generation-copy";
 import { GenerationProgressDisplay } from "@/components/generation/generation-progress-display";
 import { LandingWebMcpTools } from "@/components/webmcp/landing-webmcp-tools";
+import { INVITE_QUERY_PARAM, resolveInviteCode } from "@/lib/research-invite";
+import type { GenerationLibraryItem } from "@/lib/generation-library";
 
 export function LandingModelPanel() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isSignedIn } = useSupabaseAuth();
+  const hasInvite = Boolean(resolveInviteCode(searchParams.get(INVITE_QUERY_PARAM)));
   const {
     meshData,
     modelUrl,
@@ -45,6 +50,48 @@ export function LandingModelPanel() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [elapsedSec, setElapsedSec] = useState(0);
   const viewerRef = useRef<DentalViewerHandle>(null);
+
+  async function importImageFromUrl(imageUrl: string, requestedName: string) {
+    const parsed = new URL(imageUrl, window.location.origin);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "data:") {
+      throw new Error("Use an HTTPS or data:image URL.");
+    }
+    const response = await fetch(parsed.toString(), { cache: "no-store" });
+    if (!response.ok) throw new Error(`Could not retrieve the image (${response.status}).`);
+    const blob = await response.blob();
+    const type = blob.type.toLowerCase();
+    if (!type.includes("image/png") && !type.includes("image/jpeg")) {
+      throw new Error("DentalSculptor accepts PNG or JPEG source images only.");
+    }
+    if (blob.size > 15 * 1024 * 1024) throw new Error("The source image must be 15 MB or smaller.");
+    const fallbackExtension = type.includes("png") ? ".png" : ".jpg";
+    const safeBase = requestedName.replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 80) || `dental-source${fallbackExtension}`;
+    const fileName = /\.(png|jpe?g)$/i.test(safeBase) ? safeBase : `${safeBase}${fallbackExtension}`;
+    await prepareAndSetUploadedFile(new File([blob], fileName, { type }));
+  }
+
+  async function loadLibrary() {
+    const response = await fetch("/api/generation/library", { cache: "no-store" });
+    const data = (await response.json()) as { items?: GenerationLibraryItem[]; error?: string };
+    if (!response.ok) throw new Error(data.error ?? "Could not load the image library.");
+    return data.items ?? [];
+  }
+
+  async function downloadInvitedGuestModel() {
+    if (!modelUrl) throw new Error("Generate a model before downloading.");
+    const proxyUrl = `/api/models/proxy?url=${encodeURIComponent(modelUrl)}`;
+    const response = await fetch(proxyUrl, { cache: "no-store" });
+    if (!response.ok) throw new Error("Could not prepare the generated model download.");
+    const blob = await response.blob();
+    const extension = format === "obj" ? "obj" : "glb";
+    const baseName = (uploadedFile?.name ?? "dental-model").replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 64);
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${baseName || "dental-model"}.${extension}`;
+    anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
 
   useEffect(() => {
     if (!isLoading && !isEnhancing) {
@@ -74,6 +121,10 @@ export function LandingModelPanel() {
       };
 
       if (!isSignedIn) {
+        if (hasInvite && nextStep === "download") {
+          await downloadInvitedGuestModel();
+          return;
+        }
         const imageDataUrl = await fileToDataUrl(uploadedFile);
         savePendingLandingProject({ ...payload, imageDataUrl, nextStep });
         router.push(`/sign-up?redirect_url=${encodeURIComponent("/auth/continue")}`);
@@ -119,23 +170,13 @@ export function LandingModelPanel() {
         hasSourceImage={Boolean(uploadedFile)}
         hasModel={hasModel}
         busy={Boolean(isLoading || isEnhancing || busy)}
-        importImage={async (imageUrl, requestedName) => {
-          const parsed = new URL(imageUrl, window.location.origin);
-          if (parsed.protocol !== "https:" && parsed.protocol !== "data:") {
-            throw new Error("Use an HTTPS or data:image URL.");
-          }
-          const response = await fetch(parsed.toString(), { cache: "no-store" });
-          if (!response.ok) throw new Error(`Could not retrieve the image (${response.status}).`);
-          const blob = await response.blob();
-          const type = blob.type.toLowerCase();
-          if (!type.includes("image/png") && !type.includes("image/jpeg")) {
-            throw new Error("DentalSculptor accepts PNG or JPEG source images only.");
-          }
-          if (blob.size > 15 * 1024 * 1024) throw new Error("The source image must be 15 MB or smaller.");
-          const fallbackExtension = type.includes("png") ? ".png" : ".jpg";
-          const safeBase = requestedName.replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 80) || `dental-source${fallbackExtension}`;
-          const fileName = /\.(png|jpe?g)$/i.test(safeBase) ? safeBase : `${safeBase}${fallbackExtension}`;
-          await prepareAndSetUploadedFile(new File([blob], fileName, { type }));
+        importImage={importImageFromUrl}
+        listLibrary={loadLibrary}
+        selectLibraryImage={async (libraryId) => {
+          const item = (await loadLibrary()).find((candidate) => candidate.id === libraryId);
+          if (!item) throw new Error("Choose an image ID returned by dentalsculptor_list_image_library.");
+          await importImageFromUrl(item.path, `${item.id}.jpg`);
+          return { id: item.id, title: item.title };
         }}
         generate={generateModel}
         continueWithModel={resumeAfterAuth}

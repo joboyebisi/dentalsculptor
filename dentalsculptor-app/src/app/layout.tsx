@@ -48,7 +48,9 @@ export default function RootLayout({
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <body className="min-h-screen bg-background font-sans antialiased">
         <PreviewBanner />
-        <GlobalWebMcpTools />
+        <Suspense fallback={null}>
+          <GlobalWebMcpTools />
+        </Suspense>
         <Suspense fallback={null}>
           <PostHogProvider>{children}</PostHogProvider>
         </Suspense>
