@@ -12,6 +12,7 @@ const files = [
   "src/components/webmcp/landing-webmcp-tools.tsx",
   "src/components/landing/landing-model-panel.tsx",
   "src/components/webmcp/editor-webmcp-tools.tsx",
+  "src/components/editor/share-project-dialog.tsx",
   "src/components/community/community-actions.tsx",
 ];
 const source = files.map((file) => readFileSync(resolve(root, file), "utf8")).join("\n");
@@ -40,6 +41,7 @@ const required = [
   "dentalsculptor_export_model",
   "dentalsculptor_open_share",
   "dentalsculptor_publish_project",
+  "dentalsculptor_confirm_publish",
   "dentalsculptor_inspect_published_model",
   "dentalsculptor_download_published_model",
 ];
