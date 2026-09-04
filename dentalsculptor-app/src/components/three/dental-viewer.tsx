@@ -6,6 +6,7 @@ import {
   useMemo,
   useState,
   useCallback,
+  useEffect,
   forwardRef,
   useImperativeHandle,
 } from "react";
@@ -93,6 +94,8 @@ function GltfModelWrapper(props: {
   wireframe?: boolean;
   transparency?: number;
   onSurfaceClick?: (point: THREE.Vector3) => void;
+  onLoaded?: () => void;
+  onError?: (message: string) => void;
 }) {
   return (
     <RemoteModelMesh
@@ -102,8 +105,79 @@ function GltfModelWrapper(props: {
       wireframe={props.wireframe}
       transparency={props.transparency}
       onSurfaceClick={props.onSurfaceClick}
+      onLoaded={props.onLoaded}
+      onError={props.onError}
     />
   );
+}
+
+function CameraFitRig({
+  modelRef,
+  controlsRef,
+  fitGeneration,
+  focusRef,
+  onFramed,
+}: {
+  modelRef: React.RefObject<THREE.Group | null>;
+  controlsRef: React.MutableRefObject<any>;
+  fitGeneration: number;
+  focusRef: React.MutableRefObject<(() => boolean) | null>;
+  onFramed: () => void;
+}) {
+  const { camera, size } = useThree();
+
+  const fitModel = useCallback(() => {
+    const root = modelRef.current;
+    const controls = controlsRef.current;
+    if (!root || !controls || !(camera instanceof THREE.PerspectiveCamera)) return false;
+
+    root.updateWorldMatrix(true, true);
+    const box = new THREE.Box3().setFromObject(root);
+    if (box.isEmpty()) return false;
+
+    const sphere = box.getBoundingSphere(new THREE.Sphere());
+    if (!Number.isFinite(sphere.radius) || sphere.radius <= 0) return false;
+
+    const radius = Math.max(sphere.radius, 0.01);
+    const verticalFov = THREE.MathUtils.degToRad(camera.fov);
+    const aspect = Math.max(size.width / Math.max(size.height, 1), 0.1);
+    const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * aspect);
+    const distance =
+      Math.max(radius / Math.sin(verticalFov / 2), radius / Math.sin(horizontalFov / 2)) * 1.18;
+    const direction = new THREE.Vector3(1, 0.28, 1).normalize();
+
+    camera.position.copy(sphere.center).addScaledVector(direction, distance);
+    camera.near = Math.max(distance / 1000, 0.001);
+    camera.far = Math.max(distance + radius * 30, 100);
+    camera.updateProjectionMatrix();
+    controls.target.copy(sphere.center);
+    controls.minDistance = Math.max(radius * 0.2, 0.01);
+    controls.maxDistance = Math.max(radius * 25, distance * 3);
+    controls.update();
+    onFramed();
+    return true;
+  }, [camera, controlsRef, modelRef, onFramed, size.height, size.width]);
+
+  useEffect(() => {
+    focusRef.current = fitModel;
+    return () => {
+      if (focusRef.current === fitModel) focusRef.current = null;
+    };
+  }, [fitModel, focusRef]);
+
+  useEffect(() => {
+    if (fitGeneration < 1) return;
+    let frameTwo = 0;
+    const frameOne = requestAnimationFrame(() => {
+      frameTwo = requestAnimationFrame(() => fitModel());
+    });
+    return () => {
+      cancelAnimationFrame(frameOne);
+      if (frameTwo) cancelAnimationFrame(frameTwo);
+    };
+  }, [fitGeneration, fitModel]);
+
+  return null;
 }
 
 function AnnotationPoints({
@@ -168,14 +242,27 @@ function ViewerCaptureBridge({
 function SceneContent(
   props: DentalModelProps & {
     captureRef: React.MutableRefObject<(() => Promise<Blob | null>) | null>;
+    focusRef: React.MutableRefObject<(() => boolean) | null>;
+    fitGeneration: number;
+    onModelLoaded: () => void;
+    onModelError: (message: string) => void;
+    onFramed: () => void;
   }
 ) {
   const controlsRef = useRef<any>(null);
+  const modelRef = useRef<THREE.Group>(null);
 
   return (
     <>
       <ViewerCaptureBridge captureRef={props.captureRef} />
       <PerspectiveCamera makeDefault position={[2.5, 1.5, 2.5]} fov={45} />
+      <CameraFitRig
+        modelRef={modelRef}
+        controlsRef={controlsRef}
+        fitGeneration={props.fitGeneration}
+        focusRef={props.focusRef}
+        onFramed={props.onFramed}
+      />
       <color attach="background" args={[VIEWPORT_THEME.background]} />
       <Environment preset="studio" environmentIntensity={0.55} />
       <ambientLight intensity={0.65} />
@@ -193,23 +280,27 @@ function SceneContent(
         fadeDistance={12}
         position={[0, -1.2, 0]}
       />
-      {props.modelUrl ? (
-        <GltfModelWrapper
-          url={props.modelUrl}
-          format={props.modelFormat}
-          mtlUrl={props.mtlUrl}
-          wireframe={props.wireframe}
-          transparency={props.transparency}
-          onSurfaceClick={props.onSurfaceClick}
-        />
-      ) : (
-        <DentalMesh
-          meshData={props.meshData}
-          wireframe={props.wireframe}
-          transparency={props.transparency}
-          onSurfaceClick={props.onSurfaceClick}
-        />
-      )}
+      <group ref={modelRef}>
+        {props.modelUrl ? (
+          <GltfModelWrapper
+            url={props.modelUrl}
+            format={props.modelFormat}
+            mtlUrl={props.mtlUrl}
+            wireframe={props.wireframe}
+            transparency={props.transparency}
+            onSurfaceClick={props.onSurfaceClick}
+            onLoaded={props.onModelLoaded}
+            onError={props.onModelError}
+          />
+        ) : (
+          <DentalMesh
+            meshData={props.meshData}
+            wireframe={props.wireframe}
+            transparency={props.transparency}
+            onSurfaceClick={props.onSurfaceClick}
+          />
+        )}
+      </group>
       {props.annotations && (
         <AnnotationPoints
           annotations={props.annotations}
@@ -220,9 +311,9 @@ function SceneContent(
         ref={controlsRef}
         enableDamping
         dampingFactor={0.08}
-        minDistance={1}
-        maxDistance={8}
-        target={[0, 0.2, 0]}
+        minDistance={0.01}
+        maxDistance={50}
+        target={[0, 0, 0]}
       />
     </>
   );
@@ -230,6 +321,7 @@ function SceneContent(
 
 export interface DentalViewerHandle {
   capturePreview: () => Promise<Blob | null>;
+  focusModel: () => boolean;
 }
 
 export interface DentalViewerProps extends DentalModelProps {
@@ -242,12 +334,52 @@ export const DentalViewer = forwardRef<DentalViewerHandle, DentalViewerProps>(fu
   ref
 ) {
   const captureRef = useRef<(() => Promise<Blob | null>) | null>(null);
+  const focusRef = useRef<(() => boolean) | null>(null);
+  const [fitGeneration, setFitGeneration] = useState(props.modelUrl ? 0 : 1);
+  const [loadState, setLoadState] = useState<"loading" | "ready" | "error">(
+    props.modelUrl ? "loading" : "ready"
+  );
+  const [loadError, setLoadError] = useState("");
+  const framedRef = useRef(false);
+
+  useEffect(() => {
+    framedRef.current = false;
+    setLoadError("");
+    if (props.modelUrl) {
+      setLoadState("loading");
+      setFitGeneration(0);
+    } else {
+      setLoadState("ready");
+      setFitGeneration((value) => value + 1);
+    }
+  }, [props.meshData, props.modelUrl]);
+
+  const focusModel = useCallback(() => focusRef.current?.() ?? false, []);
+  const handleLoaded = useCallback(() => {
+    setLoadState("ready");
+    setFitGeneration((value) => value + 1);
+  }, []);
+  const handleError = useCallback((message: string) => {
+    setLoadState("error");
+    setLoadError(message);
+  }, []);
+  const handleFramed = useCallback(() => {
+    framedRef.current = true;
+  }, []);
+
   useImperativeHandle(ref, () => ({
     capturePreview: () => captureRef.current?.() ?? Promise.resolve(null),
+    focusModel,
   }));
 
   return (
-    <div className={`relative ${className}`} style={{ backgroundColor: VIEWPORT_THEME.background }}>
+    <div
+      className={`relative ${className}`}
+      style={{ backgroundColor: VIEWPORT_THEME.background, overscrollBehavior: "contain" }}
+      onWheel={() => {
+        if (loadState === "ready" && !framedRef.current) focusModel();
+      }}
+    >
       <Canvas
         shadows
         gl={{ antialias: true, alpha: true }}
@@ -258,9 +390,43 @@ export const DentalViewer = forwardRef<DentalViewerHandle, DentalViewerProps>(fu
         }}
       >
         <Suspense fallback={null}>
-          <SceneContent {...props} captureRef={captureRef} />
+          <SceneContent
+            {...props}
+            captureRef={captureRef}
+            focusRef={focusRef}
+            fitGeneration={fitGeneration}
+            onModelLoaded={handleLoaded}
+            onModelError={handleError}
+            onFramed={handleFramed}
+          />
         </Suspense>
       </Canvas>
+      {loadState === "loading" && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+          <div className="rounded-xl border border-border-subtle bg-panel-bg/90 px-4 py-2 text-sm text-on-surface-variant shadow-sm backdrop-blur-md">
+            Loading 3D model…
+          </div>
+        </div>
+      )}
+      {loadState === "error" && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center p-6">
+          <div className="max-w-sm rounded-xl border border-red-200 bg-panel-bg/95 p-4 text-center shadow-sm backdrop-blur-md">
+            <p className="font-medium text-on-surface">The 3D model could not be displayed.</p>
+            <p className="mt-1 text-xs text-on-surface-variant">{loadError}</p>
+          </div>
+        </div>
+      )}
+      {loadState === "ready" && (
+        <button
+          type="button"
+          onClick={focusModel}
+          className="absolute right-3 top-3 z-10 rounded-lg border border-border-subtle bg-panel-bg/90 px-3 py-1.5 text-xs font-medium text-on-surface shadow-sm backdrop-blur-md hover:bg-surface-container-low"
+          aria-label="Fit the 3D model in the viewport"
+          title="Centre and fit the model"
+        >
+          Fit model
+        </button>
+      )}
     </div>
   );
 });
