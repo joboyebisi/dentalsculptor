@@ -29,7 +29,8 @@ import { ExportWizardDialog } from "@/components/export/export-wizard-dialog";
 import { EditorCaseContextPanel } from "@/components/editor/editor-case-context-panel";
 import { CaseWizardDialog, type CaseWizardContinuePayload } from "@/components/case-wizard/case-wizard-dialog";
 import type { CaseTemplate } from "@/lib/case-templates";
-import { getCaseTemplate } from "@/lib/case-templates";
+import { CASE_TEMPLATES, getCaseTemplate } from "@/lib/case-templates";
+import type { ClinicalParameterValues } from "@/lib/case-recipe-utils";
 import type { CaseRecipe } from "@/lib/clinical-case-params";
 import { parseCaseRecipeFromProject, buildEditPromptFromRecipe } from "@/lib/case-recipe-utils";
 import { useResearchTracker } from "@/hooks/use-research-tracker";
@@ -1176,6 +1177,44 @@ export function EditorWorkspace({
     );
   };
 
+  const handleWebMcpExport = async (target: string, outputFormat: string) => {
+    const allowedTargets = ["simodont", "simtocare", "virteasy", "meta-quest", "powerpoint", "teaching-bundle"];
+    const allowedFormats = ["stl", "obj", "glb", "ply"];
+    if (!allowedTargets.includes(target) || !allowedFormats.includes(outputFormat)) {
+      throw new Error("Choose a supported export target and format.");
+    }
+    const res = await fetch(`/api/projects/${projectId}/export`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ target, outputFormat, scope: "full", modelUrl: modelUrl ?? undefined }),
+    });
+    if (!res.ok) {
+      const { data, raw } = await readJsonResponse<{ error?: string }>(res);
+      throw new Error(data?.error ?? jsonResponseError(res, raw, "Export failed."));
+    }
+    const blob = await res.blob();
+    const disposition = res.headers.get("Content-Disposition") ?? "";
+    const match = disposition.match(/filename="([^"]+)"/);
+    const fileName = match?.[1] ?? `${title.replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 64)}-${target}.${outputFormat}`;
+    const downloadUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = downloadUrl;
+    anchor.download = fileName;
+    anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+    track("EXPORT_REQUESTED", projectId, { target, outputFormat, source: "webmcp" });
+    return { fileName };
+  };
+
+  const handleWebMcpPublish = async () => {
+    const res = await fetch(`/api/projects/${projectId}/publish`, { method: "POST" });
+    const { data, raw } = await readJsonResponse<{ error?: string; communityUrl?: string }>(res);
+    if (!data) throw new Error(jsonResponseError(res, raw, "Publishing returned an invalid response."));
+    if (!res.ok) throw new Error(data.error ?? "Could not publish project.");
+    const relativeUrl = data.communityUrl ?? `/community/${projectId}`;
+    return { communityUrl: new URL(relativeUrl, window.location.origin).toString() };
+  };
+
   const handlePartActivate = (id: string) => {
     triggerSFX("select");
     setActivePartId(id);
@@ -1199,6 +1238,13 @@ export function EditorWorkspace({
         selectedCase={selectedCase?.title ?? null}
         activePresetId={activePresetId}
         allowedPresetIds={EDIT_PRESETS.map((preset) => preset.id)}
+        availableCases={CASE_TEMPLATES.map((template) => ({
+          id: template.id,
+          title: template.title,
+          requiresGeometryEdit: template.requiresGeometryEdit !== false,
+          presetIds: template.editPresetIds ?? [],
+          requiredClinicalParameters: template.clinicalParameterFields.filter((field) => field.required).map((field) => field.id),
+        }))}
         targetReady={hasMaskForWorkflow}
         previewReady={previewApprovedFor3d}
         revisionPending={Boolean(pendingRevision)}
@@ -1213,6 +1259,26 @@ export function EditorWorkspace({
         createVariant={handleGenerate3dEdit}
         openExport={() => setExportWizardOpen(true)}
         openShare={() => setShareDialogOpen(true)}
+        applyCase={async (templateId, clinicalParameters, promptRefinement) => {
+          const template = getCaseTemplate(templateId);
+          if (!template) throw new Error("Choose a case template returned by inspect_editor.");
+          await handleCaseWizardContinue({
+            template,
+            clinicalParameters: clinicalParameters as ClinicalParameterValues,
+            promptRefinement,
+          });
+        }}
+        markTarget={async (region) => {
+          setActiveTool("mark");
+          await handleRectMarkComplete({ ...region, color: "#0F3D91" });
+        }}
+        saveProject={handleSave}
+        resolveRevision={async (decision) => {
+          if (decision === "accept") await handleAcceptRevision();
+          else await handleRejectRevision();
+        }}
+        exportModel={handleWebMcpExport}
+        publishProject={handleWebMcpPublish}
       />
       <EditorHeader
         projectTitle={title}

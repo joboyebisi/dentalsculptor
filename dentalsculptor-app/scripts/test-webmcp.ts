@@ -20,15 +20,22 @@ const required = [
   "dentalsculptor_inspect_auth",
   "dentalsculptor_get_auth_link",
   "dentalsculptor_inspect_generation",
+  "dentalsculptor_import_source_image",
   "dentalsculptor_generate_3d",
   "dentalsculptor_continue_with_model",
   "dentalsculptor_inspect_editor",
+  "dentalsculptor_apply_teaching_case",
   "dentalsculptor_choose_edit_preset",
   "dentalsculptor_open_target_tool",
+  "dentalsculptor_mark_target_region",
   "dentalsculptor_preview_edit",
   "dentalsculptor_create_3d_variant",
+  "dentalsculptor_resolve_revision",
+  "dentalsculptor_save_project",
   "dentalsculptor_open_export",
+  "dentalsculptor_export_model",
   "dentalsculptor_open_share",
+  "dentalsculptor_publish_project",
   "dentalsculptor_inspect_published_model",
   "dentalsculptor_download_published_model",
 ];
@@ -39,6 +46,8 @@ assert(source.includes("readOnlyHint"), "Read-only tools must advertise readOnly
 assert(source.includes("enabled={"), "Page tools must feature-detect prerequisites through enabled state.");
 assert(source.includes("user_action_required"), "Authentication must return a user-clickable handoff rather than credentials.");
 assert(source.includes("redirect_url"), "Authentication links must preserve a safe post-auth destination.");
+assert(source.includes("noPatientInformationConfirmed"), "Publishing must require an explicit privacy confirmation.");
+assert(source.includes("confirmation !== true"), "External release actions must require confirmation.");
 assert(!/TRELLIS|Nano3D|MODAL_|AWS_|SUPABASE_/i.test(source), "WebMCP surface must not expose infrastructure or secrets.");
 
 const layout = readFileSync(resolve(root, "src/app/layout.tsx"), "utf8");

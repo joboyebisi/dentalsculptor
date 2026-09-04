@@ -42,11 +42,13 @@ keys or secrets are returned through WebMCP.
 
 - Global: inspect app/authentication, return a clickable sign-in or registration
   handoff, and open a workspace.
-- Landing generation: inspect readiness, generate 3D, continue to download,
-  publish, teaching-case creation or Free Editor.
-- Editor: inspect state, open case selection, choose a synchronized preset, open
-  the target tool, preview an edit, create a reversible variant, and open
-  export/share controls.
+- Landing generation: import an HTTPS/data-URL PNG or JPEG, inspect readiness,
+  generate 3D, and continue to download, publishing, teaching-case creation or
+  Free Editor.
+- Editor: inspect state and case requirements, apply a structured case, choose
+  a synchronized preset, mark a normalized viewport target, preview an edit,
+  create and accept/reject a reversible variant, save, export/download, and
+  publish/share.
 - Published project: inspect public state, retrieve its share link, toggle a
   like, and download the validated model asset.
 
@@ -69,12 +71,23 @@ Browser verification:
    URL, authenticate visibly, and invoke `dentalsculptor_inspect_auth` after the
    browser returns to DentalSculptor. Credentials and session tokens must never
    appear in the tool result or chat.
-5. Select an image manually and invoke `dentalsculptor_generate_3d`.
+5. Invoke `dentalsculptor_import_source_image` with an HTTPS or `data:image`
+   PNG/JPEG, confirm it is visibly attached, then invoke
+   `dentalsculptor_generate_3d`.
 6. Continue to a teaching case or Free Editor.
 7. Verify editor tools appear/disappear as target, preview and revision state
    changes.
 8. Confirm ordinary Chrome with WebMCP unavailable retains the existing UI and
    workflows with no console or rendering failure.
+
+## End-to-end agent path
+
+The complete tool path is inspect auth → authenticate if required → import
+source image → inspect/generate → continue to case wizard or Free Editor →
+inspect/apply case → choose preset → mark normalized target → preview → create
+variant → accept/reject → save → export or publish. Publishing requires both an
+explicit release confirmation and confirmation that no identifiable patient
+information is present. Exporting requires explicit download confirmation.
 
 WebMCP remains an early-preview API. Keep the wrapper isolated under
 `src/components/webmcp/` and update only that adapter if the specification

@@ -44,7 +44,7 @@ final simulator/export configuration.
 
 ## Implementation
 
-The React application registers 19 page-scoped tools through the Chrome Labs
+The React application registers 26 page-scoped tools through the Chrome Labs
 `use-webmcp-tool` package. The package drives the browser's
 `document.modelContext.registerTool(...)` API and unregisters tools when their
 React surface unmounts. Each tool has a JSON input schema, concise clinical
