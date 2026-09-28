@@ -1,0 +1,149 @@
+{
+  "schemaVersion": 1,
+  "experimentId": "stage1-e10-axial-balanced-shape-v1",
+  "status": "g2-rejected-g3-blocked",
+  "activeModalRun": null,
+  "g2Result": {
+    "modalRun": "ap-0srBjpiSqrl3jm6ploH6U0",
+    "evidencePath": "/stage1-e10-g2-four-family-v1/g2-evidence.json",
+    "valid": true,
+    "optimizerSteps": 2,
+    "teacherContributionRatio": 0.05000000107656755,
+    "teacherFrozen": true,
+    "checkpointReloaded": true,
+    "rawRepeatabilityPassed": true,
+    "candidateCheckpointSha256": "e45ea47b852c258a92e69ec4c94b12251b49472ec0f3f409e1fb78c4e056491f",
+    "familyWholeToothChamferRelativeImprovement": {
+      "incisor": -0.002902743183000371,
+      "canine": 0.009007701068212793,
+      "premolar": 0.008649689631429515,
+      "molar": 0.0076719126619861425
+    },
+    "engineeringNonRegressionPassed": false,
+    "everyFamilyPassed": false,
+    "g3Authorized": false
+  },
+  "routeCanary": {
+    "status": "passed",
+    "modalRun": "ap-ZUpbiJpgrzNasPW6AkgeM0",
+    "runName": "stage1-e10-route-canary-v2",
+    "optimizerSteps": 0,
+    "distributedRankZeroPersistence": true,
+    "effectiveOverride": "trellis2/trainers/flow_matching/sparse_flow_matching.py",
+    "configuredTrainer": "ImageConditionedSparseFlowMatchingCFGTrainer",
+    "g1Authorized": true
+  },
+  "g1Attempts": [
+    {
+      "version": "v1",
+      "modalRun": "ap-Or2fenYM7BSCNueAKm8xu2",
+      "scientificEvidence": false,
+      "trainingStepCompleted": true,
+      "failure": "The upstream trainer log retained only canonical mse/loss fields, so the integration harness could not verify the custom objective fields and stopped before reload/decode.",
+      "remediation": "v2 writes a dedicated objective receipt from the patched loss path and validates exactly one receipt, four populated bands, finite terms, frozen teacher, and the sealed 5% contribution ratio."
+    },
+    {
+      "version": "v2",
+      "modalRun": "ap-rWEEMCb04If2ljEFgGb28o",
+      "scientificEvidence": false,
+      "trainingStepCompleted": true,
+      "failure": "The one-step trainer and checkpoint save completed, but no objective-receipt.jsonl reached the mounted run directory; the harness stopped before checkpoint reload and raw decode.",
+      "g2Authorized": false
+    },
+    {
+      "version": "v3",
+      "modalRun": "ap-AbacZ8unhe6efAuJpj8AS8",
+      "scientificEvidence": false,
+      "status": "failed-before-reload-and-decode",
+      "effectiveTrainerClass": "ImageConditionedSparseFlowMatchingCFGTrainer",
+      "effectiveTrainerModule": "trellis2.trainers.flow_matching.sparse_flow_matching",
+      "losses": {
+        "mse": 0.6218367218971252,
+        "axialBandBalancedMse": 0.6186480522155762,
+        "teacherConsistencyMse": 0.0,
+        "teacherConsistencyContribution": 0.0,
+        "total": 0.6186480522155762
+      },
+      "teacherFrozen": true,
+      "populatedAxialBands": 4,
+      "failure": "At the first forward pass the student and frozen teacher are identical, so teacher MSE and contribution are exactly zero; requiring a 5% observed contribution on step one is mathematically impossible.",
+      "g2Authorized": false
+    },
+    {
+      "version": "v4",
+      "modalRun": "ap-jslVNUXToNKSke1EdSPVZk",
+      "status": "passed",
+      "optimizerStepsMaximum": 1,
+      "postUpdateProbe": "read-only no-grad forward on the sealed training batch",
+      "effectiveTrainerClass": "ImageConditionedSparseFlowMatchingCFGTrainer",
+      "preUpdateTeacherMse": 0.0,
+      "postUpdateTeacherContributionRatio": 0.049999999093727036,
+      "teacherFrozen": true,
+      "populatedAxialBands": 4,
+      "checkpointReloaded": true,
+      "frozenSparseCoordsSha256": "9508a37cd7cbb65c95095cdc2b0002c3f0acfbb8677809a1442cc0f5bc300c20",
+      "rawDecodeExactRepeat": true,
+      "rawMeshArtifactSha256": "78d1b791948366ed93737e3ce701a21d9aa386811ce0cf1901e3cec85423624e",
+      "candidateCheckpointSha256": "a9c6bcbb5066569dd9fb32ea2ec3125458e46426b43c884bfc70f4651e4d3d17",
+      "g2Authorized": true
+    }
+  ],
+  "hypothesis": "Equal supervision across four principal-axis sparse-token bands will strengthen low-token root and apex regions, while bounded frozen-base consistency reduces destructive global and topology drift.",
+  "baseModel": "microsoft/TRELLIS.2-4B",
+  "target": "shape_slat_flow_model_512",
+  "dataset": "toothfairy-stage1-v1",
+  "objective": {
+    "supervised": "equal mean feature-space flow loss across four per-sample bands on the longest sparse-coordinate axis",
+    "orientationInvariant": true,
+    "bandCount": 4,
+    "teacher": "frozen unchanged base shape-flow model",
+    "teacherTargetContribution": 0.05,
+    "teacherScaleDetached": true
+  },
+  "authorizationSequence": [
+    {
+      "gate": "G0-source-contract",
+      "maximumOptimizerSteps": 0,
+      "requirements": [
+        "fail-closed source patch",
+        "local regression tests",
+        "sealed configuration"
+      ]
+    },
+    {
+      "gate": "G1-one-tooth-integration",
+      "maximumOptimizerSteps": 1,
+      "requirements": [
+        "finite losses",
+        "four populated axial bands",
+        "teacher frozen",
+        "strict checkpoint reload",
+        "immediate frozen-condition raw decode"
+      ]
+    },
+    {
+      "gate": "G2-four-family-screen",
+      "maximumOptimizerSteps": 2,
+      "requirements": [
+        "one patient-disjoint tooth per family",
+        "identical frozen sparse conditions",
+        "exact raw repeatability",
+        "no crown root or topology regression in any family"
+      ]
+    },
+    {
+      "gate": "G3-bounded-canary",
+      "maximumOptimizerSteps": 50,
+      "requirements": [
+        "G1 and G2 passed",
+        "registered learning rate and seed",
+        "automatic stop on first non-regression failure"
+      ]
+    }
+  ],
+  "seedBAuthorized": false,
+  "g2Authorized": false,
+  "g3Authorized": false,
+  "productionMutationPermitted": false,
+  "clinicalClaimPermitted": false
+}

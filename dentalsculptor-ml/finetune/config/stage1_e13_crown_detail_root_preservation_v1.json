@@ -1,0 +1,625 @@
+{
+  "schemaVersion": 1,
+  "experimentId": "stage1-e13-crown-detail-root-preservation-v1",
+  "status": "blocked-r04d-one-step-candidate-rejected-objective-integration-required",
+  "r0StageAttribution": {
+    "status": "completed-stage-attribution-sealed",
+    "modalRun": "ap-r7JVEthWhEqGAR0zCfzTYM",
+    "failedMetricAvailabilityRun": "ap-VmrYHCvIwQmoNR61eMZOm5",
+    "supersededIntegrationRun": "ap-ACqDOMLkx4TSowhiaRpdqJ",
+    "optimizerSteps": 0,
+    "datasetId": "toothfairy-stage1-v1",
+    "caseCount": 12,
+    "casesPerFamily": 3,
+    "evidencePath": "/toothfairy-stage1-v1/stage_attribution_r0_v1.json",
+    "failureBoundary": "All 12 oracle receipts were committed, but summary assembly encountered one product case with an unavailable apical-root proxy and no regional Chamfer field.",
+    "scientificEvidenceProduced": false,
+    "correctedResumeLaunched": true,
+    "result": {
+      "optimizerSteps": 0,
+      "caseCount": 12,
+      "casesPerFamily": 3,
+      "allOracleRawDecodesExact": true,
+      "allOracleMeshesPositive": true,
+      "casesWithBothRootProxyBands": 11,
+      "medianOracleCrownChamferPercentDiagonal": 0.558929,
+      "medianProductCrownChamferPercentDiagonal": 2.7815575,
+      "medianProductToOracleCrownErrorRatio": 4.862170776330814,
+      "medianProductToOracleRootErrorRatio": 4.289931703220869,
+      "familyMedianProductToOracleCrownErrorRatio": {
+        "incisor": 2.943839936126809,
+        "canine": 4.721637582285161,
+        "premolar": 5.002703970376466,
+        "molar": 6.099749777840138
+      },
+      "dominantMeasuredBoundary": "image-conditioned-generation",
+      "trainingBoundaryRecommendation": "image-conditioned-shape-inference",
+      "clinicalClaimPermitted": false,
+      "productionPromotionPermitted": false
+    },
+    "nextBoundedExperiment": {
+      "id": "R0.1-image-conditioned-path-decomposition-v1",
+      "status": "completed-stage-attribution-sealed",
+      "modalRun": "ap-ZuFuPTDMa027ISzndE8n34",
+      "evidencePath": "/toothfairy-stage1-v1/stage_attribution_r01_v1.json",
+      "optimizerSteps": 0,
+      "comparison": "unchanged image-conditioned shape inference with product sparse support versus reference-latent sparse support on the same 12 images and seeds",
+      "decision": "attribute the residual gap to sparse-structure inference or image-conditioned shape-feature inference before selecting an adapter target",
+      "decisionThresholds": {
+        "sparseStructureDominantAtOrAboveMedianGapFractionClosed": 0.5,
+        "shapeFeaturesDominantAtOrBelowMedianGapFractionClosed": 0.2
+      },
+      "result": {
+        "caseCount": 12,
+        "casesWithPositiveCrownGapClosure": 12,
+        "medianCrownGapFractionClosedByReferenceSupport": 0.9320184552771544,
+        "familyMedianCrownGapFractionClosedByReferenceSupport": {
+          "incisor": 0.8437752031001042,
+          "canine": 0.9469527508578754,
+          "premolar": 0.9188460546933301,
+          "molar": 0.976261661672219
+        },
+        "familyMedianReferenceSupportToOracleCrownErrorRatio": {
+          "incisor": 1.2866748949791424,
+          "canine": 1.2577869394306742,
+          "premolar": 1.2974066767405419,
+          "molar": 1.1299900079498792
+        },
+        "dominantMeasuredSubBoundary": "image-to-sparse-structure",
+        "adapterTargetRecommendation": "image-to-sparse-structure",
+        "clinicalClaimPermitted": false,
+        "productionPromotionPermitted": false
+      },
+      "nextExperiment": {
+        "id": "R0.2-sparse-support-error-characterization-v1",
+        "status": "completed-stage-characterization-sealed",
+        "modalRun": "ap-vquD57gyOGdHCOnE2O8prZ",
+        "evidencePath": "/toothfairy-stage1-v1/stage_attribution_r02_v1.json",
+        "optimizerSteps": 0,
+        "purpose": "Measure predicted-versus-reference sparse occupancy globally and by crown, cervical and root proxy bands, then join occupancy errors to R0.1 downstream geometry response.",
+        "requiredMetrics": [
+          "occupancy precision recall and IoU",
+          "missing and extra coordinate counts",
+          "connected components",
+          "normalized extents and pole errors",
+          "family and axial-band summaries"
+        ],
+        "result": {
+          "medianGlobalPrecision": 0.23208170534313666,
+          "medianGlobalRecall": 0.24401115021595082,
+          "medianGlobalVoxelIoU": 0.12998598545039133,
+          "medianCentroidShiftVoxels": 1.6505862933380455,
+          "dominantSparseErrorPattern": "extra-predicted-occupancy",
+          "weakestMedianRecallBand": "crownProxy",
+          "crownMedianPrecision": 0.11758380771663504,
+          "crownMedianRecall": 0.11552823315118398,
+          "crownMedianVoxelIoU": 0.04378276575115619,
+          "apicalRootMedianVoxelIoU": 0.07063708825139743,
+          "middleRootMedianVoxelIoU": 0.13278613015796664,
+          "cervicalMedianVoxelIoU": 0.1259480975365135,
+          "pearsonGlobalRecallVersusCrownGapClosure": -0.41486154354072013
+        },
+        "nextDiagnostic": {
+          "id": "R0.3-integer-translation-alignment-decomposition-v1",
+          "status": "completed-stage-attribution-sealed",
+          "modalRun": "ap-FZzY9WKgqZ0M0sSiH25bxo",
+          "evidencePath": "/toothfairy-stage1-v1/stage_attribution_r03_v1.json",
+          "optimizerSteps": 0,
+          "purpose": "Quantify coordinate-frame displacement versus true morphology/occupancy error before adapter design.",
+          "maximumShiftVoxelsPerAxis": 6,
+          "decisionThresholds": {
+            "alignmentDominantAtOrAboveMedianCrownIoUErrorFractionClosed": 0.5,
+            "morphologyDominantAtOrBelowMedianCrownIoUErrorFractionClosed": 0.2
+          },
+          "result": {
+            "medianGlobalIoUErrorFractionClosedByTranslation": 0.02550259184296058,
+            "medianCrownIoUErrorFractionClosedByTranslation": -0.0021819731024318345,
+            "medianTranslationMagnitudeVoxels": 1.2071067811865475,
+            "casesWithNonzeroBestTranslation": 11,
+            "familyMedianCrownIoUErrorFractionClosed": {
+              "incisor": -0.011203635516783429,
+              "canine": 0.0,
+              "premolar": 0.0055911446551227695,
+              "molar": -0.013986013986013986
+            },
+            "familyMedianAlignedCrownIoU": {
+              "incisor": 0.021341463414634148,
+              "canine": 0.0,
+              "premolar": 0.10518292682926829,
+              "molar": 0.0
+            },
+            "dominantMeasuredSubBoundary": "morphology-and-occupancy",
+            "adapterObjectiveDesignAuthorized": true
+          },
+          "nextCanary": {
+            "id": "R0.4-sparse-adapter-zero-step-objective-v1",
+            "optimizerSteps": 0,
+            "trainableScope": "small adapters or LoRA inside the unchanged base sparse-structure flow only",
+            "requiredProofs": [
+              "official native sparse-flow objective remains finite",
+              "crown-weighted missing and extra support terms are finite",
+              "every intended adapter tensor receives finite nonzero gradients",
+              "all base sparse-flow, shape-flow, decoder and texture tensors remain byte-identical",
+              "frozen-base non-crown teacher contribution is active",
+              "no optimizer step executes"
+            ],
+            "objectiveQualification": {
+              "status": "passed",
+              "modalRun": "ap-sGVyDCq1E5yuEsCG7zZrec",
+              "evidencePath": "/toothfairy-stage1-v1/stage_attribution_r04_objective_v1.json",
+              "caseCount": 12,
+              "qualifiedCaseCount": 12,
+              "missingCrownVoxelCount": 2939,
+              "extraCrownVoxelCount": 2699,
+              "allCasesPreservationGradientActive": true,
+              "modelIntegrationAuthorized": true,
+              "optimizerSteps": 0
+            },
+            "nextGate": {
+              "id": "R0.4B-real-sparse-flow-adapter-zero-step-v1",
+              "architectureContract": {
+                "status": "passed",
+                "modalRun": "ap-0ppaYbVqmYxIqoQJrN53Fl",
+                "evidencePath": "/toothfairy-stage1-v1/stage_attribution_r04b_architecture_v1.json",
+                "officialConfigSha256": "6128e63a7bd77db798c649d08fd05ac6b86f3fa7a0d4a405008ccf6cf29945c0",
+                "modelSourceSha256": "52182c80687e6544d97fc0fcbede738503623376ba29349004d7cc796c6b8efa",
+                "adapterTarget": "blocks.29.mlp.mlp.2",
+                "adapterRank": 4,
+                "adapterSeed": 20260921,
+              "optimizerSteps": 0
+            },
+            "firstBackwardAttempt": {
+              "status": "failed-before-trainer-construction",
+              "modalRun": "ap-DRfyuF2d0gTmgMUzI3rH2R",
+              "failure": "LoRA wrapper referenced torch before the upstream module imported torch",
+              "forwardExecuted": false,
+              "backwardExecuted": false,
+              "optimizerSteps": 0,
+              "scientificEvidenceProduced": false
+            },
+            "secondBackwardAttempt": {
+              "status": "failed-after-backward-before-optimizer",
+              "modalRun": "ap-b7XHevZXekxkjdu114rThp",
+              "failure": "receipt hook was not on the effective loss path; BasicTrainer scanned frozen base parameters with None gradients",
+              "trainerInitialized": true,
+              "forwardExecuted": true,
+              "backwardExecuted": true,
+              "optimizerSteps": 0,
+              "checkpointMutation": false,
+              "scientificEvidenceProduced": false,
+              "requiredCorrection": "stop inside BasicTrainer.run_step after direct effective-loss adapter autograd and before the global parameter-gradient scan"
+            },
+            "thirdBackwardAttempt": {
+              "status": "passed-zero-step-gate",
+              "modalRun": "ap-F8Y1DHiLcR8WkHM3WGCVRx",
+              "runPath": "/stage1-r04b-real-sparse-adapter-zero-step-v3",
+              "evidencePath": "/stage1-r04b-real-sparse-adapter-zero-step-v3/r04b-evidence.json",
+              "probeBoundary": "BasicTrainer.run_step after effective backward and before gradient clip or optimizer branches",
+              "focusedTestsPassed": 3,
+              "optimizerSteps": 0,
+              "nativeMse": 0.04546500742435455,
+              "adapterGradientNorms": {
+                "lora_down": 1.589970963777887e-7,
+                "lora_up": 2.0150484658643109e-7
+              },
+              "frozenTensorCount": 640,
+              "frozenStateByteIdentical": true,
+              "oneStepIntegrationAuthorized": true,
+              "productionMutationPermitted": false,
+              "packagingOnlyFailedLaunches": [
+                "ap-pfHyHyoukhTeq7DZuWHKXb",
+                "ap-jPuggbOgSVHRVe51EjJJqu"
+              ]
+            },
+            "oneStepIntegration": {
+              "status": "passed",
+              "modalRun": "ap-BGXlS8Dl0IQXna4HyavnNO",
+              "runPath": "/stage1-r04c-sparse-adapter-one-step-v1",
+              "optimizerStepsPermitted": 1,
+              "adapterOnlyOptimizer": true,
+              "learningRate": 1e-6,
+              "weightDecay": 0.0,
+              "strictReloadRequired": true,
+              "exactRepeatedHeldoutGenerationRequired": true,
+              "optimizerSteps": 1,
+              "adapterGradientNorms": {
+                "lora_down": 1.589970963777887e-7,
+                "lora_up": 2.0150484658643109e-7
+              },
+              "adapterDeltaNorms": {
+                "lora_down": 5.030445208831225e-6,
+                "lora_up": 1.2167111890448723e-5
+              },
+              "frozenTensorCount": 640,
+              "frozenStateByteIdentical": true,
+              "checkpointReloaded": true,
+              "candidateCheckpointSha256": "8f614657a8dc1c074da18782384de0a46cfe5a5c06c25bf743c4fe748a38a82e",
+              "rawDecodeExactRepeat": true,
+              "rawMeshVertexCount": 211890,
+              "rawMeshFaceCount": 414058,
+              "fourFamilyScreenAuthorized": true,
+              "productionMutationPermitted": false
+            },
+            "fourFamilyImageConditionedScreen": {
+              "status": "failed-anatomy-and-engineering-gates",
+              "modalRun": "ap-nfbwDAnlM2zz8BLbiFVIgJ",
+              "evidencePath": "/stage1-r04c-sparse-adapter-one-step-v1/r04d-evidence.json",
+              "optimizerSteps": 0,
+              "trainingOptimizerStepsInherited": 1,
+              "caseCount": 4,
+              "patientDisjoint": true,
+              "matchedInputsSeedsAndQuality": true,
+              "strictCandidateCheckpointLoad": true,
+              "baseAndCandidateRawRepeatability": true,
+              "medianCrownChamferRelativeImprovement": -0.04767509266599791,
+              "familiesWithCrownChamferImprovement": 1,
+              "familyCrownChamferRelativeImprovement": {
+                "incisor": -0.10678151898853615,
+                "canine": -0.053071628243268026,
+                "premolar": 0.010764645317367256,
+                "molar": -0.04227855708872779
+              },
+              "medianWholeToothChamferRelativeImprovement": -0.0026683631039675706,
+              "rootCervicalTopologyNonRegressionPassed": false,
+              "boundedTrainingAuthorized": false,
+              "decision": "reject R0.4C candidate and do not extend its native-only one-step update",
+              "requiredCorrection": "integrate the qualified crown missing/extra support and frozen-base non-crown preservation terms into the real adapter update before another one-step gate",
+              "clinicalClaimPermitted": false,
+              "productionMutationPermitted": false
+            },
+            "requiredProofs": [
+                "rank-4 adapter is attached only to a sealed named sparse-flow module",
+                "every adapter tensor receives a finite nonzero gradient from a real model batch",
+                "all base sparse-flow tensors remain byte-identical",
+                "shape-flow, decoder and texture states remain byte-identical",
+                "optimizer steps remain zero"
+              ],
+              "oneStepIntegrationAuthorized": true,
+              "productionMutationPermitted": false
+            },
+            "oneStepIntegrationAuthorized": true,
+            "productionMutationPermitted": false
+          },
+          "optimizerRunAuthorized": false
+        },
+        "trainingAuthorized": false
+      },
+      "trainingAuthorized": false
+    },
+    "purpose": "Measure unchanged-base reference-latent decoder error against unchanged-base image-conditioned product-path error before selecting another training boundary.",
+    "trainingAuthorized": false,
+    "productionMutationPermitted": false
+  },
+  "parentExperiments": [
+    "E0-representation-ceiling",
+    "E1-canonical-axial-region-proxy",
+    "stage1-e11-bandwise-preservation-v1",
+    "stage1-e12-geometry-decoder-v1"
+  ],
+  "clinicalObservation": {
+    "source": "two dental experts testing the current DentalSculptor TRELLIS.2 reconstruction",
+    "finding": "root morphology is stronger than enamel, cusp, ridge and occlusal morphology",
+    "status": "qualitative-prospective-signal",
+    "requiredFormalization": "blinded per-case rubric scores linked to immutable input and output hashes"
+  },
+  "hypothesis": "Crown-region native geometry adaptation in the late high-resolution shape decoder, combined with explicit frozen-base root preservation, can improve crown and occlusal morphology without degrading the base model's root reconstruction.",
+  "reusedEvidence": {
+    "E0": "the frozen shape SC-VAE has a strong global representation ceiling, so adaptation should be narrow rather than full-model",
+    "E1": "the 1024 cascade improved the apical-root proxy while degrading the crown proxy, proving whole-tooth aggregate metrics hide the relevant tradeoff",
+    "E3_E9": "sparse-structure and image-conditioned flow adaptation caused family-specific occupancy or topology drift and is not the preferred boundary for local crown detail",
+    "E10": "equal axial supervision is a useful safety control but not a dental anatomical region definition",
+    "E11": "preservation must be regional and evaluated per family; a global teacher loss cannot protect sparse anatomy",
+    "E12": "the decoder native geometry objective is differentiable, but the one-step full-decoder candidate regressed median crown Chamfer and failed root/topology gates; unrestricted decoder adaptation is rejected"
+  },
+  "preTrainingLocalization": {
+    "name": "E12-v7-decoder-update-localization-v1",
+    "status": "passed-late-hybrid-authorized",
+    "optimizerSteps": 0,
+    "purpose": "Measure the rejected one-step parameter delta by from_latent, decoder blocks 0-3 and output stage, then authorize only a base-plus-late-delta hybrid evaluation when every changed key is recognized and the late stage contains a nonzero delta.",
+    "trainingAuthorized": false,
+    "modalRun": "ap-rrFgYRt5rm8QIXShPrYhYC",
+    "evidencePath": "/stage1-e12-g1-one-tooth-v7/decoder-update-localization-v1.json",
+    "result": {
+      "tensorCount": 292,
+      "changedTensorCount": 292,
+      "allChangedGroupsRecognized": true,
+      "lateStageChangedTensorCount": 42,
+      "lateDeltaHybridAuthorized": true,
+      "e13TrainingAuthorized": false
+    }
+  },
+  "lateDeltaHybridScreen": {
+    "status": "rejected-by-sealed-gates",
+    "modalRun": "ap-zpWAmUIiPy6Se9cJycqWrD",
+    "optimizerSteps": 0,
+    "evidencePath": "/stage1-e12-g1-one-tooth-v7/late-delta-hybrid-evidence-v1.json",
+    "candidateLateTensorCount": 42,
+    "medianCrownChamferRelativeImprovement": -0.022196033855142676,
+    "familiesWithCrownChamferImprovement": 1,
+    "medianWholeToothChamferRelativeImprovement": -0.0020476936672939867,
+    "engineeringNonRegressionPassed": false,
+    "e13Authorized": false,
+    "nextPermittedAblation": "output-layer-only zero-optimizer screen on the same sealed four-family latents"
+  },
+  "outputOnlyDeltaScreen": {
+    "status": "rejected-by-sealed-gates",
+    "modalRun": "ap-Y8iCpmf6xD9SOzpdxxLXYu",
+    "optimizerSteps": 0,
+    "evidencePath": "/stage1-e12-g1-one-tooth-v7/output-only-delta-evidence-v1.json",
+    "candidateTensorCount": 2,
+    "medianCrownChamferRelativeImprovement": -0.021832258926783428,
+    "familiesWithCrownChamferImprovement": 1,
+    "medianWholeToothChamferRelativeImprovement": 0.011169192622824477,
+    "engineeringNonRegressionPassed": false,
+    "e13Authorized": false,
+    "nextPermittedAblation": "blocks.3-only zero-optimizer screen"
+  },
+  "block3OnlyDeltaScreen": {
+    "status": "rejected-by-sealed-gates",
+    "modalRun": "ap-oXiBBcPI6ioo3Gxu7rH3PT",
+    "optimizerSteps": 0,
+    "evidencePath": "/stage1-e12-g1-one-tooth-v7/block3-only-delta-evidence-v1.json",
+    "candidateTensorCount": 40,
+    "medianCrownChamferRelativeImprovement": -0.015310295975088324,
+    "familiesWithCrownChamferImprovement": 1,
+    "medianWholeToothChamferRelativeImprovement": 0.00730051706508568,
+    "engineeringNonRegressionPassed": false,
+    "e13Authorized": false,
+    "v7DeltaReuseAuthorized": false,
+    "nextPermittedAction": "fresh zero-step E13 objective and gradient integration canary initialized from the exact base"
+  },
+  "adaptationBoundary": {
+    "trainable": [
+      "shape_slat_decoder.blocks.3.*",
+      "shape_slat_decoder.output_layer.*"
+    ],
+    "frozen": [
+      "shape_slat_encoder",
+      "shape_slat_decoder.from_latent",
+      "shape_slat_decoder.blocks.0.*",
+      "shape_slat_decoder.blocks.1.*",
+      "shape_slat_decoder.blocks.2.*",
+      "all shape flow models",
+      "all texture models"
+    ],
+    "reason": "retain coarse whole-tooth and root structure while adapting the highest-resolution shared features and final surface outputs",
+    "requiredZeroStepProof": "every trainable tensor is reached by the crown objective and the root-preservation objective is exactly zero before adaptation"
+  },
+  "regionalContract": {
+    "canonicalFrame": "centred-mm-crown-up-v1",
+    "engineeringMask": {
+      "status": "permitted-for-gradient-and-integration-tests-only",
+      "crown": "registered canonical axial crown proxy",
+      "occlusal": "family-specific terminal crown band inside the crown proxy",
+      "root": "registered cervical, middle-root and apical proxy union",
+      "clinicalClaimPermitted": false
+    },
+    "paperGradeMask": {
+      "status": "blocked-pending-reviewed-annotations",
+      "contract": "dental_landmark_annotation_contract.json",
+      "crownRootBoundary": "adjudicated CEJ curve",
+      "occlusalTargets": [
+        "reviewed cusp points",
+        "reviewed pits and fossae",
+        "reviewed ridge and groove curves"
+      ],
+      "rootTargets": [
+        "reviewed root tips",
+        "reviewed root count",
+        "reviewed furcation points when multirooted",
+        "reviewed apex completeness"
+      ]
+    }
+  },
+  "objective": {
+    "name": "late-decoder-crown-detail-with-root-teacher-v1",
+    "crownSupervision": [
+      "crown-masked dual-grid intersection BCE",
+      "crown-masked dual-grid vertex regression",
+      "occlusal curvature-weighted surface normal loss",
+      "crown and occlusal rendered silhouette depth and normal losses",
+      "family-valid cusp ridge and groove losses only when reviewed annotations are present"
+    ],
+    "rootPreservation": [
+      "root-masked candidate-versus-frozen-base intersection logits",
+      "root-masked candidate-versus-frozen-base vertex outputs",
+      "whole-root ground-truth native geometry non-regression"
+    ],
+    "cervicalContinuity": "explicit transition-band loss spanning both sides of the CEJ or engineering proxy boundary",
+    "topology": "evaluation gate only until a validated differentiable topology surrogate exists",
+    "forbidden": [
+      "global Chamfer as the sole efficacy target",
+      "using crown-only assets to supervise roots",
+      "calling axial proxy regions enamel or root ground truth",
+      "unfreezing early decoder blocks during the minimal-data stage",
+      "changing image-conditioned flow or texture models"
+    ]
+  },
+  "dataRoles": {
+    "toothfairy": {
+      "role": "whole-tooth crown supervision plus root and cervical preservation",
+      "required": true,
+      "sampling": "patient-disjoint and family-balanced"
+    },
+    "teeth3ds": {
+      "role": "crown-only surface and occlusal detail supervision",
+      "rootSupervision": false,
+      "restriction": "private non-commercial research; no public redistribution of extracted crowns or adapted weights without licence clearance"
+    },
+    "dtu_fdi16": {
+      "role": "small crown-domain corroboration and external crown evaluation",
+      "rootSupervision": false
+    }
+  },
+  "minimalDataLadder": [
+    {
+      "gate": "G0-numerical-backward",
+      "optimizerSteps": 0,
+      "status": "blocked-after-late-delta-hybrid-rejection"
+    },
+    {
+      "gate": "G1-region-and-parameter-influence",
+      "optimizerSteps": 0,
+      "status": "locked",
+      "requirements": [
+        "four families represented",
+        "crown root and cervical masks non-empty",
+        "all intended late-decoder tensors receive finite crown gradients",
+        "root teacher loss is exactly zero at initialization",
+        "early decoder encoder flow and texture parameters excluded from optimizer"
+      ]
+    },
+    {
+      "gate": "G2-one-step-integration",
+      "optimizerSteps": 1,
+      "status": "locked",
+      "requirements": [
+        "finite controlled-scale backward",
+        "strict checkpoint reload",
+        "frozen parameters byte-identical",
+        "exact repeated raw decode",
+        "non-empty raw mesh"
+      ]
+    },
+    {
+      "gate": "G3-four-family-screen",
+      "optimizerSteps": 2,
+      "status": "locked",
+      "requirements": [
+        "crown and occlusal metrics improve or remain within preregistered tolerance in every family",
+        "root cervical topology and repeatability gates pass in every family",
+        "no aggregate gain may override a regional failure"
+      ]
+    },
+    {
+      "gate": "G4-small-cohort-two-seed",
+      "optimizerSteps": 50,
+      "status": "locked",
+      "requirements": [
+        "patient-disjoint balanced cohort",
+        "both seeds pass all crown root topology and repeatability gates",
+        "blinded expert review favors candidate without root regression"
+      ]
+    }
+  ],
+  "evaluation": {
+    "primary": "paired occlusal-region surface distance on sealed patient-disjoint cases",
+    "crown": [
+      "crown Chamfer and HD95",
+      "normal consistency",
+      "curvature-weighted surface distance",
+      "cusp count position and height when reviewed",
+      "ridge and groove continuity when reviewed"
+    ],
+    "rootHardNonRegression": [
+      "root Chamfer and HD95",
+      "root length and volume ratio",
+      "root count",
+      "apex and furcation error when reviewed",
+      "cervical continuity"
+    ],
+    "mesh": [
+      "decoded and welded connected components",
+      "boundary loops",
+      "non-manifold edges",
+      "self intersections",
+      "watertightness"
+    ],
+    "repeatability": "exact repeated raw geometry for base and candidate",
+    "expert": "blinded randomized base-versus-candidate rubric stratified by tooth family"
+  },
+  "r05aIntegratedRegionalObjectiveV2": {
+    "modalAppId": "ap-UFvW1xdgm8m00INUnh5hh9",
+    "evidencePath": "/stage1-r05a-integrated-regional-zero-step-v2/r05a-evidence.json",
+    "optimizerSteps": 0,
+    "finiteObjectiveTerms": true,
+    "frozenStateByteIdentical": true,
+    "frozenTensorCount": 640,
+    "crownPositiveVoxelCount": 0,
+    "extraCrownVoxelCount": 3796,
+    "nonCrownVoxelCount": 20410,
+    "nativeMse": 0.05651167035102844,
+    "crownPositiveBce": -0.0,
+    "crownExtraBce": 104.96219635009766,
+    "nonCrownTeacherMse": 0.0,
+    "nonCrownTeacherProbe": 3.413952009978516e-09,
+    "preservationProbeAdapterGradientNorms": {
+      "lora_down": 7.99128088146972e-08,
+      "lora_up": 1.0885396761750599e-07
+    },
+    "everyRequiredComponentHasFiniteNonzeroAdapterInfluence": false,
+    "correctedOneStepAuthorized": false,
+    "failureBoundary": "reference-positive crown support is empty after decoder-grid alignment",
+    "nextRequirement": "preflight non-empty aligned crown-positive support before any optimizer step"
+  },
+  "r05aIntegratedRegionalObjectiveV3": {
+    "modalAppId": "ap-2Y6iGqRyMWvN3aFWEe5s0g",
+    "evidencePath": "/stage1-r05a-integrated-regional-zero-step-v3/r05a-evidence.json",
+    "optimizerSteps": 0,
+    "valid": true,
+    "finiteObjectiveTerms": true,
+    "everyRequiredComponentHasFiniteNonzeroAdapterInfluence": true,
+    "frozenStateByteIdentical": true,
+    "frozenTensorCount": 640,
+    "referenceVoxelCount": 3922,
+    "supportUnionVoxelCount": 24206,
+    "crownMaskVoxelCount": 5545,
+    "crownPositiveVoxelCount": 1367,
+    "extraCrownVoxelCount": 4178,
+    "nonCrownVoxelCount": 18661,
+    "axialSpatialOffset": 2,
+    "axialTensorDimension": 4,
+    "axialBounds": [0, 31],
+    "crownDirection": "lower",
+    "lowerTerminalReferenceVoxelCount": 1367,
+    "upperTerminalReferenceVoxelCount": 779,
+    "correctedOneStepAuthorized": true,
+    "authorizationScope": "exactly one optimizer step followed by strict engineering qualification only"
+  },
+  "r05bRegionalObjectiveOneStepV1": {
+    "modalAppId": "ap-N9nOBeRYvh0fiEbwDhx5Q1",
+    "evidencePath": "/stage1-r05b-regional-objective-one-step-v1/r05b-evidence.json",
+    "optimizerSteps": 1,
+    "valid": true,
+    "learningRate": 1e-6,
+    "frozenStateByteIdentical": true,
+    "frozenTensorCount": 640,
+    "adapterDeltaNorms": {
+      "lora_down": 0.0001752620592014864,
+      "lora_up": 0.00007780513260513544
+    },
+    "checkpointReloaded": true,
+    "rawDecodeExactRepeat": true,
+    "rawMeshVertexCount": 211880,
+    "rawMeshFaceCount": 414012,
+    "fourFamilyScreenAuthorized": true,
+    "authorizationScope": "zero-training matched four-family base-versus-candidate anatomy screen only"
+  },
+  "r05cFourFamilyScreenV1": {
+    "modalAppId": "ap-368ZuWTj5v8odktI6Hrubg",
+    "evidencePath": "/stage1-r05b-regional-objective-one-step-v1/r05c-evidence.json",
+    "optimizerSteps": 0,
+    "trainingOptimizerStepsInherited": 1,
+    "strictCheckpointLoad": true,
+    "rawRepeatabilityPassed": true,
+    "medianCrownChamferRelativeImprovement": -0.04818968856521312,
+    "familiesWithCrownChamferImprovement": 1,
+    "medianWholeToothChamferRelativeImprovement": -0.024792366682668897,
+    "familyCrownChamferRelativeImprovement": {
+      "incisor": 0.027331975857362835,
+      "canine": -0.07081854157276299,
+      "molar": -0.025560835557663253,
+      "premolar": -0.08506936696666072
+    },
+    "rootCervicalNonRegressionPassed": false,
+    "topologyNonRegressionPassed": false,
+    "boundedTrainingAuthorized": false,
+    "decision": "reject candidate and do not increase training steps",
+    "nextBoundary": "change parameterization or regional gradient routing before another optimizer canary"
+  },
+  "g1Authorized": false,
+  "g2Authorized": false,
+  "g3Authorized": false,
+  "productionMutationPermitted": false,
+  "clinicalClaimPermitted": false
+}

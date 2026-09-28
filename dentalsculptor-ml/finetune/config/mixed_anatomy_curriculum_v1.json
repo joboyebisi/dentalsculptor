@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 1,
+  "experimentId": "mixed-anatomy-curriculum-v1",
+  "status": "stage-1-seed-a-rejected-no-anatomical-improvement",
+  "productionMutationPermitted": false,
+  "baseModel": "microsoft/TRELLIS.2-4B",
+  "baseModelRevision": "af44b45f2e35a493886929c6d786e563ec68364d",
+  "stages": [
+    {
+      "id": "stage-0",
+      "name": "mixed-domain frozen representation ceiling",
+      "optimizerPermitted": true,
+      "longRunPermitted": false,
+      "cohort": {
+        "toothfairyWholeTeeth": 4,
+        "teeth3dsCrowns": 4,
+        "dtuFdi16Crowns": 4
+      },
+      "advanceRule": "All sources must survive O-Voxel and frozen shape encode/decode with usable topology and preregistered source-specific anatomy thresholds."
+    },
+    {
+      "id": "stage-1",
+      "name": "clinically accepted whole-tooth foundation",
+      "optimizerPermitted": false,
+      "initialCohort": "TF-W128",
+      "requirements": [
+        "clinical review accepted",
+        "patient-disjoint train validation and test",
+        "balanced incisor canine premolar molar",
+        "root complete and no volume-boundary contact",
+        "two independent training seeds"
+      ],
+      "target": "shape_slat_flow_model_512",
+      "sparseStructureTarget": false
+    },
+    {
+      "id": "stage-2",
+      "name": "source-aware crown-detail curriculum",
+      "optimizerPermitted": false,
+      "mixtures": [
+        {"id": "M1", "toothfairy": 1.0, "teeth3ds": 0.0, "dtuFdi16": 0.0},
+        {"id": "M2", "toothfairy": 0.75, "teeth3ds": 0.25, "dtuFdi16": 0.0},
+        {"id": "M3", "toothfairy": 0.60, "teeth3ds": 0.35, "dtuFdi16": 0.05},
+        {"id": "M4", "toothfairy": 0.50, "teeth3ds": 0.40, "dtuFdi16": 0.10}
+      ],
+      "samplingUnit": "probability-controlled source stream, never raw concatenated asset frequency",
+      "wholeToothReplayRequiredEveryTrainingWindow": true,
+      "crownOnlyAssetsMaySuperviseRoots": false,
+      "dtuMaximumSamplingProbability": 0.10
+    }
+  ],
+  "stage0Result": {
+    "modalRuns": ["ap-inCI7kVlojKjZkCsa8pzGU", "ap-G15tgjLp7DD2cOyoi6DNWI"],
+    "caseCount": 12,
+    "surfaceFscoreAt2PercentEverySource": 1.0,
+    "minimumLargestComponentAreaFraction": 0.9935130632203096,
+    "mainComponentQualificationPassed": "12/12",
+    "optimizerExecuted": false,
+    "decision": "engineering representation ceiling passed",
+    "nextGate": "construct and clinically accept patient-disjoint TF-W128 before Stage-1 optimization"
+  },
+  "stage1Preparation": {
+    "sourceSubjectCount": 50,
+    "sourceAssetCount": 1164,
+    "excludedSubjects": ["ToothFairy2P_547:no-permanent-fdi-labels"],
+    "provisionalTargetCohort": "TF-PW128",
+    "provisionalTargetFingerprint": "eae29f525dc9708fb7a3a63149b23ca7ae6e54a68a45ca9c502b07c0977f4d8a",
+    "clinicalReviewReserveCohort": "TF-PW160",
+    "clinicalReviewReserveFingerprint": "7dff31b2d5fa99922e2e7f93ba975b924e8fa944a0fa887e56367e64ab0b80c2",
+    "reviewAssetCount": 160,
+    "reviewSubjectCount": 41,
+    "reviewFamilyCounts": {"incisor": 40, "canine": 40, "premolar": 40, "molar": 40},
+    "reviewStatus": "accepted-160-of-160-by-job-oyebisi",
+    "finalTrainingCohort": "TF-W128",
+    "finalTrainingCohortFingerprint": "eae29f525dc9708fb7a3a63149b23ca7ae6e54a68a45ca9c502b07c0977f4d8a",
+    "heldoutValidationReview": {"cohortId": "TF-PV12", "status": "accepted-12-of-12-by-job-oyebisi", "fingerprint": "e2718bc1e078b531d16280017aa10243be850ac26a956685da0bcba640bb53e9"},
+    "heldoutTestReview": {"cohortId": "TF-PT24", "status": "accepted-24-of-24-by-job-oyebisi", "fingerprint": "2cd89b954528feed0b2ad2a43baa8a26e388654550ca13a67b544705cc45d938"},
+    "assembledDataset": {"datasetId": "toothfairy-stage1-v1", "assetCount": 164, "patientCount": 46, "splits": {"train": 128, "validation": 12, "test": 24}, "manifestSha256": "21d3538deca6f914fc7195a2e7467608490a5596bb893a1d2bab6c625ee6fe88"},
+    "preprocessing": {"status": "passed", "resolution": 512, "conditioningViews": 8, "meshDumps": 164, "dualGrids": 164, "shapeLatents": 164, "auditedTrainingRenders": 128, "optimizerExecuted": false},
+    "trainingSmoke": {"status": "passed", "modalRun": "ap-D2LAr2rrlyKkBCA95mtHyx", "steps": 2, "checkpointReloaded": true},
+    "trainingCanaryA": {"status": "rejected-after-valid-heldout-evaluation", "modalRun": "ap-wh38sEAfomOh6LEyRR4RdM", "runName": "toothfairy-stage1-shape-step50-seed1724708096-v1", "steps": 50, "experimentSeed": 1724708096, "finiteLossCount": 50, "checkpointReloaded": true, "clinicalImprovementClaimPermitted": false, "productionPromotionPermitted": false},
+    "heldoutValidation": {"status": "completed-failed-registered-gates", "measurementBoundary": "raw-shape-decode-before-texture-remesh-and-serialization", "invalidModalRuns": ["ap-TxU1lZJSELfNkaas9M2ez2", "ap-JC0U5QWkP5AGEwwSMmVopK", "ap-XKnjzk2uG5ygH9TPF3lh8C", "ap-m9cfhUhUCDxJZL0F4WyyVs"], "validModalRun": "ap-9zB0NdU7AzCJUcBlwT5Us8", "validationContract": "stage1-raw-paired-validation-v2", "pairingMethod": "persist one sparse coordinate tensor per heldout case and feed that identical tensor to base, candidate, and repeatability passes", "matchingFrozenPairs": 12, "comparisonReport": "stage1_seed_a_raw_validation_v2.json", "comparisonReportSha256": "29b71576a7574e2578cc3e0a1c730a875885cdd0c19620454f7b750735b815b9", "medianPairedChamferRelativeImprovement": -0.00020161460069542734, "bootstrap95PercentInterval": [-0.011028518575107376, 0.01644826102959557], "familyMedianImprovements": {"incisor": -0.0039003769908821425, "canine": 0.004402864415735997, "premolar": -0.0026325135148846665, "molar": 0.01675885963381397}, "rawRepeatabilityPassed": true, "regionalCrownRootNonRegressionPassed": false, "topologyNonRegressionPassed": false, "seedBAuthorized": false},
+    "optimizerPermitted": false,
+    "longRunPermitted": false,
+    "advanceRule": "This Seed-A objective is closed and may not advance to Seed B or longer optimization. A materially new objective requires one-tooth integration, four-family frozen-condition evaluation, and a two-step train-plus-anatomy gate before any 50-step run.",
+    "nextExperimentPrerequisites": {
+      "materiallyNewObjectiveRequired": true,
+      "oneToothEndToEndEvaluatorCanaryRequired": true,
+      "fourFamilyFrozenConditionCanaryRequired": true,
+      "twoStepTrainingAndImmediateAnatomyEvaluationRequired": true,
+      "crownRootAndTopologyNonRegressionRequired": true,
+      "maximumAuthorizedTrainingStepsBeforeAllPrerequisitesPass": 2
+    }
+  },
+  "primaryEndpoint": "paired whole-tooth symmetric Chamfer versus unchanged base on the sealed external benchmark",
+  "researchAdvanceRule": {
+    "minimumMedianImprovement": 0.05,
+    "bootstrap95PercentIntervalMustExcludeZero": true,
+    "independentSeeds": 2,
+    "noRootFamilyTopologyOrRepeatabilityRegression": true
+  },
+  "productionPromotionRule": {
+    "minimumMedianImprovement": 0.10,
+    "blindedEducatorReviewRequired": true,
+    "rollbackReceiptRequired": true,
+    "explicitApprovalRequired": true
+  },
+  "licensing": {
+    "researchOnly": true,
+    "publicCheckpointReleasePermitted": false,
+    "commercialPromotionPermitted": false,
+    "legalReviewRequired": true
+  }
+}

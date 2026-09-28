@@ -36,13 +36,14 @@ export function listExportAssetOptions(input: {
   selectedCase?: CaseTemplate | null;
   caseRecipe?: CaseRecipe | null;
   jawPlaced?: boolean;
+  jawArch?: "upper" | "lower";
 }): ExportAssetOption[] {
   const simTargets: ExportTarget[] = ["simodont", "simtocare", "virteasy"];
   const isSim = simTargets.includes(input.target);
   const templateAssets = input.selectedCase?.caseAssets ?? [];
 
-  const hasJawLower = templateAssets.some((a) => a.kind === "jaw-lower");
-  const hasJawUpper = templateAssets.some((a) => a.kind === "jaw-upper");
+  const hasJawLower = templateAssets.some((a) => a.kind === "jaw-lower") || input.jawArch === "lower";
+  const hasJawUpper = templateAssets.some((a) => a.kind === "jaw-upper") || input.jawArch === "upper";
 
   return [
     {
@@ -93,7 +94,7 @@ export function listExportAssetOptions(input: {
       label: "Lower jaw template (STL)",
       description: "Mandible arch for placement context — optional for single-tooth prep.",
       extension: "stl",
-      defaultSelected: false,
+      defaultSelected: isSim && input.jawArch === "lower" && Boolean(input.jawPlaced),
       available: hasJawLower && Boolean(input.jawPlaced),
       unavailableReason: hasJawLower
         ? "Place tooth on jaw in Placement Studio (E2) to include."
@@ -104,7 +105,7 @@ export function listExportAssetOptions(input: {
       label: "Upper jaw template (STL)",
       description: "Maxilla arch — optional unless exporting arch context.",
       extension: "stl",
-      defaultSelected: false,
+      defaultSelected: isSim && input.jawArch === "upper" && Boolean(input.jawPlaced),
       available: hasJawUpper && Boolean(input.jawPlaced),
       unavailableReason: hasJawUpper
         ? "Place tooth on jaw in Placement Studio (E2) to include."

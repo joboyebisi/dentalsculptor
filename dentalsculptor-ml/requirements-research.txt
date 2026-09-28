@@ -1,0 +1,6 @@
+# Research-only dataset conversion dependencies. Kept out of the production service image.
+nibabel==5.3.2
+numpy==2.2.6
+scikit-image==0.25.2
+SimpleITK==2.5.2
+trimesh==4.7.4

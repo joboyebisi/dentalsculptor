@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "requiredConditioning": ["fdiNumber", "arch", "side", "toothFamily", "view"],
+  "healthyBaseAllowedConditions": ["healthy"],
+  "pathologyEditorConditions": ["caries", "fracture", "wear", "restoration", "preparation"],
+  "landmarkSets": {
+    "incisor": ["mesioincisal-angle", "distoincisal-angle", "cingulum", "cej", "root-apex"],
+    "canine": ["cusp-tip", "mesial-ridge", "distal-ridge", "cingulum", "cej", "root-apex"],
+    "premolar": ["buccal-cusp", "lingual-cusp", "central-groove", "mesial-pit", "distal-pit", "cej", "root-apex"],
+    "molar": ["mesiobuccal-cusp", "distobuccal-cusp", "mesiolingual-cusp", "distolingual-cusp", "central-fossa", "mesial-pit", "distal-pit", "marginal-ridges", "cej", "root-apices"]
+  },
+  "landmarkAvailability": {
+    "status": "requires-reviewed-annotations",
+    "contract": "dental_landmark_annotation_contract.json",
+    "unannotatedMeshPolicy": "axial-proxy-only-no-clinical-landmark-claim"
+  },
+  "trainingObjectives": {
+    "surfaceChamfer": 1.0,
+    "normalConsistency": 0.5,
+    "curvatureWeightedChamfer": 1.5,
+    "landmarkDistance": 2.0,
+    "ridgeGrooveContinuity": 2.0,
+    "toothClassConsistency": 1.0,
+    "minimumThickness": 0.5
+  },
+  "promotionThresholds": {
+    "heldOutCases": 20,
+    "educatorPreference": 0.6,
+    "landmarkMedianErrorMm": 0.5,
+    "landmarkP95ErrorMm": 1.0,
+    "ridgeGrooveContinuity": 0.9,
+    "validMeshRate": 0.98,
+    "anatomyGateScore": 0.8
+  }
+}

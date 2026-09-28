@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "studyId": "toothfairy-minimal-sufficient-whole-tooth-v1",
+  "objective": "Find the smallest audited whole-tooth cohort that improves external dental anatomy without crown, root, family, validity, or repeatability regression.",
+  "cohortSizes": [32, 64, 128, 256, 500],
+  "selectionSeed": 20260918,
+  "maximumTeethPerSubject": 4,
+  "requiredFamilies": ["incisor", "canine", "premolar", "molar"],
+  "eligibility": {
+    "split": "train",
+    "representationScope": "whole-tooth",
+    "clinicalAudit": "accepted",
+    "rootCompleteness": "accepted-complete",
+    "excludeThirdMolarsInitially": true,
+    "excludeBenchmarkGroupsAndHashes": true
+  },
+  "comparisons": [
+    "base-model",
+    "whole-tooth-only",
+    "whole-tooth-plus-25-percent-audited-crowns",
+    "whole-tooth-plus-50-percent-audited-crowns"
+  ],
+  "budgets": ["equal-updates", "equal-example-exposure"],
+  "minimumSufficientCohortRule": {
+    "selection": "Choose the smallest cohort whose pre-registered candidate passes every gate on two independent training seeds; larger cohorts are confirmatory and cannot rescue a failed smaller result retrospectively.",
+    "primaryImprovement": "median paired symmetric Chamfer improves by at least 5 percent in the spike and its 95 percent stratified-bootstrap interval excludes zero",
+    "nonRegression": [
+      "valid mesh rate not worse",
+      "HD95 and F-score at 2 percent not worse",
+      "no tooth-family median regression greater than 2 percent",
+      "root-region surface distance and crown-root proportion not worse",
+      "root count and apex completeness not worse",
+      "fixed-seed repeatability no greater than 0.25 percent diagonal"
+    ]
+  },
+  "productionPolicy": "No candidate is promoted automatically. Production remains unchanged until the final benchmark, educator review, endpoint smoke test, rollback receipt, and explicit approval pass."
+}

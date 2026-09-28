@@ -63,10 +63,13 @@ import type { ViewerInteractionMode } from "@/components/editor/cam-model-viewer
 import { ShareProjectDialog } from "@/components/editor/share-project-dialog";
 import { CaseVariantBuilderDialog } from "@/components/editor/case-variant-builder-dialog";
 import { GuidedCaseEditBar } from "@/components/editor/guided-case-edit-bar";
-import { defaultVariantPresetForCase, getCaseVariantPreset, recipeFromVariantPreset, variantPresetForEditPreset, type CaseVariantPreset, type CaseVariantRecipe } from "@/lib/case-variant-recipes";
+import { defaultVariantPresetForCase, getCaseVariantPreset, instructionFromVariantRecipe, recipeFromVariantPreset, variantPresetForEditPreset, type CaseVariantPreset, type CaseVariantRecipe } from "@/lib/case-variant-recipes";
 import { guidedCaseFlowCopy } from "@/lib/guided-case-flow";
 import { rasterizeRectMarksToMask } from "@/lib/mask-from-regions";
 import { EditorWebMcpTools } from "@/components/webmcp/editor-webmcp-tools";
+import { JawPlacementDialog } from "@/components/editor/jaw-placement-dialog";
+import { ClinicalDesignPanel } from "@/components/editor/clinical-design-panel";
+import { isJawPlacement, type JawPlacement } from "@/lib/jaw-placement";
 
 async function resolveEditMaskBlob(
   maskOverlay: MaskPaintOverlayHandle | null | undefined,
@@ -144,6 +147,8 @@ export function EditorWorkspace({
     | { modelUrl?: string }
     | undefined;
   const masterModelUrl = masterSnapshot?.modelUrl ?? initialModelUrl;
+  const placementSnapshot = project.versions?.find((version) => version.label === "jaw-placement")?.snapshot;
+  const initialJawPlacement = isJawPlacement(placementSnapshot) ? placementSnapshot : null;
 
   const [title, setTitle] = useState(project.title);
   const [meshData, setMeshData] = useState<GeneratedMesh | null>(project.dentalModel?.meshData ?? null);
@@ -157,7 +162,7 @@ export function EditorWorkspace({
   const [wireframe, setWireframe] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sourceOpen, setSourceOpen] = useState(true);
-  const [partsOpen, setPartsOpen] = useState(false);
+  const [partsOpen, setPartsOpen] = useState(Boolean(initialVariantPreset));
   const [caseWizardOpen, setCaseWizardOpen] = useState(initialCaseWizardOpen);
   const [applyingTemplate, setApplyingTemplate] = useState(false);
   const [selectedCase, setSelectedCase] = useState<CaseTemplate | null>(initialTemplate);
@@ -175,6 +180,11 @@ export function EditorWorkspace({
   const [exportWizardOpen, setExportWizardOpen] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [variantBuilderOpen, setVariantBuilderOpen] = useState(false);
+  const [jawPlacementOpen, setJawPlacementOpen] = useState(false);
+  const [jawPlacement, setJawPlacement] = useState<JawPlacement | null>(initialJawPlacement);
+  const [placementSaving, setPlacementSaving] = useState(false);
+  const placementSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const titleSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [activeVariantRecipe, setActiveVariantRecipe] = useState<CaseVariantRecipe | null>(() =>
     initialVariantPreset ? recipeFromVariantPreset(initialVariantPreset) : null
   );
@@ -194,6 +204,7 @@ export function EditorWorkspace({
   const [approvedTargetRevision, setApprovedTargetRevision] = useState<number | null>(null);
   const [editJobLoading, setEditJobLoading] = useState(false);
   const [editStatus, setEditStatus] = useState<string | null>(null);
+  const [landmarkSnapFeedback, setLandmarkSnapFeedback] = useState<{ confidence: number; sampleCount: number } | null>(null);
   const [editProgress, setEditProgress] = useState(0);
   const [uiError, setUiError] = useState<string | null>(null);
   const [revisionProofDetail, setRevisionProofDetail] = useState<string | null>(null);
@@ -458,6 +469,20 @@ export function EditorWorkspace({
     triggerSFX("toggle");
   }, [markTargetChanged]);
 
+  const placeSuggestedClinicalTarget = (site: string) => {
+    const snap = viewerRef.current?.snapDentalLandmark(site);
+    if (!snap) {
+      setLandmarkSnapFeedback(null);
+      setEditStatus("Landmark could not be resolved in this view. Rotate to an occlusal view and try again.");
+      return;
+    }
+    setActiveTool("mark");
+    setRectMarks([]);
+    setLandmarkSnapFeedback({ confidence: snap.confidence, sampleCount: snap.sampleCount });
+    void handleRectMarkComplete({ x: snap.x, y: snap.y, width: snap.width, height: snap.height, color: "#0F3D91" });
+    setEditStatus(`Landmark snapped to mesh (${Math.round(snap.confidence * 100)}% confidence). Review, then preview.`);
+  };
+
   const handleToolChange = (tool: EditorTool) => {
     if (tool === "edit") {
       setWireframe((w) => !w);
@@ -529,6 +554,45 @@ export function EditorWorkspace({
     track("MODEL_EDITED", projectId);
     setSaving(false);
   };
+
+  useEffect(() => {
+    if (title === project.title) return;
+    if (titleSaveTimer.current) clearTimeout(titleSaveTimer.current);
+    titleSaveTimer.current = setTimeout(() => {
+      setSaving(true);
+      void onSave({ title }).finally(() => setSaving(false));
+    }, 700);
+    return () => {
+      if (titleSaveTimer.current) clearTimeout(titleSaveTimer.current);
+    };
+  }, [onSave, project.title, title]);
+
+  const handleJawPlacementChange = (next: JawPlacement) => {
+    setJawPlacement(next);
+    setPlacementSaving(true);
+    if (placementSaveTimer.current) clearTimeout(placementSaveTimer.current);
+    placementSaveTimer.current = setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/projects/${projectId}/placement`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(next),
+        });
+        const parsed = await readJsonResponse<{ placement?: JawPlacement; error?: string }>(response);
+        if (!response.ok) throw new Error(parsed.data?.error ?? jsonResponseError(response, parsed.raw, "Placement could not be saved."));
+        if (parsed.data?.placement) setJawPlacement(parsed.data.placement);
+        track("MODEL_EDITED", projectId, { action: "jaw-placement", arch: next.arch, fdiTooth: next.fdiTooth });
+      } catch (error) {
+        setUiError(error instanceof Error ? error.message : "Placement could not be saved.");
+      } finally {
+        setPlacementSaving(false);
+      }
+    }, 500);
+  };
+
+  useEffect(() => () => {
+    if (placementSaveTimer.current) clearTimeout(placementSaveTimer.current);
+  }, []);
 
   const handleApplyAi = async () => {
     if (!aiPrompt.trim() || !hasMaskForWorkflow) return;
@@ -1284,6 +1348,7 @@ export function EditorWorkspace({
         sidebarOpen={sidebarOpen}
         onToggleSidebar={() => setSidebarOpen((o) => !o)}
         onSave={handleSave}
+        onPlaceInJaw={() => setJawPlacementOpen(true)}
         onCreateVariant={() => setVariantBuilderOpen(true)}
         onShare={() => setShareDialogOpen(true)}
         onExport={handleExport}
@@ -1335,6 +1400,7 @@ export function EditorWorkspace({
               onModelStatusChange={handleModelStatusChange}
               interactionMode={viewerInteractionMode}
               onViewChange={handleViewChange}
+              jawPlacement={jawPlacement}
             />
 
             <MaskPaintOverlay
@@ -1509,7 +1575,26 @@ export function EditorWorkspace({
           />}
         </section>
 
-        <EditorPropertiesPanel
+        {activeVariantRecipe ? <ClinicalDesignPanel
+          open={partsOpen}
+          onToggle={() => setPartsOpen((o) => !o)}
+          recipe={activeVariantRecipe}
+          onChange={(recipe) => {
+            setActiveVariantRecipe(recipe);
+            const preset = getCaseVariantPreset(recipe.presetId);
+            if (preset) {
+              const instruction = instructionFromVariantRecipe(preset, recipe);
+              setAiPrompt(instruction);
+              setSelectedSuggestedPrompt(instruction);
+            }
+            invalidateApprovedPreview();
+          }}
+          onPlaceTarget={placeSuggestedClinicalTarget}
+          onPreview={handlePreview2d}
+          previewLoading={previewLoading}
+          targetReady={hasMaskForWorkflow}
+          snapFeedback={landmarkSnapFeedback}
+        /> : <EditorPropertiesPanel
           open={partsOpen}
           onToggle={() => setPartsOpen((o) => !o)}
           hasModel={hasModel}
@@ -1528,7 +1613,7 @@ export function EditorWorkspace({
           }}
           segmenting={segmenting}
           disabled
-        />
+        />}
 
       </div>
 
@@ -1570,6 +1655,7 @@ export function EditorWorkspace({
         defaultTarget={selectedCase?.exportRecommendation ?? DEFAULT_EXPORT_TARGET}
         selectedCase={selectedCase}
         caseRecipe={caseRecipe}
+        jawPlacement={jawPlacement}
         sourceImageUrl={sourcePreview}
         hasPartSelection={hasPartSelection}
         selectedPartCount={segmentParts.filter((p) => p.visible).length}
@@ -1590,21 +1676,35 @@ export function EditorWorkspace({
         open={variantBuilderOpen}
         onClose={() => setVariantBuilderOpen(false)}
         onPrepare={(preset: CaseVariantPreset, recipe: CaseVariantRecipe) => {
+          const structuredInstruction = instructionFromVariantRecipe(preset, recipe);
           setActiveVariantRecipe({
             ...recipe,
             schemaVersion: 1,
             operation: preset.operation,
           });
           setActivePresetId(selectedCase?.editPresetIds?.[0] ?? preset.id);
-          setSelectedSuggestedPrompt(preset.instruction);
+          setSelectedSuggestedPrompt(structuredInstruction);
           setEditOperation(preset.operation);
-          setAiPrompt(preset.instruction);
+          setAiPrompt(structuredInstruction);
           setActiveTool(preset.requiresMask ? "mask" : "mark");
+          setPartsOpen(true);
           openMaskEditPanels();
           setEditStatus(`${preset.label} configured — mark the target region.`);
           setVariantBuilderOpen(false);
           triggerSFX("toggle");
         }}
+      />
+      <JawPlacementDialog
+        open={jawPlacementOpen}
+        initialPlacement={jawPlacement}
+        saving={placementSaving}
+        onClose={() => setJawPlacementOpen(false)}
+        onChange={handleJawPlacementChange}
+        modelUrl={modelUrl}
+        modelFormat={modelFormat}
+        originLabel={selectedCase ? "teaching case editor" : "free editor"}
+        onExport={() => { setJawPlacementOpen(false); setExportWizardOpen(true); }}
+        onPublish={() => { setJawPlacementOpen(false); setShareDialogOpen(true); }}
       />
 
       <CaseWizardDialog

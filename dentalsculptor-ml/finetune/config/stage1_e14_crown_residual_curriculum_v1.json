@@ -1,0 +1,554 @@
+{
+  "schemaVersion": 1,
+  "experimentId": "stage1-e14-crown-residual-curriculum-v1",
+  "status": "g2j-v3-crown-signal-positive-decoded-regional-gate-rejected",
+  "objective": "Improve family-correct external crown morphology, especially premolar and molar occlusal anatomy, while keeping the base model output exactly unchanged below the crown transition band.",
+  "expertObservation": {
+    "source": "two dental-education experts",
+    "strongerBaseRegion": "roots",
+    "priorityDefects": [
+      "molar and premolar cusp count, position and height",
+      "marginal and triangular ridge continuity",
+      "central groove, pits and fossae",
+      "occlusal table width and relief",
+      "incisor crown-envelope and cervical extent"
+    ],
+    "claimBoundary": "Surface meshes can supervise crown envelope, CEJ extent and external morphology; they cannot establish histologic enamel thickness or material coverage without tissue-resolved labels."
+  },
+  "rejectedPredecessor": {
+    "experiment": "R0.5B/R0.5C global sparse-flow rank-4 adapter",
+    "evidencePath": "/stage1-r05b-regional-objective-one-step-v1/r05c-evidence.json",
+    "medianCrownChamferRelativeImprovement": -0.04818968856521312,
+    "familiesImproved": 1,
+    "decision": "Do not add steps to a parameterization that changed root, cervical and topology behavior after one update."
+  },
+  "modelBoundary": {
+    "baseModels": "all TRELLIS.2 components frozen",
+    "trainableComponent": "crown-only residual sparse-support refiner conditioned on base support, image features and FDI/family identity",
+    "composition": {
+      "crown": "base support logits plus bounded learned residual",
+      "transition": "smooth residual taper across the registered CEJ/cervical band",
+      "rootAndNonCrown": "exact base logits copied without a learned path"
+    },
+    "hardInvariant": "Candidate logits outside the crown/transition mask must be bitwise equal to base logits before decoding.",
+    "why": "The dominant measured error is image-to-sparse crown morphology, but global sparse-flow adaptation altered whole-tooth support. Spatial composition makes root preservation structural rather than merely penalized."
+  },
+  "data": {
+    "wholeTooth": {
+      "source": "ToothFairy2 clinically reviewed subset",
+      "roles": ["whole-tooth scale and pose", "root preservation", "cervical continuity", "family identity"]
+    },
+    "crownDetail": {
+      "sources": ["Teeth3DS", "DTU FDI-16"],
+      "roles": ["crown envelope", "occlusal surface", "cusp, ridge and groove detail"],
+      "restriction": "Crown-only assets never supervise roots."
+    },
+    "patientSplit": "patient-disjoint before rendering, augmentation or tooth extraction",
+    "samplingWeights": {
+      "molar": 0.4,
+      "premolar": 0.35,
+      "incisor": 0.15,
+      "canine": 0.1
+    },
+    "withinFamily": "balance permanent FDI classes and cap repeated source patients",
+    "requiredAnnotations": {
+      "all": ["FDI or reviewed family", "canonical long axis", "crown/root scope", "source and patient group", "mesh hash"],
+      "wholeTooth": ["reviewed CEJ or registered crown-transition proxy", "root-tip and furcation availability"],
+      "detailSubset": ["cusp points", "pit points", "ridge and groove curves", "occlusal mask"]
+    }
+  },
+  "objectiveTerms": {
+    "crownSupport": {
+      "weight": 1.0,
+      "terms": ["balanced focal BCE", "soft Dice", "missing-versus-extra support balance"]
+    },
+    "crownSurface": {
+      "weight": 0.75,
+      "terms": ["symmetric surface distance", "normal consistency", "curvature-weighted distance"]
+    },
+    "occlusalDetail": {
+      "weight": 1.25,
+      "familyScope": ["premolar", "molar"],
+      "terms": ["cusp position and height", "ridge and groove continuity", "pit and fossa localization", "occlusal depth and normal renders"]
+    },
+    "incisorEnvelope": {
+      "weight": 0.75,
+      "familyScope": ["incisor"],
+      "terms": ["crown width-height ratio", "incisal edge", "labial-lingual envelope", "CEJ-to-incisal extent"]
+    },
+    "transitionContinuity": {
+      "weight": 0.5,
+      "terms": ["CEJ seam displacement", "normal continuity", "zero residual at root-side boundary"]
+    },
+    "rootLoss": {
+      "weight": 0.0,
+      "reason": "Root output is copied exactly from base; any nonzero root delta is a hard implementation failure, not a trainable penalty."
+    }
+  },
+  "curriculum": [
+    {
+      "gate": "G0-mask-and-composition-proof",
+      "optimizerSteps": 0,
+      "cases": 32,
+      "requirements": [
+        "eight cases per family",
+        "non-empty crown and transition masks",
+        "bitwise-equal root/non-crown logits",
+        "positive crown residual gradients",
+        "visual overlays and decoded meshes stored"
+      ]
+    },
+    {
+      "gate": "G1-exactly-one-step",
+      "optimizerSteps": 1,
+      "learningRate": 0.000001,
+      "requirements": [
+        "only residual-refiner parameters move",
+        "strict checkpoint reload",
+        "exact repeatability",
+        "bitwise root invariant after update",
+        "non-empty mesh"
+      ]
+    },
+    {
+      "gate": "G2-short-response",
+      "maximumOptimizerSteps": 100,
+      "evaluationEverySteps": 25,
+      "cohort": {"train": 64, "validation": 12, "untouchedTest": 24},
+      "cohortAmendment": "Made before G2 optimization after sealed-split audit: use all 12 validation teeth and preserve all 24 test teeth rather than leak test cases to reach the originally proposed validation count of 32.",
+      "requirements": [
+        "positive median crown response",
+        "premolar and molar both improve",
+        "no family crown regression beyond 0.5%",
+        "root and topology hard gates pass"
+      ]
+    },
+    {
+      "gate": "G3-small-data-proof",
+      "maximumOptimizerSteps": 2000,
+      "evaluationEverySteps": 100,
+      "cohort": {"train": 500, "validation": 160, "expertReview": 40},
+      "earlyStopping": {"metric": "median family-balanced occlusal score", "patienceEvaluations": 5, "minimumDelta": 0.0025},
+      "requirements": [
+        "all four family crown medians non-negative",
+        "premolar and molar occlusal metrics improve",
+        "blinded experts prefer candidate",
+        "root, cervical, topology and repeatability gates pass"
+      ]
+    },
+    {
+      "gate": "G4-long-two-seed-curriculum",
+      "maximumOptimizerStepsPerSeed": 12000,
+      "effectiveBatchSize": 32,
+      "evaluationEverySteps": 250,
+      "checkpointEverySteps": 250,
+      "seeds": [20260922, 20261019],
+      "earlyStopping": {
+        "metric": "family-balanced crown-plus-occlusal validation score",
+        "patienceEvaluations": 8,
+        "restoreBestCheckpoint": true,
+        "stopImmediatelyOnRootOrTopologyFailure": true
+      },
+      "authorization": "Only after G0-G3 pass. A maximum is not a target; stop at the best sealed validation checkpoint."
+    }
+  ],
+  "evaluation": {
+    "primary": [
+      "family-balanced crown Chamfer and HD95",
+      "premolar/molar occlusal curvature-weighted distance",
+      "cusp count, position and height",
+      "ridge/groove continuity",
+      "incisor crown-envelope extent"
+    ],
+    "hardNonRegression": [
+      "bitwise root/non-crown logit identity",
+      "root and cervical surface metrics",
+      "connected components and largest-component area",
+      "boundary and non-manifold edges",
+      "exact repeated raw generation"
+    ],
+    "promotionThreshold": {
+      "medianCrownRelativeImprovement": 0.05,
+      "eachFamilyMedianMinimum": 0.0,
+      "premolarMedianMinimum": 0.05,
+      "molarMedianMinimum": 0.05,
+      "bootstrap95LowerBound": 0.0,
+      "expertPreferenceLowerBound": 0.6
+    },
+    "reporting": "Publish paired per-case metrics, confidence intervals, failed cases, seeds, hashes, renders, meshes and expert rubric results."
+  },
+  "g0Evidence": {
+    "modalAppId": "ap-h02L3v1y12e77TzdLYGw82",
+    "artifact": "/toothfairy-stage1-v1/stage1-e14-g0-crown-composition-v2/g0-evidence.json",
+    "manifestSha256": "21d3538deca6f914fc7195a2e7467608490a5596bb893a1d2bab6c625ee6fe88",
+    "valid": true,
+    "optimizerSteps": 0,
+    "caseCount": 32,
+    "uniquePatientGroupCount": 32,
+    "casesPerFamily": {
+      "incisor": 8,
+      "canine": 8,
+      "premolar": 8,
+      "molar": 8
+    },
+    "crownGradientNormRange": [0.0008880675304681063, 0.0008880979148671031],
+    "allCrownGradientsFiniteNonzero": true,
+    "allRootGradientsZero": true,
+    "allRootLogitsByteIdentical": true,
+    "g1Authorized": true,
+    "interpretation": "Engineering proof of crown/root spatial composition and gradient isolation only; no learned-refiner efficacy or anatomical-improvement claim."
+  },
+  "g1Evidence": {
+    "modalAppId": "ap-IKbY2iaVVaNj4ivv1iy3sj",
+    "artifact": "/stage1-e14-g1-crown-refiner-one-step-v3/g1-evidence.json",
+    "valid": true,
+    "optimizerSteps": 1,
+    "learningRate": 0.000001,
+    "trainableParameterCount": 10417,
+    "changedParameterTensors": ["net.4.bias", "net.4.weight"],
+    "onlyRefinerParametersTrainable": true,
+    "checkpointReloadedStrict": true,
+    "rootLogitsByteIdentical": true,
+    "rawDecodeExactRepeat": true,
+    "vertexCount": 3100,
+    "faceCount": 6142,
+    "g2Authorized": true,
+    "interpretation": "Exactly-one-step integration proof on reference support; no anatomical-improvement claim. G2 must use frozen-base predictions."
+  },
+  "g2InputEvidence": {
+    "modalAppId": "ap-IzJTq9nlPe7keUi9wpwQvi",
+    "artifact": "/toothfairy-stage1-v1/stage1-e14-g2-frozen-base-support-v1/cache-evidence.json",
+    "manifestSha256": "21d3538deca6f914fc7195a2e7467608490a5596bb893a1d2bab6c625ee6fe88",
+    "valid": true,
+    "optimizerSteps": 0,
+    "caseCount": 76,
+    "trainCaseCount": 64,
+    "validationCaseCount": 12,
+    "untouchedTestCaseCount": 24,
+    "trainPatientGroupCount": 35,
+    "validationPatientGroupCount": 3,
+    "trainValidationPatientOverlap": 0,
+    "trainFamilyCounts": {"incisor": 10, "canine": 6, "premolar": 22, "molar": 26},
+    "validationFamilyCounts": {"incisor": 3, "canine": 3, "premolar": 3, "molar": 3},
+    "allCoordinateSetsNonempty": true,
+    "allReceiptsHashedAndModelPinned": true,
+    "g2TrainingAuthorized": true,
+    "interpretation": "Frozen image-conditioned base-support cache only; no optimizer or anatomical-improvement result."
+  },
+  "g2ResponseEvidence": {
+    "modalAppId": "ap-BcJll3hDgXiPDi4FTeUsUo",
+    "artifact": "/stage1-e14-g2-short-response-v2/g2-evidence.json",
+    "valid": true,
+    "optimizerSteps": 100,
+    "evaluationSteps": [0, 25, 50, 75, 100],
+    "allLossesFinite": true,
+    "checkpointReloadedStrict": true,
+    "checkpointSha256": "bf2ac8e48cb67e5f96c3cde05cc961c68fa38873a030caa89160c4e8b46273ac",
+    "medianCrownChamferRelativeImprovement": -1.31688927159368,
+    "familyMedianCrownChamferRelativeImprovement": {
+      "incisor": 0.4441640682092155,
+      "canine": 0.42928205182455004,
+      "premolar": -6.327766551666139,
+      "molar": -2.0455328441796814
+    },
+    "allRootLogitsByteIdentical": true,
+    "allRawDecodesExactRepeat": true,
+    "allFinalTopologyPassed": true,
+    "summaryPassed": false,
+    "g3Authorized": false,
+    "interpretation": "Root-preserving composition is sound, but the shared family-conditioned crown objective causes immediate posterior-family failure. Do not train longer or deploy this checkpoint; audit alignment/masks, then use family-specific heads and a base trust-region loss."
+  },
+  "g2AlignmentMaskAudit": {
+    "artifact": "/toothfairy-stage1-v1/stage1-e14-g2-alignment-mask-audit-v2/audit-evidence.json",
+    "optimizerSteps": 0,
+    "caseCount": 76,
+    "maximumShiftVoxelsPerAxis": 6,
+    "modalAppId": "ap-4msdYgv8ezzODhuG3qnkyz",
+    "status": "complete",
+    "casesWithNonzeroTranslation": 69,
+    "medianTranslationMagnitudeVoxels": 2.23606797749979,
+    "medianGlobalIoUErrorFractionClosed": 0.028919544532482893,
+    "medianCrownIoUErrorFractionClosed": 0.0,
+    "alignmentDominant": false,
+    "requiredNextDesign": "use-family-specific-heads-with-base-trust-region",
+    "authorization": "Diagnostic only; it cannot authorize G3 or production."
+  },
+  "g2bFamilyTrustRegionEvidence": {
+    "modalAppId": "ap-H7IF2cJg12JeGojA03EEl7",
+    "artifact": "/stage1-e14-g2b-family-trust-region-v1/g2b-evidence.json",
+    "valid": true,
+    "optimizerSteps": 4,
+    "optimizerStepsPerFamily": 1,
+    "learningRate": 0.0001,
+    "trustRegionWeight": 8.0,
+    "residualPenaltyWeight": 0.25,
+    "allGradientsFinite": true,
+    "onlySelectedFamilyHeadChanged": true,
+    "allRootLogitsByteIdentical": true,
+    "allRawDecodesExactRepeat": true,
+    "checkpointReloadedStrict": true,
+    "g2cResponseAuthorized": true,
+    "g3Authorized": false,
+    "interpretation": "Four-step integration proof only. The family-isolated trust-region architecture may proceed to a short balanced response screen, but has not shown anatomical improvement."
+  },
+  "g2cFamilyResponseEvidence": {
+    "modalAppId": "ap-BRyKmgK18nLS0kBLNrnHv8",
+    "artifact": "/stage1-e14-g2c-family-response-v1/g2c-evidence.json",
+    "valid": true,
+    "optimizerSteps": 40,
+    "cumulativeOptimizerSteps": 44,
+    "stepsPerFamily": 10,
+    "evaluationSteps": [0, 10, 20, 40],
+    "checkpointReloadedStrict": true,
+    "checkpointSha256": "48c635406285ee43bd4b3586f325ac49d8348876a2bff5bd509bc7db76aef5b4",
+    "medianCrownChamferRelativeImprovement": 0.0,
+    "familyMedianCrownChamferRelativeImprovement": {
+      "incisor": 0.0,
+      "canine": 0.0,
+      "premolar": 0.0,
+      "molar": 0.0
+    },
+    "allRootLogitsByteIdentical": true,
+    "allRawDecodesExactRepeat": true,
+    "allTopologyPassed": true,
+    "summaryPassed": false,
+    "g3Authorized": false,
+    "interpretation": "Family isolation removed destructive cross-family response, but the learned residual remained below the occupancy threshold and caused no measurable geometry change. Diagnose response direction and margin before changing optimization strength."
+  },
+  "g2dResponseMarginEvidence": {
+    "modalAppId": "ap-6SEU0asbHfkI5xIDwPfC6i",
+    "artifact": "/stage1-e14-g2d-response-margin-v1/g2d-evidence.json",
+    "valid": true,
+    "optimizerSteps": 0,
+    "testedResidualScales": [1, 2, 4, 8, 16],
+    "medianDirectionalAgreement": 0.6247255802154541,
+    "familyMedianDirectionalAgreement": {
+      "incisor": 0.7894295454025269,
+      "canine": 0.7056910395622253,
+      "premolar": 0.6197368502616882,
+      "molar": 0.5232837200164795
+    },
+    "maximumAbsoluteResidualRange": [0.0009176511666737497, 0.00205763871781528],
+    "occupancyCrossingsAtEveryScale": 0,
+    "selectedScale": null,
+    "scaledCanaryAuthorized": false,
+    "objectiveRedesignRequired": true,
+    "g3Authorized": false,
+    "interpretation": "Scale-only recovery is rejected. Held-out molar direction is near chance and residual magnitude is orders below the occupancy margin; use an explicit signed margin objective with the existing family and root isolation."
+  },
+  "g2eLaunchFailure": {
+    "modalAppId": "ap-qL9mc3Vtxe3NnoXv1nq9jC",
+    "evidenceArtifactCreated": false,
+    "optimizerStepsEvidenced": 0,
+    "failureBoundary": "queued for unavailable T4 capacity; ephemeral app stopped when local client disconnected",
+    "scientificInterpretationPermitted": false,
+    "requiredRecovery": "versioned detached relaunch or retained foreground client"
+  },
+  "g2fGainEvidence": {
+    "modalAppId": "ap-aQvCj8cUQ1KosGTLWefDhS",
+    "artifact": "/stage1-e14-g2f-signed-margin-gain-v1/g2f-evidence.json",
+    "optimizerSteps": 0,
+    "testedGains": [1, 2, 4, 6, 8, 12, 16],
+    "selectedGain": null,
+    "boundedTrainingAuthorized": false,
+    "interpretation": "The safe G2E direction becomes geometrically active at gain 6 but damages topology and posterior crown surface metrics; gain scaling is rejected."
+  },
+  "g2gClassBalancedEvidence": {
+    "modalAppId": "ap-MEa9td9oD9GlfT86WJZqj7",
+    "artifact": "/stage1-e14-g2g-class-balanced-family-response-v1/g2g-evidence.json",
+    "optimizerSteps": 400,
+    "stepsPerFamily": 100,
+    "selectedStep": 0,
+    "expertReviewPackAuthorized": false,
+    "interpretation": "Equal missing/extra support weighting remained non-responsive, proving that the support-plus-family adapter lacks the case-specific image signal."
+  },
+  "g2hImageConditionedEvidence": {
+    "modalAppId": "ap-qhzKHBkMpAtkq69e09X399",
+    "artifact": "/stage1-e14-g2h-image-conditioned-crown-adapter-v1/g2h-evidence.json",
+    "optimizerSteps": 800,
+    "selectedStep": 0,
+    "step800FamilyMedianCrownChamferRelativeImprovement": {
+      "incisor": -0.025105538786832006,
+      "canine": 0.08119589725628974,
+      "premolar": -1.5299461361115816,
+      "molar": 0.12322626940609259
+    },
+    "expertReviewPackAuthorized": false,
+    "interpretation": "Image conditioning creates a real molar signal, but full-volume occupancy supervision collapses premolars and breaks raw topology."
+  },
+  "g2iSurfaceBandEvidence": {
+    "modalAppId": "ap-R9IJ4Jt4bsAHYNY1es2C2i",
+    "artifact": "/stage1-e14-g2i-surface-band-crown-adapter-v1/g2i-evidence.json",
+    "optimizerSteps": 600,
+    "selectedStep": 0,
+    "allProjectedTopologyPassed": true,
+    "expertReviewPackAuthorized": false,
+    "interpretation": "Surface-band supervision and connected-root projection protect topology but do not recover posterior-family efficacy. Stop general 32^3 crown-adapter training; qualify only the molar signal through the real decoder and move fine occlusal work to decoded geometry."
+  },
+  "g2jMolarDecoderQualification": {
+    "modalAppId": "ap-C5ZtwVVYD67r8kYXnNixAP",
+    "functionCallId": "fc-01M36CCMPCJ8QSGD9WM8SXFEYC",
+    "intendedArtifact": "/stage1-e14-g2j-molar-decoder-qualification-v1/g2j-evidence.json",
+    "evidenceArtifactCreated": false,
+    "status": "cancelled-before-evaluation",
+    "failureBoundary": "Twelve-step shape-SLat sampling completed, then the input received an external cancellation signal before mesh decoding and regional evaluation.",
+    "scientificInterpretationPermitted": false,
+    "expertReviewPackAuthorized": false,
+    "requiredRecovery": "Relaunch to a versioned v2 output with a truly server-detached invocation and an early run receipt; do not reuse the incomplete v1 path."
+  },
+  "g2jMolarDecoderQualificationV2": {
+    "modalAppId": "ap-VDwZUJjiSYrqEd84JMF8YP",
+    "functionCallId": "fc-01M37CQ5DP69FR7EKF773DY8V5",
+    "runReceipt": "/stage1-e14-g2j-molar-decoder-qualification-v2/run-receipt.json",
+    "evidenceArtifact": "/stage1-e14-g2j-molar-decoder-qualification-v2/g2j-evidence.json",
+    "submissionMode": "deployed Function.from_name spawn",
+    "status": "failed-during-candidate-decoder-upsample",
+    "failedInfrastructureAttempts": [
+      {
+        "functionCallId": "fc-01M37AWYTTS6CTPZT5YT2T4DEA",
+        "failure": "Fourteen v43 containers failed before function execution with ModuleNotFoundError: No module named 'modal_app'."
+      },
+      {
+        "functionCallId": "fc-01M37CF24VD8NM8JA0NY8DBCJT",
+        "failure": "Packaging workaround entered the function but failed during NumPy import; no scientific evidence was written."
+      }
+    ],
+    "runtimeFix": "Preserve both /opt/TRELLIS.2 and /root in PYTHONPATH and verify NumPy, SciPy, scikit-image and trimesh imports at image-build time.",
+    "failureBoundary": "Frozen-base mesh decoded successfully; candidate decoding stopped at shape_slat_decoder.upsample because sampled sparse coordinates were not contiguous.",
+    "scientificInterpretationPermitted": false,
+    "optimizerSteps": 0,
+    "expertReviewPackAuthorized": false,
+    "productionMutationPermitted": false
+  },
+  "g2jMolarDecoderQualificationV3": {
+    "modalAppId": "ap-VDwZUJjiSYrqEd84JMF8YP",
+    "functionCallId": "fc-01M37DWDQBKTGH69BQK7PKZBEM",
+    "runReceipt": "/stage1-e14-g2j-molar-decoder-qualification-v3/run-receipt.json",
+    "evidenceArtifact": "/stage1-e14-g2j-molar-decoder-qualification-v3/g2j-evidence.json",
+    "submissionMode": "deployed Function.from_name spawn",
+    "status": "completed-rejected-by-decoded-regional-non-regression",
+    "integrationFix": "Use SparseTensor.replace with a contiguous coordinate tensor at the decoder upsample boundary, verify the guard per decode, and restore the original decoder method in finally.",
+    "localContractTests": "86 passed, 1 skipped",
+    "optimizerSteps": 0,
+    "valid": true,
+    "caseCount": 3,
+    "shapeSamplerSteps": 12,
+    "allSparseCoordinateGuardsExercised": true,
+    "allMeshesPositive": true,
+    "allSupportRootLogitsByteIdentical": true,
+    "crownChamferRelativeImprovementByCase": [
+      0.16824874002271686,
+      0.6636793902741618,
+      0.2136481297900175
+    ],
+    "medianDecodedCrownChamferRelativeImprovement": 0.2136481297900175,
+    "casesImproved": 3,
+    "allRegionalNonRegressionPassed": false,
+    "expertReviewPackAuthorized": false,
+    "g3Authorized": false,
+    "clinicalClaimPermitted": false,
+    "interpretation": "The candidate's molar crown signal survives the real decoder and improves crown-proxy Chamfer in all three held-out molars, but decoded root/cervical regional gates fail in every case. Sparse root-logit identity is insufficient to preserve decoded geometry; do not promote or send an efficacy review pack.",
+    "productionMutationPermitted": false
+  },
+  "g2kTopologyPreservingCrownComposition": {
+    "modalAppId": "ap-VDwZUJjiSYrqEd84JMF8YP",
+    "functionCallId": "fc-01M39CMQPBGAS4B6WACBSSQ57E",
+    "runReceipt": "/stage1-e14-g2k-topology-preserving-crown-composition-v1/run-receipt.json",
+    "evidenceArtifact": "/stage1-e14-g2k-topology-preserving-crown-composition-v1/g2k-evidence.json",
+    "status": "completed-rejected-crown-regression",
+    "optimizerSteps": 0,
+    "preregisteredComposition": {
+      "protectedHeight": 0.72,
+      "fullTransferHeight": 0.82,
+      "maximumDisplacementFraction": 0.05,
+      "connectivity": "exact baseline face array"
+    },
+    "localContractTests": "89 passed, 1 skipped",
+    "valid": true,
+    "caseCount": 3,
+    "allStructuralRootCervicalPreservationPassed": true,
+    "allComposedMeshesPositive": true,
+    "medianComposedCrownChamferRelativeImprovement": -0.02923025973976157,
+    "casesImproved": 0,
+    "legacyIndependentAlignmentRegionalGatesPassed": false,
+    "expertEngineeringReviewPackAuthorized": false,
+    "clinicalClaimPermitted": false,
+    "interpretation": "The exact-preservation composition succeeded structurally but raw-frame nearest-crown transfer lost the candidate's ICP-observed crown signal. Reject G2K; root-register candidate to baseline before the next fixed transfer.",
+    "productionMutationPermitted": false
+  },
+  "g2lRootRegisteredCrownComposition": {
+    "modalAppId": "ap-VDwZUJjiSYrqEd84JMF8YP",
+    "functionCallId": "fc-01M39CZ5R7RAJWEGAVYC0YTSRD",
+    "runReceipt": "/stage1-e14-g2l-root-registered-crown-composition-v1/run-receipt.json",
+    "evidenceArtifact": "/stage1-e14-g2l-root-registered-crown-composition-v1/g2l-evidence.json",
+    "status": "completed-rejected-crown-regression",
+    "optimizerSteps": 0,
+    "preregisteredRule": {
+      "registration": "rigid ICP on candidate/baseline protected root vertices",
+      "scaleApplied": false,
+      "protectedHeight": 0.72,
+      "fullTransferHeight": 0.82,
+      "maximumDisplacementFraction": 0.05,
+      "connectivity": "exact baseline face array"
+    },
+    "localContractTests": "91 passed, 1 skipped",
+    "valid": true,
+    "caseCount": 3,
+    "allStructuralRootCervicalPreservationPassed": true,
+    "allComposedMeshesPositive": true,
+    "medianComposedCrownChamferRelativeImprovement": -0.019689990910641286,
+    "casesImproved": 0,
+    "legacyIndependentAlignmentRegionalGatesPassed": false,
+    "expertEngineeringReviewPackAuthorized": false,
+    "clinicalClaimPermitted": false,
+    "interpretation": "Root-only rigid registration preserves the engineering invariants but nearest-vertex crown transfer still loses the decoded candidate crown signal. Reject this deformation branch; use a true cut/stitch graft or decoded-geometry preservation objective next.",
+    "productionMutationPermitted": false
+  },
+  "g2mCutStitchCrownGraft": {
+    "modalAppId": "ap-VDwZUJjiSYrqEd84JMF8YP",
+    "functionCallId": "fc-01M39DHP869HGV8NEN9ESTEHSY",
+    "runReceipt": "/stage1-e14-g2m-cut-stitch-crown-graft-v1/run-receipt.json",
+    "evidenceArtifact": "/stage1-e14-g2m-cut-stitch-crown-graft-v1/g2m-evidence.json",
+    "status": "failed-before-anatomical-evaluation",
+    "optimizerSteps": 0,
+    "preregisteredRule": {
+      "cutHeight": 0.72,
+      "registration": "rigid root-only ICP without scale",
+      "rootSource": "baseline geometry below cut",
+      "crownSource": "candidate geometry above cut",
+      "seam": "single-plane zipper stitch"
+    },
+    "localContractTests": "94 passed, 1 skipped",
+    "evidenceArtifactCreated": false,
+    "failureBoundary": "Real decoded mesh cut boundary was not a simple manifold loop after default vertex merging.",
+    "scientificInterpretationPermitted": false,
+    "expertEngineeringReviewPackAuthorized": false,
+    "clinicalClaimPermitted": false,
+    "productionMutationPermitted": false
+  },
+  "g2mCutStitchCrownGraftV2": {
+    "modalAppId": "ap-VDwZUJjiSYrqEd84JMF8YP",
+    "functionCallId": "fc-01M39DS815Q65KEGDAV6KXCV3F",
+    "runReceipt": "/stage1-e14-g2m-cut-stitch-crown-graft-v2/run-receipt.json",
+    "evidenceArtifact": "/stage1-e14-g2m-cut-stitch-crown-graft-v2/g2m-evidence.json",
+    "status": "failed-before-anatomical-evaluation",
+    "optimizerSteps": 0,
+    "cutSurfaceConsolidation": "merge at six decimal digits; remove degenerate and duplicate faces",
+    "anatomicalRuleChanged": false,
+    "evidenceArtifactCreated": false,
+    "failureBoundary": "Cut boundary remained non-simple after six-decimal consolidation and degenerate/duplicate face removal.",
+    "scientificInterpretationPermitted": false,
+    "expertEngineeringReviewPackAuthorized": false,
+    "clinicalClaimPermitted": false,
+    "productionMutationPermitted": false
+  },
+  "currentAuthorization": {
+    "g0": true,
+    "g1": true,
+    "g2": true,
+    "g3": false,
+    "g4": false,
+    "production": false,
+    "clinicalClaim": false
+  }
+}

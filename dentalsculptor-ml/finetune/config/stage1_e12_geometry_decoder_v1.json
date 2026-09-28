@@ -1,0 +1,363 @@
+{
+  "schemaVersion": 1,
+  "experimentId": "stage1-e12-geometry-decoder-v1",
+  "status": "g2-v2-rejected-no-crown-improvement-root-topology-regression",
+  "activeModalRun": null,
+  "parentExperiment": "stage1-e11-bandwise-preservation-v1",
+  "baseModel": "microsoft/TRELLIS.2-4B",
+  "pinnedSourceCommit": "1762f493fe7731a3b7cc6b79ad5da7b015b516c1",
+  "target": "shape_slat_decoder",
+  "frozen": ["shape_slat_encoder", "shape_slat_flow_model_512", "all texture models"],
+  "checkpoints": {
+    "encoder": "ckpts/shape_enc_next_dc_f16c32_fp16",
+    "decoder": "ckpts/shape_dec_next_dc_f16c32_fp16"
+  },
+  "dataset": "toothfairy-stage1-v1",
+  "hypothesis": "Bounded decoder-only adaptation using TRELLIS.2 native dual-grid and differentiable rendered-surface losses can improve complete-tooth morphology without changing the base latent distribution or image-conditioned flow model.",
+  "objective": {
+    "name": "decoder-only-native-geometry-v1",
+    "resolution": 512,
+    "learningRate": 0.000001,
+    "nativeTermsRequired": [
+      "dual-grid intersection BCE",
+      "dual-grid vertex regression",
+      "multiscale subdivision BCE",
+      "rendered silhouette L1",
+      "rendered depth L1",
+      "rendered normal L1",
+      "rendered normal SSIM",
+      "rendered normal LPIPS"
+    ],
+    "encoderFrozenBeforeOptimizerConstruction": true,
+    "flowModelUnchanged": true,
+    "textureModelsUnchanged": true
+  },
+  "authorizationSequence": [
+    {
+      "gate": "G0-source-contract",
+      "maximumOptimizerSteps": 0,
+      "status": "passed",
+      "requirements": [
+        "fail-closed pinned ShapeVaeTrainer patch",
+        "encoder frozen before optimizer construction",
+        "decoder-only optimizer receipt",
+        "all official native geometry terms finite",
+        "focused local tests"
+      ]
+    },
+    {
+      "gate": "G1-one-tooth-decoder-integration",
+      "maximumOptimizerSteps": 1,
+      "status": "passed-v7",
+      "requirements": [
+        "one optimizer step on one reviewed whole tooth",
+        "finite native geometry components",
+        "encoder byte-identical",
+        "strict decoder checkpoint reload",
+        "exact repeated heldout latent decode",
+        "non-empty raw mesh"
+      ]
+    },
+    {
+      "gate": "G2-four-family-decoder-screen",
+      "maximumOptimizerSteps": 2,
+      "status": "failed-v2",
+      "requirements": [
+        "one patient-disjoint heldout tooth per family",
+        "same frozen base latent per base and candidate decoder",
+        "exact raw repeatability",
+        "no crown root or welded-topology regression in any family"
+      ]
+    }
+  ],
+  "g0Result": {
+    "pinnedTrainerInitAnchorCount": 1,
+    "pinnedTrainerLossAnchorCount": 1,
+    "focusedTestsPassed": 4,
+    "syntaxPassed": true,
+    "configPassed": true
+  },
+  "g1Attempts": [
+    {
+      "runName": "stage1-e12-g1-one-tooth-v1",
+      "modalRun": "ap-0PL7GV6Xkyv1LX2c1YFnLX",
+      "optimizerSteps": 0,
+      "status": "failed-before-model-initialization",
+      "reason": "single-tooth metadata view omitted official FlexiDualGridDataset fields"
+    },
+    {
+      "runName": "stage1-e12-g1-one-tooth-v2",
+      "modalRun": "ap-HEDEL0fWmmK4gA2HSvSyF1",
+      "optimizerSteps": 0,
+      "status": "failed-before-trainer-initialization",
+      "reason": "official shape-VAE loss module required lpips, which was absent from the isolated E12 research image"
+    },
+    {
+      "runName": "stage1-e12-g1-one-tooth-v3",
+      "modalRun": "ap-EBWWLGswPTdX5NZO0YsicS",
+      "optimizerSteps": 0,
+      "status": "failed-during-first-loss-evaluation",
+      "reason": "one native multiscale subdivision ground-truth target was None; trainer and checkpoints loaded, but no optimizer update occurred"
+    },
+    {
+      "runName": "stage1-e12-g1-one-tooth-v4",
+      "modalRun": "ap-clg2tMppwZaRTu0ZpvCOGc",
+      "optimizerSteps": 0,
+      "status": "failed-during-first-backward",
+      "reason": "full forward native geometry objective completed, then FlexGEMM SubMConv3d backward lacked neighbor-cache field valid_signal_i before optimizer step"
+    },
+    {
+      "runName": "stage1-e12-g1-one-tooth-v5",
+      "modalRun": "ap-BQlZIh2mAFWulTQnqHGmSg",
+      "optimizerSteps": 0,
+      "status": "failed-during-first-backward",
+      "reason": "gradient-enabled detached latent alone did not replace inference-only FlexGEMM neighbor caches inherited from the frozen encoder"
+    },
+    {
+      "runName": "stage1-e12-g1-one-tooth-v6",
+      "modalRun": "ap-bhFNrtfIaVjMhdIxvrwOmU",
+      "optimizerSteps": 0,
+      "status": "failed-pre-optimizer-nonfinite-gradients",
+      "reason": "selective neighbor-cache invalidation allowed the complete native forward and backward passes to reach the explicit gradient gate, but decoder gradients were non-finite (first reported parameter tensor indices 2 through 17); the optimizer was blocked"
+    }
+  ],
+  "g1Authorized": true,
+  "nextDiagnostic": {
+    "runName": "stage1-e12-g1-gradient-diagnostic-v1",
+    "optimizerSteps": 0,
+    "status": "complete-zero-step",
+    "modalRun": "ap-UWhNO191tpLXmKei3w4z59",
+    "purpose": "differentiate every sealed native geometry term and the unscaled aggregate loss independently to localize the first non-finite decoder gradient",
+    "g1v7AuthorizationRule": "no optimizer retry until a zero-step controlled-loss-scale probe proves the normal trainer backward produces complete finite decoder .grad tensors",
+    "result": {
+      "receiptSha256": "f95671e0e409aa39987769f0d7e3a1c04b2c1fc205d99d7ba73ca4dad364e372",
+      "parameterTensorCount": 292,
+      "componentsWithNonfiniteGradients": [],
+      "fullLossMissingGradientCount": 0,
+      "fullLossNonfiniteGradientCount": 0,
+      "fullLossFiniteGradientMaxAbs": 0.0024108386132866144,
+      "diagnosis": "all individual native objective components and the unscaled aggregate have finite autograd gradients; v6 non-finite .grad tensors arise after the objective, in the trainer FP16 inflat_all scaled-backward path rather than from an intrinsically non-finite geometry term",
+      "g1v7Authorized": false
+    }
+  },
+  "controlledScaleProbe": {
+    "runName": "stage1-e12-g1-controlled-scale12-v1",
+    "optimizerSteps": 0,
+    "logScale": 12,
+    "lossScale": 4096,
+    "status": "passed-zero-step",
+    "modalRun": "ap-jYcjdF3hs1C4x9GdWgVwPW",
+    "authorizationRule": "authorize G1 v7 only if normal trainer backward produces present finite and nonzero gradients for every decoder parameter tensor before clipping or optimizer logic",
+    "result": {
+      "receiptSha256": "127bf05e21a8c81d01cd4bb44ac56ef716846fc42e5333ef82bd14939b1eb9dd",
+      "parameterTensorCount": 292,
+      "missingGradientCount": 0,
+      "nonfiniteGradientCount": 0,
+      "allZeroGradientCount": 0,
+      "finiteGradientMaxAbsScaled": 9.702435493469238,
+      "finiteNonzeroGradientMinAbsScaled": 5.960464477539063e-08,
+      "finiteCompleteBackward": true,
+      "g1v7Authorized": true
+    }
+  },
+  "g1v7Authorized": true,
+  "g1v7": {
+    "runName": "stage1-e12-g1-one-tooth-v7",
+    "optimizerStepsMaximum": 1,
+    "initialLogScale": 12,
+    "lossScale": 4096,
+    "status": "passed-after-canonical-identity-and-qualification",
+    "modalRun": "ap-Dhu6S0QTAsDecbSYn69Dal",
+    "requiredGradientContract": {
+      "parameterTensorCount": 292,
+      "missingGradientCount": 0,
+      "nonfiniteGradientCount": 0,
+      "allZeroGradientCount": 0
+    },
+    "authorizationBoundary": "One decoder optimizer step, strict checkpoint reload, frozen encoder state identity, exact repeated heldout raw decode, and a non-empty raw mesh. No longer run or production mutation is authorized.",
+    "terminalResult": {
+      "optimizerSteps": 1,
+      "nativeObjectiveFinite": true,
+      "gradientContractPassed": true,
+      "gradientReceipt": {
+        "parameterTensorCount": 292,
+        "missingGradientCount": 0,
+        "nonfiniteGradientCount": 0,
+        "allZeroGradientCount": 0,
+        "logScale": 12,
+        "lossScale": 4096
+      },
+      "checkpointWritten": true,
+      "encoderStateUnchanged": false,
+      "g2Authorized": false,
+      "failureBoundary": "Post-step comparison reported that the saved encoder state was not byte-identical to the materialized base encoder checkpoint. The run stopped before reload and held-out raw-decode qualification."
+    }
+  },
+  "g2Authorized": true,
+  "g2": {
+    "name": "stage1-e12-g2-four-family-decoder-screen-v1",
+    "status": "ready-v2",
+    "modalRun": "ap-QfsT2rG3atriPs4gbkFZrt",
+    "optimizerSteps": 0,
+    "caseCount": 4,
+    "families": ["incisor", "canine", "premolar", "molar"],
+    "caseSelection": "lexicographically-first-patient-disjoint-validation-case-per-family",
+    "metricSurfaceSamples": 5000,
+    "pairing": "identical sealed shape latent for base and candidate decoder",
+    "authorizationRule": "E13 is authorized only if raw repeatability and all engineering root/crown/topology non-regression gates pass, median crown Chamfer relative improvement is positive, at least three of four families improve crown Chamfer, and median whole-tooth Chamfer does not regress.",
+    "attempts": [
+      {
+        "version": "v1",
+        "modalRun": "ap-QfsT2rG3atriPs4gbkFZrt",
+        "optimizerSteps": 0,
+        "status": "failed-before-first-decode",
+        "reason": "The sealed validation case record does not contain canonicalSha256 directly; the screen must join case ID/reference mesh to the canonical manifest asset before locating the latent artifact.",
+        "scientificEvidenceProduced": false
+      },
+      {
+        "version": "v2",
+        "status": "rejected-by-sealed-gates",
+        "modalRun": "ap-DdFNPdqBI1Mkk24bO2oFwQ",
+        "optimizerSteps": 0,
+        "evidencePath": "/stage1-e12-g1-one-tooth-v7/g2-evidence-v2.json",
+        "correction": "Fail-closed unique join from validation case ID to manifest asset, with split, family, patient, FDI, canonical path, and SHA-256 equality checks before latent resolution.",
+        "result": {
+          "optimizerSteps": 0,
+          "caseCount": 4,
+          "rawRepeatabilityPassed": true,
+          "positiveMeshes": true,
+          "pairedLatentIdentityPassed": true,
+          "medianCrownChamferRelativeImprovement": -0.006600664197872211,
+          "familiesWithCrownChamferImprovement": 1,
+          "medianWholeToothChamferRelativeImprovement": 0.0009210605952640694,
+          "engineeringNonRegressionPassed": false,
+          "passed": false,
+          "e13Authorized": false
+        }
+      }
+    ]
+  },
+  "encoderIdentityDiagnostic": {
+    "runName": "stage1-e12-g1-one-tooth-v7",
+    "status": "passed",
+    "modalRun": "ap-j5mczGGhqLluVYtHZlNbJm",
+    "optimizerSteps": 0,
+    "purpose": "Distinguish a dtype or serialization-only mismatch from genuine frozen-encoder state mutation using every tensor in the existing v7 base and saved checkpoints.",
+    "qualificationRule": "Existing v7 checkpoint qualification is authorized only when the training receipt contract is valid, all keys and shapes match, and the base encoder cast to each saved runtime dtype is exactly equal to the saved encoder tensor.",
+    "result": {
+      "tensorCount": 284,
+      "missingKeyCount": 0,
+      "unexpectedKeyCount": 0,
+      "dtypeChangedTensorCount": 76,
+      "rawChangedTensorCount": 76,
+      "canonicalChangedTensorCount": 0,
+      "maximumAbsoluteDifference": 0.0,
+      "classification": "dtype-or-serialization-only",
+      "canonicalRuntimeEquivalent": true,
+      "existingCheckpointQualificationAuthorized": true
+    }
+  },
+  "existingCheckpointQualification": {
+    "status": "passed",
+    "modalRun": "ap-F0rJzJtfT3OjGu0HAGB9jt",
+    "optimizerStepsMaximum": 0,
+    "requirements": [
+      "strict trainer checkpoint reload",
+      "strict EMA decoder state load",
+      "exact repeated heldout latent raw decode",
+      "non-empty raw mesh artifact"
+    ],
+    "result": {
+      "trainingOptimizerSteps": 1,
+      "qualificationOptimizerSteps": 0,
+      "checkpointReloaded": true,
+      "candidateDecoderSha256": "8615011706a7d1c90c3f4779ed0114e7f6081f2111f951a54964e71506085368",
+      "heldoutAsset": "toothfairy2-stage50-whole-tooth-v1-ToothFairy2P_201-fdi36",
+      "heldoutLatentSha256": "5fdfc4766557d38a280f9ad079cd823743350099b51560021ccd4ddff116c7ae",
+      "rawDecodeExactRepeat": true,
+      "rawMeshArtifactSha256": "0fa21ab4b13b5292b30b33df892aa509a741f24157a4947baab95ebd9bc9dc86",
+      "rawMeshVertexCount": 565204,
+      "rawMeshFaceCount": 1130106,
+      "g2Authorized": true
+    }
+  },
+  "decoderDeltaLocalization": {
+    "status": "passed-late-hybrid-authorized",
+    "modalRun": "ap-rrFgYRt5rm8QIXShPrYhYC",
+    "optimizerSteps": 0,
+    "evidencePath": "/stage1-e12-g1-one-tooth-v7/decoder-update-localization-v1.json",
+    "result": {
+      "tensorCount": 292,
+      "changedTensorCount": 292,
+      "allChangedGroupsRecognized": true,
+      "lateStageChangedTensorCount": 42,
+      "lateDeltaHybridAuthorized": true,
+      "e13TrainingAuthorized": false
+    }
+  },
+  "lateDeltaHybridScreen": {
+    "status": "rejected-by-sealed-gates",
+    "modalRun": "ap-zpWAmUIiPy6Se9cJycqWrD",
+    "optimizerSteps": 0,
+    "evidencePath": "/stage1-e12-g1-one-tooth-v7/late-delta-hybrid-evidence-v1.json",
+    "candidateLateTensorCount": 42,
+    "candidateLatePrefixes": ["blocks.3.*", "output_layer.*"],
+    "result": {
+      "caseCount": 4,
+      "pairedLatentIdentityPassed": true,
+      "rawRepeatabilityPassed": true,
+      "positiveMeshes": true,
+      "medianCrownChamferRelativeImprovement": -0.022196033855142676,
+      "familiesWithCrownChamferImprovement": 1,
+      "medianWholeToothChamferRelativeImprovement": -0.0020476936672939867,
+      "engineeringNonRegressionPassed": false,
+      "passed": false,
+      "e13Authorized": false
+    },
+    "nextPermittedAblation": "zero-optimizer output-layer-only, followed by blocks.3-only only if required"
+  },
+  "outputOnlyDeltaScreen": {
+    "status": "rejected-by-sealed-gates",
+    "modalRun": "ap-Y8iCpmf6xD9SOzpdxxLXYu",
+    "optimizerSteps": 0,
+    "evidencePath": "/stage1-e12-g1-one-tooth-v7/output-only-delta-evidence-v1.json",
+    "candidateTensorCount": 2,
+    "candidatePrefixes": ["output_layer.*"],
+    "result": {
+      "pairedLatentIdentityPassed": true,
+      "rawRepeatabilityPassed": true,
+      "positiveMeshes": true,
+      "medianCrownChamferRelativeImprovement": -0.021832258926783428,
+      "familiesWithCrownChamferImprovement": 1,
+      "medianWholeToothChamferRelativeImprovement": 0.011169192622824477,
+      "engineeringNonRegressionPassed": false,
+      "passed": false,
+      "e13Authorized": false
+    },
+    "nextPermittedAblation": "zero-optimizer blocks.3-only screen"
+  },
+  "block3OnlyDeltaScreen": {
+    "status": "rejected-by-sealed-gates",
+    "modalRun": "ap-oXiBBcPI6ioo3Gxu7rH3PT",
+    "optimizerSteps": 0,
+    "evidencePath": "/stage1-e12-g1-one-tooth-v7/block3-only-delta-evidence-v1.json",
+    "candidateTensorCount": 40,
+    "candidatePrefixes": ["blocks.3.*"],
+    "result": {
+      "pairedLatentIdentityPassed": true,
+      "rawRepeatabilityPassed": true,
+      "positiveMeshes": true,
+      "medianCrownChamferRelativeImprovement": -0.015310295975088324,
+      "familiesWithCrownChamferImprovement": 1,
+      "medianWholeToothChamferRelativeImprovement": 0.00730051706508568,
+      "engineeringNonRegressionPassed": false,
+      "passed": false,
+      "e13Authorized": false
+    },
+    "v7DeltaReuseAuthorized": false,
+    "nextPermittedAction": "fresh E13 zero-step objective and gradient integration canary initialized from the exact base"
+  },
+  "g3Authorized": false,
+  "productionMutationPermitted": false,
+  "clinicalClaimPermitted": false
+}

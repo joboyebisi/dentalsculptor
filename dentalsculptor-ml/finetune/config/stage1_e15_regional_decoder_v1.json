@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "experimentId": "stage1-e15-regional-decoder-v1",
+  "status": "blocked-after-v2-teacher-return-contract-failure",
+  "objective": "Improve crown and occlusal decoder geometry while preserving the frozen base decoder in cervical and root proxy bands.",
+  "evidenceBasis": {
+    "expertFinding": "The current base reconstructs roots more reliably than molar and premolar crown, cusp, ridge and occlusal anatomy.",
+    "g2jFinding": "The candidate improved held-out molar crown Chamfer in all three cases, with a median 21.36% improvement, but failed every decoded root/cervical non-regression gate.",
+    "decision": "Retain ground-truth crown supervision, replace sparse-logit-only root protection with explicit decoded-output teacher consistency, and reject post-hoc mesh grafting as the primary route."
+  },
+  "modelBoundary": {
+    "trainable": [
+      "shape_slat_decoder.blocks.3.*",
+      "shape_slat_decoder.output_layer.*"
+    ],
+    "frozen": [
+      "shape_slat_encoder",
+      "shape_slat_decoder.from_latent",
+      "shape_slat_decoder.blocks.0.*",
+      "shape_slat_decoder.blocks.1.*",
+      "shape_slat_decoder.blocks.2.*",
+      "shape flow",
+      "texture models"
+    ]
+  },
+  "regionalObjective": {
+    "crown": "official intersected BCE plus vertex regression against reference dual-grid targets",
+    "cervical": "2x candidate-versus-frozen-base intersected-logit and vertex consistency",
+    "root": "candidate-versus-frozen-base intersected-logit and vertex consistency",
+    "maskStatus": "engineering axial proxy only; not paper-grade enamel, CEJ or root annotation",
+    "initialTeacherLoss": 0.0
+  },
+  "gateLadder": [
+    {
+      "gate": "G0-zero-step-gradient-and-influence",
+      "optimizerSteps": 0,
+      "status": "implemented-awaiting-run",
+      "runName": "stage1-e15-regional-decoder-zero-step-v2",
+      "required": [
+        "non-empty crown, cervical and root proxy bands",
+        "finite non-zero crown gradients on every intended late-decoder tensor",
+        "exactly zero protected teacher loss and gradients at initialization",
+        "finite non-zero protected-region perturbation-probe gradients",
+        "no optimizer step"
+      ]
+    },
+    {
+      "gate": "G1-one-step-integration",
+      "optimizerSteps": 1,
+      "status": "locked-pending-G0"
+    },
+    {
+      "gate": "G2-four-family-decoded-screen",
+      "optimizerSteps": 0,
+      "status": "locked-pending-G1"
+    },
+    {
+      "gate": "G3-balanced-small-cohort",
+      "optimizerSteps": 25,
+      "status": "locked-pending-G2"
+    }
+  ],
+  "hardRules": {
+    "noAggregateOverride": true,
+    "rootAndCervicalFailureRejectsCandidate": true,
+    "topologyFailureRejectsCandidate": true,
+    "productionMutationPermitted": false,
+    "clinicalClaimPermitted": false
+  },
+  "g0Attempts": [
+    {
+      "version": "v1",
+      "callId": "fc-01M39EAH5N6AH1DQ59W6KSHVT1",
+      "optimizerSteps": 0,
+      "scientificEvidenceProduced": false,
+      "failureBoundary": "source hook required a synthetic blank-line layout"
+    },
+    {
+      "version": "v2",
+      "callId": "fc-01M39EDTAWX7FBY5E3KRZ95R6J",
+      "optimizerSteps": 0,
+      "scientificEvidenceProduced": false,
+      "failureBoundary": "frozen teacher in eval mode returned one inference output while the regional objective required the five-output training contract",
+      "nextCorrection": "freeze teacher parameters but invoke the decoder training return contract in a fresh v3 zero-step run"
+    }
+  ]
+}

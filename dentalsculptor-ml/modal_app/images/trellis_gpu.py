@@ -107,7 +107,10 @@ trellis_gpu_image = (
     .env(
         {
             "ATTN_BACKEND": "flash_attn",
-            "PYTHONPATH": TRELLIS2_PATH,
+            # Modal mounts deployed source packages below /root. Preserve that
+            # import root alongside TRELLIS.2 so cold-start module resolution
+            # works for deployed (not only `modal run`) functions.
+            "PYTHONPATH": f"{TRELLIS2_PATH}:/root",
             "HF_HOME": HF_CACHE_PATH,
             "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True",
             "OPENCV_IO_ENABLE_OPENEXR": "1",

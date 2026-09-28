@@ -9,6 +9,7 @@ import { parseModelProcessingStage } from "@/lib/model-processing-stage";
 import type { ExportAssetId } from "@/lib/export-asset-options";
 import { buildProjectExportBundle } from "@/lib/build-export-bundle.server";
 import { resolveProjectModelUrl } from "@/lib/project-model-asset.server";
+import { isJawPlacement } from "@/lib/jaw-placement";
 
 export const maxDuration = 120;
 export const runtime = "nodejs";
@@ -28,6 +29,7 @@ export async function POST(
   const scope = (body.scope as ExportScope | undefined) ?? "full";
   const assets = (body.assets as ExportAssetId[] | undefined) ?? ["mesh-primary"];
   const bundle = Boolean(body.bundle);
+  const includeJaw = Boolean(body.includeJaw);
 
   if (!target) {
     return NextResponse.json({ error: "target is required." }, { status: 400 });
@@ -35,7 +37,10 @@ export async function POST(
 
   const project = await prisma.project.findFirst({
     where: { id: projectId, ownerId: user.id },
-    include: { dentalModel: true },
+    include: {
+      dentalModel: true,
+      versions: { where: { label: "jaw-placement" }, orderBy: { version: "desc" }, take: 1 },
+    },
   });
 
   if (!project) {
@@ -54,6 +59,8 @@ export async function POST(
   const meta = parseModelProcessingStage(project?.dentalModel?.processingStage ?? null);
   const format = (meta.format === "obj" ? "obj" : "glb") as "glb" | "obj";
   const preset = getExportPreset(target);
+  const placementSnapshot = project.versions[0]?.snapshot;
+  const jawPlacement = includeJaw && isJawPlacement(placementSnapshot) ? placementSnapshot : null;
   const resolvedFormat: MeshExportFormat =
     outputFormat ?? (preset.formats.find((f) => f !== "zip") as MeshExportFormat) ?? "stl";
 
@@ -63,6 +70,7 @@ export async function POST(
         validateOnly: true,
         outputFormat: resolvedFormat,
         scope,
+        jawPlacement,
       });
       if ("validation" in result) {
         return NextResponse.json({ validation: result.validation, preset: target });
@@ -89,6 +97,7 @@ export async function POST(
         scope,
         assets: assets.includes("mesh-primary") ? assets : ["mesh-primary", ...assets],
         sourceImageUrl: project.dentalModel?.sourceImageUrl,
+        jawPlacement,
       });
 
       await trackResearchEvent({
@@ -115,6 +124,7 @@ export async function POST(
     const result = await exportMeshForPreset(modelUrl, format, preset, {
       outputFormat: resolvedFormat,
       scope,
+      jawPlacement,
     });
 
     if (!("buffer" in result)) {

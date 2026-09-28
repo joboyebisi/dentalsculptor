@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
-import { Menu, Share2, Download, Save, Layers3 } from "lucide-react";
+import { Menu, Share2, Download, Check, Layers3, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AppLogoMark } from "@/components/brand/app-logo";
 import { projectFileName } from "@/lib/editor-segmentation";
@@ -22,6 +22,7 @@ interface EditorHeaderProps {
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
   onSave?: () => void;
+  onPlaceInJaw?: () => void;
   onCreateVariant?: () => void;
   onShare?: () => void;
   onExport?: () => void;
@@ -46,6 +47,7 @@ export function EditorHeader({
   sidebarOpen,
   onToggleSidebar,
   onSave,
+  onPlaceInJaw,
   onCreateVariant,
   onShare,
   onExport,
@@ -55,10 +57,6 @@ export function EditorHeader({
   const [editingTitle, setEditingTitle] = useState(false);
   const [draftTitle, setDraftTitle] = useState(projectTitle);
   const titleInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    setDraftTitle(projectTitle);
-  }, [projectTitle]);
 
   useEffect(() => {
     if (editingTitle) titleInputRef.current?.focus();
@@ -113,7 +111,11 @@ export function EditorHeader({
             ) : (
               <button
                 type="button"
-                onClick={() => onTitleChange && setEditingTitle(true)}
+                onClick={() => {
+                  if (!onTitleChange) return;
+                  setDraftTitle(projectTitle);
+                  setEditingTitle(true);
+                }}
                 className="min-w-0 truncate font-mono text-body-sm font-medium text-on-surface hover:text-primary-container"
                 title={onTitleChange ? "Click to rename" : fileName}
               >
@@ -151,12 +153,8 @@ export function EditorHeader({
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5 md:gap-2">
-        {onSave && (
-          <Button variant="ghost" size="sm" onClick={onSave} disabled={saving} className="hidden sm:inline-flex">
-            <Save className="mr-1.5 h-4 w-4" />
-            {saving ? "Saving…" : "Save"}
-          </Button>
-        )}
+        {onSave && <span className="hidden items-center gap-1.5 px-2 text-xs text-on-surface-variant sm:flex"><Check className="h-4 w-4 text-secondary" />{saving ? "Saving…" : "Autosaved"}</span>}
+        {onPlaceInJaw && <Button variant="ghost" size="sm" onClick={onPlaceInJaw} className="hidden md:inline-flex"><MapPin className="mr-1.5 h-4 w-4" />Place in jaw</Button>}
         {onCreateVariant && (
           <Button variant="ghost" size="sm" onClick={onCreateVariant} className="hidden md:inline-flex">
             <Layers3 className="mr-1.5 h-4 w-4" />

@@ -16,6 +16,7 @@ import type { CaseRecipe } from "@/lib/clinical-case-params";
 import type { CaseTemplate } from "@/lib/case-templates";
 import { getExportPreset } from "@/lib/export-presets";
 import { listExportAssetOptions, type ExportAssetId } from "@/lib/export-asset-options";
+import type { JawPlacement } from "@/lib/jaw-placement";
 
 const DIRECT_FORMATS: { id: MeshExportFormat; label: string; hint: string }[] = [
   { id: "stl", label: "STL", hint: "Simulators, 3D print (mm)" },
@@ -36,6 +37,7 @@ interface ExportWizardDialogProps {
   selectedCase?: CaseTemplate | null;
   caseRecipe?: CaseRecipe | null;
   sourceImageUrl?: string | null;
+  jawPlacement?: JawPlacement | null;
   onExportComplete?: (target: ExportTarget) => void;
 }
 
@@ -53,6 +55,7 @@ export function ExportWizardDialog({
   selectedCase = null,
   caseRecipe = null,
   sourceImageUrl = null,
+  jawPlacement = null,
   onExportComplete,
 }: ExportWizardDialogProps) {
   const [step, setStep] = useState<WizardStep>(1);
@@ -83,9 +86,10 @@ export function ExportWizardDialog({
         sourceImageUrl,
         selectedCase,
         caseRecipe,
-        jawPlaced: false,
+        jawPlaced: Boolean(jawPlacement),
+        jawArch: jawPlacement?.arch,
       }),
-    [target, outputFormat, modelUrl, sourceImageUrl, selectedCase, caseRecipe]
+    [target, outputFormat, modelUrl, sourceImageUrl, selectedCase, caseRecipe, jawPlacement]
   );
 
   useEffect(() => {
@@ -118,6 +122,9 @@ export function ExportWizardDialog({
 
   if (!open) return null;
 
+  const selectedJawAsset = jawPlacement?.arch === "lower" ? "jaw-lower" : "jaw-upper";
+  const includeJaw = Boolean(jawPlacement && selectedAssets.includes(selectedJawAsset));
+
   const reset = () => {
     setStep(1);
     setDone(false);
@@ -145,6 +152,7 @@ export function ExportWizardDialog({
           outputFormat,
           scope,
           modelUrl: modelUrl ?? undefined,
+          includeJaw,
         }),
       });
       const data = await res.json();
@@ -181,6 +189,7 @@ export function ExportWizardDialog({
           scope,
           modelUrl: modelUrl ?? undefined,
           assets: assetsToSend,
+          includeJaw,
           bundle: needsBundle,
         }),
       });

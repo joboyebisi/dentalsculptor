@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 2,
+  "datasets": [
+    {
+      "id": "dtu-fdi16",
+      "role": "phase-1-shape-prior",
+      "url": "https://doi.org/10.11583/DTU.23626650.v2",
+      "downloadUrl": "https://ndownloader.figshare.com/files/44571158",
+      "version": "v2",
+      "license": "CC-BY-NC-SA-4.0",
+      "download": "modal-ingest-implemented",
+      "accessRequirement": "none-public-download",
+      "trainingPolicy": "research-approved-non-commercial",
+      "permittedRole": ["healthy-base-molar-shape-prior", "geometry-qc-benchmark"],
+      "prohibitedRole": ["all-tooth-generator", "commercial-model-weights"],
+      "coverage": ["FDI-16", "upper-molar"],
+      "officialSplitCounts": {"train": 4844, "validation": 1465, "test": 1423},
+      "notes": "7732 IOS-derived FDI 16 meshes from European clinics (v2 test set). Open surfaces; aligner attachments common. Pilot uses official split stratification, not random resampling."
+    },
+    {
+      "id": "teeth3ds",
+      "role": "all-32-fdi-primary-multi-tooth-candidate",
+      "url": "https://crns-smartvision.github.io/teeth3ds/index.html",
+      "downloadUrl": "https://osf.io/xctdy/",
+      "githubSplits": "https://github.com/abenhamadou/3DTeethSeg22_challenge/tree/main/dataset/Teeth3DS_split",
+      "license": "CC-BY-NC-ND-4.0",
+      "download": "osf-data-part-1-through-6-merge-required",
+      "accessRequirement": "osf-download-no-registration",
+      "trainingPolicy": "research-approved-non-commercial-with-attribution",
+      "permittedRole": ["all-fdi-crown-extraction", "segmentation-evaluation", "landmark-evaluation", "trellis-shape-prior-research"],
+      "prohibitedRole": ["public-redistribution-of-extracted-crowns", "commercial-use", "public-checkpoint-release"],
+      "coverage": ["all-permanent-fdi-11-48", "upper", "lower", "23999-annotated-teeth", "landmarks-subset"],
+      "officialSplit": {
+        "name": "Teeth3DS_split",
+        "trainScans": 1200,
+        "testScans": 600,
+        "trainPatients": 600,
+        "testPatients": 300,
+        "validationNote": "No official val split; derive patient-level val from train only"
+      },
+      "admissionPlan": "finetune/config/teeth3ds_admission_plan.json",
+      "notes": "1800 OBJ IOS scans / 900 patients (Primescan, Trios3, iTero Element 2 Plus). Vertex FDI labels + instance ids in JSON. Approved for non-commercial QMUL research with attribution; keep extracted crowns and candidate weights private."
+    },
+    {
+      "id": "tadpm-orthodontic",
+      "role": "preferred-all-tooth-research-training-candidate",
+      "url": "https://zenodo.org/records/11392406",
+      "downloadUrl": "https://zenodo.org/records/11392406",
+      "license": "restricted-data-use-agreement",
+      "download": "request-and-signed-dua",
+      "accessRequirement": "zenodo-request-form-plus-signed-dua-email",
+      "trainingPolicy": "dua-submitted-pending-zenodo-access",
+      "permittedRole": ["all-tooth-research-training-candidate", "segmentation", "landmark-benchmark"],
+      "prohibitedRole": ["commercial-use", "generative-training-before-approval"],
+      "coverage": ["upper", "lower", "individual-crowns", "fdi", "anatomical-landmarks", "pre-post-treatment"],
+      "accessChecklist": [
+        "Download DUA from https://github.com/lcshhh/TADPM/blob/main/Data-Use-Agreement.pdf",
+        "Sign the DUA",
+        "Submit Zenodo access request at https://zenodo.org/records/11392406",
+        "Email signed DUA to liuyongjin@tsinghua.edu.cn with name, affiliation, and research purpose",
+        "Wait for approval email before downloading from Zenodo"
+      ],
+      "notes": "1060 pre/post orthodontic crown pairs from 435 patients. DUA signed and emailed to liuyongjin@tsinghua.edu.cn; awaiting Zenodo access approval."
+    },
+    {
+      "id": "bits2bites",
+      "role": "occlusion-and-jaw-context-validation",
+      "url": "https://ditto.ing.unimore.it/bits2bites/",
+      "downloadUrl": "https://ditto.ing.unimore.it/bits2bites/",
+      "license": "verify-on-registration",
+      "download": "manual-registration",
+      "accessRequirement": "site-account-registration",
+      "trainingPolicy": "evaluation-only-until-terms-approved",
+      "permittedRole": ["occlusion-evaluation", "jaw-placement-evaluation", "antagonist-context-benchmark"],
+      "prohibitedRole": ["isolated-healthy-tooth-generation", "generative-training-before-terms-review"],
+      "coverage": ["200-upper-lower-pairs", "registered-occlusion", "IOS"],
+      "notes": "200 registered upper/lower IOS pairs with occlusion labels. Ethical approval Comitato Etico di Ateneo di Ferrara No. 262/2025/Oss/UniFe. Confirm licence on registration before ingestion."
+    },
+    {
+      "id": "toothfairy3",
+      "role": "internal-anatomy-research-not-photo-finetune",
+      "url": "https://toothfairy3.grand-challenge.org/dataset/",
+      "downloadUrl": "https://toothfairy3.grand-challenge.org/dataset/",
+      "license": "CC-BY-NC-SA-registration-required",
+      "download": "manual-registration",
+      "accessRequirement": "grand-challenge-registration",
+      "trainingPolicy": "internal-segmentation-only",
+      "permittedRole": ["cbct-internal-anatomy-segmentation", "volumetric-research"],
+      "prohibitedRole": ["external-ios-morphology-generator", "photo-to-surface-finetune", "mix-with-ios-truth-cohort"],
+      "coverage": ["532-CBCT", "77-classes", "teeth", "jaws", "canals"],
+      "notes": "CBCT/internal anatomy only. Keep completely separate from external IOS morphology training."
+    }
+  ]
+}

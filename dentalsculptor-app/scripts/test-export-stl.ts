@@ -8,6 +8,7 @@ import {
   geometryToBinaryStl,
   validateBinaryStlBuffer,
   validateGeometry,
+  composeToothAndJaw,
 } from "../src/lib/export-mesh";
 import { getExportPreset } from "../src/lib/export-presets";
 
@@ -53,3 +54,22 @@ assert(check.ok, `STL valid with ${check.triangleCount} triangles`);
 assert(stl.byteLength === 84 + check.triangleCount * 50, "STL byte size matches spec");
 
 console.log("\nAll export STL tests passed.");
+
+const placed = composeToothAndJaw(normalized, {
+  schemaVersion: 1,
+  arch: "lower",
+  fdiTooth: 46,
+  templateId: "adult-standard-lower-v1",
+  positionMm: [0, 0, 0],
+  rotationDeg: [0, 0, 0],
+  scale: 1,
+});
+const placedValidation = validateGeometry(placed, preset);
+const placedStl = geometryToBinaryStl(placed);
+const placedCheck = validateBinaryStlBuffer(placedStl);
+assert(placedCheck.ok, `placed jaw STL valid with ${placedCheck.triangleCount} triangles`);
+assert(placedCheck.triangleCount > check.triangleCount, "jaw-inclusive STL contains additional geometry");
+assert(placedValidation.boundingBoxMm.x > 50, `jaw width is clinical scale: ${placedValidation.boundingBoxMm.x} mm`);
+assert(placedValidation.boundingBoxMm.z > 20, `jaw depth is clinical scale: ${placedValidation.boundingBoxMm.z} mm`);
+
+console.log("Jaw placement export tests passed.");

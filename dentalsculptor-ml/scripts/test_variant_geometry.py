@@ -101,6 +101,50 @@ def main() -> int:
     assert clipped.export(file_type="glb")[:4] == b"glTF"
     print("OK non-watertight fracture: capped surface-clip fallback")
 
+    # Educator-facing Class I/caries controls must map to deterministic cutter
+    # counts, and coverage must change the physical extent of the edit.
+    source = trimesh.creation.icosphere(subdivisions=3, radius=1.0)
+    selected = np.flatnonzero(np.asarray(source.vertices)[:, 1] > 0.3)
+
+    class_one = recipe("class1-small")
+    class_one.update({"lesionCount": 3, "coveragePercent": 15})
+    class_one_cutters, class_one_method = _build_cutters(
+        source, validate_variant_recipe(json.dumps(class_one)), selected
+    )
+    assert len(class_one_cutters) == 3
+    assert "3-site" in class_one_method
+
+    caries = recipe("caries-excavate")
+    caries.update({"lesionCount": 2, "coveragePercent": 10})
+    caries_cutters, caries_method = _build_cutters(
+        source, validate_variant_recipe(json.dumps(caries)), selected
+    )
+    assert len(caries_cutters) == 2
+    assert "2-site" in caries_method
+
+    compact = recipe("class1-small")
+    compact["coveragePercent"] = 5
+    broad = recipe("class1-small")
+    broad["coveragePercent"] = 40
+    compact_cutters, _ = _build_cutters(
+        source, validate_variant_recipe(json.dumps(compact)), selected
+    )
+    broad_cutters, _ = _build_cutters(
+        source, validate_variant_recipe(json.dumps(broad)), selected
+    )
+    assert np.prod(broad_cutters[0].extents) > np.prod(compact_cutters[0].extents)
+
+    for field, value in (("lesionCount", 4), ("coveragePercent", 61)):
+        invalid = recipe("class1-small")
+        invalid[field] = value
+        try:
+            validate_variant_recipe(json.dumps(invalid))
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"invalid {field} was accepted")
+    print("OK clinical controls: count, coverage, and validation")
+
     print(f"Validated {len(deterministic)} deterministic variant strategies.")
     return 0
 

@@ -1,0 +1,204 @@
+{
+  "schemaVersion": 1,
+  "experimentId": "dentalsculptor-e3-minimal-data-stage-ablation-v1",
+  "status": "e9-decoded-occupancy-rejected-no-adjacent-meaningful-safe-window",
+  "productionMutationPermitted": false,
+  "retainedInferenceArchitecture": "1024_cascade",
+  "rejectedInferenceArchitectures": {
+    "direct_1024": "catastrophic final geometry fragmentation in E1"
+  },
+  "frozenBase": {
+    "model": "microsoft/TRELLIS.2-4B",
+    "revision": "af44b45f2e35a493886929c6d786e563ec68364d",
+    "trellisCommit": "1762f493fe7731a3b7cc6b79ad5da7b015b516c1"
+  },
+  "dataPolicy": {
+    "wholeToothSource": "clinically accepted ToothFairy whole teeth",
+    "crownDetailSource": "patient-separated clinically accepted Teeth3DS crowns",
+    "engineeringCanary": "TF-PW32 may validate code but cannot support a clinical claim",
+    "nestedCohorts": [32, 64, 128, 256, 500],
+    "smallestCohortFirst": true
+  },
+  "ablations": [
+    {"id": "E3-A", "trainableStage": "shape-flow-512-only"},
+    {"id": "E3-B", "trainableStage": "sparse-structure-flow-only"},
+    {"id": "E3-C", "trainableStage": "sparse-structure-then-shape-flow"}
+  ],
+  "canarySchedule": {
+    "steps": [50, 250, 500],
+    "seeds": [1724708096],
+    "advanceRule": "advance only after every registered global, regional, topology and raw-geometry repeatability gate passes",
+    "confirmatorySeeds": [1724708096, 314159265]
+  },
+  "runtimeQualification": {
+    "sparseLatents": "32/32 validated",
+    "officialTrainerTryrun": "passed",
+    "twoStepOptimizerSmoke": "passed-with-finite-losses-and-strict-reload",
+    "productionMutationPermitted": false
+  },
+  "frozenSparseBaseBenchmark": {
+    "status": "materialized-and-exactly-repeatable",
+    "modalRun": "ap-gTBeDea6BfGOg9TH5KDxji",
+    "caseCount": 4,
+    "families": ["incisor", "canine", "premolar", "molar"],
+    "cohortSha256": "d1a80b442b9cfb460ad86fb7f301b96e9110c02b3e6b5769bb3efeb3355d98a1",
+    "requiredForFutureCandidateScreens": true
+  },
+  "results": {
+    "E3-B-step50": {
+      "decision": "rejected-early",
+      "initialStoppingRule": "serialized-glb-byte-repeatability-failed",
+      "correctedDiagnosis": "raw geometry is repeatable; rejection remains independently required by regional anatomy and welded topology regressions",
+      "sparseOccupancyRepeatable": true,
+      "rawGeometryRepeatable": true,
+      "baseCandidateSparseVoxelIoU": 0.7037037037037037,
+      "candidateSparseVoxelCountRelativeChange": 0.10457516339869281,
+      "regionalGatePassed": false,
+      "topologyGatePassed": false,
+      "advanceToStep250Permitted": false,
+      "productionPromotionPermitted": false
+    },
+    "E4-initial-task-vector-screen": {
+      "method": "base-plus-alpha-times-e3-step50-task-vector",
+      "alphas": [0.05, 0.1, 0.2],
+      "selectedCandidate": null,
+      "fullMeshEvaluationPermitted": false,
+      "closestCandidateAlpha": 0.05,
+      "closestCandidateVoxelIoU": 0.9494204425711275,
+      "requiredVoxelIoU": 0.95,
+      "thresholdRelaxedAfterObservation": false,
+      "nextPermittedAction": "pre-register a smaller fixed alpha bracket and screen all four tooth families"
+    },
+    "E4-four-family-refinement": {
+      "alphas": [0.01, 0.025, 0.04],
+      "selectedCandidate": null,
+      "fullMeshEvaluationPermitted": false,
+      "alpha0.025FamilyPass": {
+        "incisor": false,
+        "canine": true,
+        "premolar": true,
+        "molar": true
+      },
+      "decision": "rejected",
+      "diagnosis": "post-hoc reduced-precision task-vector scaling is discontinuous and does not reliably constrain occupancy across tooth families",
+      "nextPermittedAction": "training-time full-precision trust-region regularization with a bounded smoke and parameter-drift gate"
+    },
+    "E5-training-time-parameter-trust-region": {
+      "method": "FP32-master hard relative-L2 projection after every optimizer step; BF16-autocast forward/backward",
+      "maximumRelativeL2Radius": 1e-5,
+      "learningRate": 1e-6,
+      "twoStepSmokePassed": true,
+      "tenStepCanaryPassedEngineeringContract": true,
+      "candidateEmaRelativeL2": 3.842958686299263e-7,
+      "familyPass": {
+        "incisor": false,
+        "canine": true,
+        "premolar": false,
+        "molar": true
+      },
+      "fullMeshEvaluationPermitted": false,
+      "decision": "rejected",
+      "diagnosis": "a small global parameter-space displacement does not guarantee stable sparse occupancy across tooth families",
+      "nextPermittedAction": "pre-register an output-space teacher-consistency constraint on frozen base sparse predictions, then qualify with a two-step smoke before any longer training"
+    },
+    "E6-unit-weight-teacher-consistency": {
+      "method": "frozen pinned-base teacher on the identical noisy latent, timestep and image condition",
+      "teacherConsistencyWeight": 1.0,
+      "learningRate": 1e-6,
+      "twoStepSmokePassed": true,
+      "tenStepCanaryPassedEngineeringContract": true,
+      "candidateEmaRelativeL2": 3.82450089945612e-7,
+      "familyPass": {
+        "incisor": false,
+        "canine": true,
+        "premolar": true,
+        "molar": true
+      },
+      "fullMeshEvaluationPermitted": false,
+      "decision": "rejected",
+      "diagnosis": "unit-weight consistency was approximately three orders of magnitude smaller than the supervised term and did not preserve incisor occupancy",
+      "nextPermittedAction": "pre-register scale-normalized consistency with a frozen family-balanced anchor batch; run a two-step loss-ratio smoke before any 10-step canary"
+    },
+    "E7-scale-normalized-anchor-consistency": {
+      "method": "detached per-step loss-scale calibration targeting a 10% teacher-consistency contribution on a frozen eight-asset anchor with two teeth per family",
+      "anchorCohortSha256": "451d21fd3e4d459ddfef15ce06f5c146093534428e1f380e1d5c0021a0eab488",
+      "targetConsistencyShare": 0.1,
+      "consistencyScaleBounds": [1.0, 250.0],
+      "learningRate": 1e-6,
+      "twoStepSmokePassed": true,
+      "tenStepCanaryPassedEngineeringContract": true,
+      "candidateEmaRelativeL2": 3.824040007266484e-7,
+      "familyPass": {
+        "incisor": false,
+        "canine": true,
+        "premolar": true,
+        "molar": true
+      },
+      "incisorVoxelIoU": 0.7250517598343685,
+      "incisorVoxelCountRelativeChange": 0.2690631808278867,
+      "fullMeshEvaluationPermitted": false,
+      "decision": "rejected",
+      "diagnosis": "a globally calibrated teacher-output loss can be numerically active while still permitting severe family-specific sparse-occupancy drift",
+      "nextPermittedAction": "pre-register a direct sparse-occupancy preservation objective with family-specific normalization or sampling; prove gradient and occupancy behavior in a two-step incisor-focused smoke before any longer run"
+    },
+    "E8-decoded-occupancy": {
+      "method": "frozen sparse decoder supervision on reconstructed clean sparse latents using BCE-with-logits plus soft Dice, detached dynamic calibration to 10% of supervised MSE",
+      "targetOccupancyShare": 0.1,
+      "occupancyScaleBounds": [0.0001, 100.0],
+      "learningRate": 1e-6,
+      "twoStepSmokePassed": true,
+      "withinContainerBaseExactlyRepeatableEveryFamily": true,
+      "withinContainerCandidateExactlyRepeatableEveryFamily": true,
+      "crossContainerBaselineIdentityProven": false,
+      "familyPass": {
+        "incisor": false,
+        "canine": true,
+        "premolar": false,
+        "molar": true
+      },
+      "incisorVoxelIoU": 0.8189897100093545,
+      "incisorVoxelCountRelativeChange": -0.0467101958814666,
+      "premolarVoxelIoU": 0.9170644391408115,
+      "tenStepCanaryPermitted": false,
+      "fullMeshEvaluationPermitted": false,
+      "decision": "rejected-at-step2",
+      "diagnosis": "decoded occupancy supervision at arbitrary diffusion timesteps is technically active but does not preserve the inference occupancy boundary for incisors or premolars",
+      "nextPermittedAction": "run a no-optimizer family-by-timestep gradient diagnostic and persist immutable base occupancy coordinates before registering any E9 training objective"
+    },
+    "E9-decoded-occupancy-gradient-diagnostic": {
+      "method": "zero-update family-by-timestep autograd diagnostic against the pinned frozen sparse decoder; compare supervised flow-MSE and decoded occupancy gradients",
+      "timesteps": [0.05, 0.25, 0.5, 0.75, 0.95],
+      "families": ["incisor", "canine", "premolar", "molar"],
+      "registeredMaximumCalibratedGradientRatio": 0.25,
+      "registeredMinimumAdjacentSafeTimesteps": 2,
+      "safeTimestepsUnderRegisteredRules": [0.95],
+      "adjacentSafePair": false,
+      "twoStepTrainingPermitted": false,
+      "trainingExecuted": false,
+      "candidateCheckpointWritten": false,
+      "decision": "rejected-before-training",
+      "diagnosis": "meaningful decoded occupancy at t=0.05-0.5 produces an excessive auxiliary-to-supervised gradient ratio; the only globally gradient-safe point, t=0.95, has near-zero occupancy Dice and is not meaningful anatomical supervision",
+      "nextPermittedAction": "move away from direct sparse decoded-occupancy supervision; pre-register and qualify a shape-stage or latent-consistency objective with an explicit semantic-validity gate before any optimizer run"
+    }
+  },
+  "requiredNonRegression": [
+    "apicalRootProxy",
+    "middleRootProxy",
+    "cervicalProxy",
+    "crownProxy",
+    "robustApicalPoleProxy",
+    "robustCoronalPoleProxy",
+    "wholeToothHD95",
+    "wholeToothExtent",
+    "weldedComponentCount",
+    "largestComponentAreaFraction",
+    "fixedRuntimeRawGeometryRepeatability"
+  ],
+  "stoppingRules": [
+    "stop on any crown or root regional regression",
+    "stop on any tooth-family median regression",
+    "stop on topology regression",
+    "stop on validation divergence or non-finite optimization",
+    "never continue merely because training loss falls"
+  ]
+}

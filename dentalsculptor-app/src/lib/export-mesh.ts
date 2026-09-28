@@ -6,7 +6,9 @@ import "@/lib/ensure-browser-globals";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
+import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
 import type { ExportPreset } from "@/lib/export-presets";
+import { jawPlacementWarnings, jawSocketPose, type JawPlacement } from "@/lib/jaw-placement";
 
 export type MeshExportFormat = "stl" | "obj" | "glb" | "ply";
 
@@ -115,6 +117,68 @@ function mergeSceneMeshes(object: THREE.Object3D): THREE.BufferGeometry {
   }
   merged.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
   return merged.toNonIndexed();
+}
+
+function mergeGeometries(geometries: THREE.BufferGeometry[]): THREE.BufferGeometry {
+  const positions: number[] = [];
+  for (const source of geometries) {
+    const geometry = source.index ? source.toNonIndexed() : source;
+    const position = geometry.getAttribute("position");
+    for (let i = 0; i < position.count; i += 1) {
+      positions.push(position.getX(i), position.getY(i), position.getZ(i));
+    }
+  }
+  const result = new THREE.BufferGeometry();
+  result.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  result.computeVertexNormals();
+  return result;
+}
+
+/** Closed, lightweight teaching-jaw geometry in millimetres. Replace with licensed clinical templates by templateId. */
+export function createJawTemplateGeometry(arch: "upper" | "lower"): THREE.BufferGeometry {
+  const shape = new THREE.Shape();
+  const outerX = 38;
+  const outerZ = 31;
+  const innerX = 25;
+  const innerZ = 18;
+  const start = Math.PI * 0.1;
+  const end = Math.PI * 0.9;
+  const samples = 48;
+  for (let i = 0; i <= samples; i += 1) {
+    const a = start + (end - start) * (i / samples);
+    const x = Math.cos(a) * outerX;
+    const z = Math.sin(a) * outerZ - 16;
+    if (i === 0) shape.moveTo(x, z); else shape.lineTo(x, z);
+  }
+  for (let i = samples; i >= 0; i -= 1) {
+    const a = start + (end - start) * (i / samples);
+    shape.lineTo(Math.cos(a) * innerX, Math.sin(a) * innerZ - 12);
+  }
+  shape.closePath();
+  const geometry = new THREE.ExtrudeGeometry(shape, { depth: 8, bevelEnabled: true, bevelSize: 1, bevelThickness: 1, bevelSegments: 2, steps: 1 });
+  geometry.rotateX(-Math.PI / 2);
+  geometry.translate(0, arch === "lower" ? 0 : -8, 0);
+  if (arch === "upper") geometry.rotateZ(Math.PI);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+export function composeToothAndJaw(tooth: THREE.BufferGeometry, placement: JawPlacement): THREE.BufferGeometry {
+  const socket = jawSocketPose(placement.arch, placement.fdiTooth);
+  const p = placement.positionMm;
+  const r = placement.rotationDeg;
+  const toothTransform = new THREE.Matrix4().compose(
+    new THREE.Vector3(socket.positionMm[0] + p[0], socket.positionMm[1] + p[1], socket.positionMm[2] + p[2]),
+    new THREE.Quaternion().setFromEuler(new THREE.Euler(
+      THREE.MathUtils.degToRad(r[0] + (placement.arch === "upper" ? 180 : 0)),
+      THREE.MathUtils.degToRad(r[1] + socket.yawDeg),
+      THREE.MathUtils.degToRad(r[2]),
+      "XYZ"
+    )),
+    new THREE.Vector3(placement.scale, placement.scale, placement.scale)
+  );
+  const placedTooth = tooth.clone().applyMatrix4(toothTransform);
+  return mergeGeometries([createJawTemplateGeometry(placement.arch), placedTooth]);
 }
 
 /** Target longest axis for a single exported tooth (mm). */
@@ -386,9 +450,10 @@ async function encodeGeometry(
   geometry: THREE.BufferGeometry,
   outputFormat: MeshExportFormat,
   sourceFormat: "glb" | "obj",
-  modelUrl: string
+  modelUrl: string,
+  forceGeometry = false
 ): Promise<{ buffer: Buffer; extension: string }> {
-  if (outputFormat === "glb" && sourceFormat === "glb") {
+  if (outputFormat === "glb" && sourceFormat === "glb" && !forceGeometry) {
     const res = await fetch(modelUrl, { headers: { "User-Agent": "DentalSculptor-Export/1.0" } });
     if (!res.ok) throw new Error(`Failed to fetch GLB (${res.status}).`);
     return { buffer: Buffer.from(await res.arrayBuffer()), extension: "glb" };
@@ -409,6 +474,13 @@ async function encodeGeometry(
     return { buffer: geometryToPly(geometry), extension: "ply" };
   }
 
+  if (outputFormat === "glb") {
+    const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color: 0xd9d0bd, roughness: 0.7 }));
+    const exported = await new GLTFExporter().parseAsync(mesh, { binary: true, onlyVisible: true });
+    if (!(exported instanceof ArrayBuffer)) throw new Error("GLB exporter returned JSON instead of binary data.");
+    return { buffer: Buffer.from(exported), extension: "glb" };
+  }
+
   return { buffer: geometryToBinaryStl(geometry), extension: "stl" };
 }
 
@@ -420,13 +492,16 @@ export async function exportMeshForPreset(
     validateOnly?: boolean;
     outputFormat?: MeshExportFormat;
     scope?: ExportScope;
+    jawPlacement?: JawPlacement | null;
   }
 ): Promise<ExportMeshResult | { validation: ExportValidationReport }> {
   let geometry = await loadMeshFromUrl(modelUrl, format);
   geometry = normalizeToMm(geometry, preset);
+  if (options?.jawPlacement) geometry = composeToothAndJaw(geometry, options.jawPlacement);
   const preValidation = validateGeometry(geometry, preset);
   geometry = decimateIfNeeded(geometry, preset.maxTriangles);
   const validation = validateGeometry(geometry, preset);
+  if (options?.jawPlacement) validation.warnings.push(...jawPlacementWarnings(options.jawPlacement));
 
   if (options?.validateOnly) {
     return { validation: { ...validation, warnings: [...preValidation.warnings, ...validation.warnings] } };
@@ -442,7 +517,7 @@ export async function exportMeshForPreset(
     );
   }
 
-  const encoded = await encodeGeometry(geometry, outputFormat, format, modelUrl);
+  const encoded = await encodeGeometry(geometry, outputFormat, format, modelUrl, Boolean(options?.jawPlacement));
 
   return {
     buffer: encoded.buffer,

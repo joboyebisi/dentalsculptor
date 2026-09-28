@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import base64
+import gc
+import hashlib
 import io
 import json
 import secrets
@@ -28,6 +30,7 @@ from modal_app.trellis_config import (
 )
 
 from modal_app.workers.mesh_state import deserialize_mesh, serialize_mesh
+from modal_app.workers.anatomy_quality import assess_generated_glb
 
 NVDIFFRAST_MAX_FACES = 16_777_216
 
@@ -151,6 +154,114 @@ class TrellisGenerator:
                 sort_keys=True,
             )
         )
+
+    def load_shape_checkpoint(self, checkpoint_path: str) -> dict[str, Any]:
+        """Strictly replace only the 512 image-to-shape flow model.
+
+        This is deliberately separate from ``load_model`` so production keeps
+        loading the pinned base pipeline unless a research caller explicitly
+        supplies a candidate checkpoint.
+        """
+        import torch
+
+        if self.pipeline is None:
+            raise RuntimeError("Load the base TRELLIS pipeline before a shape checkpoint.")
+        model_key = "shape_slat_flow_model_512"
+        models = getattr(self.pipeline, "models", None)
+        if models is None or model_key not in models:
+            raise RuntimeError(f"TRELLIS pipeline is missing required model slot {model_key!r}.")
+
+        digest = hashlib.sha256()
+        size = 0
+        with open(checkpoint_path, "rb") as stream:
+            while chunk := stream.read(16 * 1024 * 1024):
+                digest.update(chunk)
+                size += len(chunk)
+        state = torch.load(
+            checkpoint_path,
+            map_location="cpu",
+            weights_only=True,
+            mmap=True,
+        )
+        if not isinstance(state, dict) or not state:
+            raise ValueError("Shape checkpoint must be a non-empty state dictionary.")
+        if not all(isinstance(value, torch.Tensor) for value in state.values()):
+            raise ValueError("Shape checkpoint contains non-tensor entries.")
+        incompat = models[model_key].load_state_dict(state, strict=True)
+        if incompat.missing_keys or incompat.unexpected_keys:
+            raise RuntimeError(
+                "Strict candidate checkpoint load reported incompatible keys: "
+                f"missing={incompat.missing_keys}, unexpected={incompat.unexpected_keys}"
+            )
+        entry_count = len(state)
+        del state
+        gc.collect()
+        torch.cuda.empty_cache()
+        receipt = {
+            "modelSlot": model_key,
+            "checkpointPath": checkpoint_path,
+            "checkpointBytes": size,
+            "checkpointSha256": digest.hexdigest(),
+            "entryCount": entry_count,
+            "strictLoad": True,
+        }
+        self.last_metrics["shapeCheckpoint"] = receipt
+        print("[trellis] shape_checkpoint=" + json.dumps(receipt, sort_keys=True))
+        return receipt
+
+    def load_sparse_structure_checkpoint(self, checkpoint_path: str) -> dict[str, Any]:
+        """Strictly replace only the image-conditioned sparse-structure flow.
+
+        Research callers use this to evaluate E3-B while the shape and texture
+        stages remain the pinned base pipeline. Production never calls it.
+        """
+        import torch
+
+        if self.pipeline is None:
+            raise RuntimeError("Load the base TRELLIS pipeline before a sparse checkpoint.")
+        model_key = "sparse_structure_flow_model"
+        models = getattr(self.pipeline, "models", None)
+        if models is None or model_key not in models:
+            raise RuntimeError(f"TRELLIS pipeline is missing required model slot {model_key!r}.")
+
+        digest = hashlib.sha256()
+        size = 0
+        with open(checkpoint_path, "rb") as stream:
+            while chunk := stream.read(16 * 1024 * 1024):
+                digest.update(chunk)
+                size += len(chunk)
+        state = torch.load(
+            checkpoint_path, map_location="cpu", weights_only=True, mmap=True,
+        )
+        if not isinstance(state, dict) or not state:
+            raise ValueError("Sparse checkpoint must be a non-empty state dictionary.")
+        if not all(isinstance(value, torch.Tensor) for value in state.values()):
+            raise ValueError("Sparse checkpoint contains non-tensor entries.")
+        # The pinned pipeline is constructed under inference mode, including
+        # its derived RoPE buffer. PyTorch only permits copying into such a
+        # tensor while inference mode is active; strictness is unchanged.
+        with torch.inference_mode():
+            incompat = models[model_key].load_state_dict(state, strict=True)
+        if incompat.missing_keys or incompat.unexpected_keys:
+            raise RuntimeError(
+                "Strict sparse checkpoint load reported incompatible keys: "
+                f"missing={incompat.missing_keys}, unexpected={incompat.unexpected_keys}"
+            )
+        entry_count = len(state)
+        del state
+        gc.collect()
+        torch.cuda.empty_cache()
+        receipt = {
+            "modelSlot": model_key,
+            "checkpointPath": checkpoint_path,
+            "checkpointBytes": size,
+            "checkpointSha256": digest.hexdigest(),
+            "entryCount": entry_count,
+            "strictLoad": True,
+        }
+        self.last_metrics["sparseStructureCheckpoint"] = receipt
+        print("[trellis] sparse_structure_checkpoint=" + json.dumps(receipt, sort_keys=True))
+        return receipt
 
     def _warmup(self) -> None:
         """Optionally initialize CUDA kernels with a deterministic lightweight run."""
@@ -343,6 +454,7 @@ class TrellisGenerator:
         timings = {name: round(seconds, 2) for name, seconds in timings.items()}
         timings["total"] = round(sum(timings.values()), 2)
         output = buffer.read()
+        anatomy_quality = assess_generated_glb(output)
         self.last_metrics = {
             **self.last_metrics,
             "traceId": trace_id,
@@ -354,6 +466,7 @@ class TrellisGenerator:
             "peakReservedBytes": torch.cuda.max_memory_reserved(),
             "timings": timings,
             "phase": "extract",
+            "anatomyQuality": anatomy_quality,
         }
         print("[trellis] extract=" + json.dumps(self.last_metrics, sort_keys=True))
         return output, timings

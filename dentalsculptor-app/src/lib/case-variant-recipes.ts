@@ -29,6 +29,24 @@ export interface CaseVariantRecipe {
   depthMm: number;
   targetSurface: string;
   label: string;
+  lesionCount?: number;
+  coveragePercent?: number;
+  targetSite?: string;
+  namedCusp?: string;
+}
+
+export function instructionFromVariantRecipe(preset: CaseVariantPreset, recipe: CaseVariantRecipe): string {
+  const details: string[] = [];
+  if (["class-i", "caries"].includes(recipe.caseId)) {
+    details.push(`${recipe.lesionCount ?? 1} ${recipe.lesionCount === 1 ? "site" : "sites"}`);
+    details.push(`approximately ${recipe.coveragePercent ?? 12}% surface coverage`);
+    if (recipe.targetSite) details.push(`centred on the ${recipe.targetSite.replace(/-/g, " ")}`);
+  }
+  if (recipe.caseId === "fracture" && recipe.namedCusp) {
+    details.push(`targeting the ${recipe.namedCusp.replace(/-/g, " ")} cusp`);
+  }
+  details.push(`${recipe.depthMm.toFixed(1)} mm target depth`);
+  return details.length ? `${preset.instruction}; ${details.join(", ")}` : preset.instruction;
 }
 
 export const CASE_VARIANT_PRESETS: CaseVariantPreset[] = [
@@ -105,6 +123,10 @@ export function recipeFromVariantPreset(preset: CaseVariantPreset): CaseVariantR
     depthMm: preset.defaultSeverity === "small" ? 1 : preset.defaultSeverity === "large" ? 3 : 1.5,
     targetSurface: "occlusal",
     label: preset.label,
+    lesionCount: 1,
+    coveragePercent: preset.defaultSeverity === "small" ? 8 : preset.defaultSeverity === "large" ? 30 : 15,
+    targetSite: "central-fossa",
+    namedCusp: "educator-selected",
   };
 }
 
@@ -153,6 +175,14 @@ export function validateCaseVariantRecipe(
   if (!VARIANT_SURFACES.has(targetSurface)) {
     return { error: "Invalid target surface." };
   }
+  const lesionCount = Number(raw.lesionCount ?? 1);
+  const coveragePercent = Number(raw.coveragePercent ?? 15);
+  if (!Number.isInteger(lesionCount) || lesionCount < 1 || lesionCount > 3) {
+    return { error: "Lesion count must be between 1 and 3." };
+  }
+  if (!Number.isFinite(coveragePercent) || coveragePercent < 2 || coveragePercent > 60) {
+    return { error: "Surface coverage must be between 2% and 60%." };
+  }
   return {
     preset,
     recipe: {
@@ -166,6 +196,10 @@ export function validateCaseVariantRecipe(
       depthMm,
       targetSurface,
       label: preset.label,
+      lesionCount,
+      coveragePercent,
+      targetSite: typeof raw.targetSite === "string" ? raw.targetSite.slice(0, 64) : "central-fossa",
+      namedCusp: typeof raw.namedCusp === "string" ? raw.namedCusp.slice(0, 64) : "educator-selected",
     },
   };
 }

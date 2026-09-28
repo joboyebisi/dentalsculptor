@@ -51,3 +51,42 @@ bloom-v0/node_modules/
 research/trueteethlab-workflows/videos/
 research/trueteethlab-workflows/audio/
 research/trueteethlab-workflows/frames/
+
+# Account-gated ToothFairy patient data and derived geometry (manifests/README remain reviewable)
+research/datasets/toothfairy2-v1/source/*
+!research/datasets/toothfairy2-v1/source/.gitkeep
+research/datasets/toothfairy2-v1/subjects/
+research/datasets/toothfairy2-v1/canary-output/subjects/
+research/datasets/toothfairy2-v1/pilot-20-output/subjects/
+research/datasets/toothfairy2-v1/pilot-20-review/renders/
+docs/research-artifacts/anatomy-v1/baseline/*.glb
+
+# Local datasets, generated evidence and report-working files
+research/datasets/
+docs/research-artifacts/
+docs/report-revision-work/
+docs/benchmarks/smoke-runs/
+deliverables/
+
+# Local experiment/test workspaces and run receipts
+.tmp/
+.tmp-*
+**/.tmp-*/
+**/.test-tmp*/
+**/test-tmp*/
+dentalsculptor-ml/.stage1-audit/
+dentalsculptor-ml/.test-tmp*
+dentalsculptor-ml/artifacts/
+dentalsculptor-ml/tests/.test-tmp*/
+dentalsculptor-ml/tests/test-tmp*/
+dentalsculptor-ml/*-evidence.json
+dentalsculptor-ml/*evidence*.json
+dentalsculptor-ml/*-objective.jsonl
+dentalsculptor-ml/*.log
+dentalsculptor-ml/tmp-*.txt
+dentalsculptor-ml/stage1-metadata.csv
+
+# Local reference images that are not product assets
+/screen.png
+/*.jpg
+/*.webp

@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "status": "research-plan-no-downloads-authorized",
+  "separationPolicy": {
+    "externalAnatomyDataset": "dental-anatomy-v1",
+    "rule": "Pathology, CBCT internal anatomy, and 2D lesion images must not enter the external TRELLIS anatomy mix.",
+    "reason": "Preserve repeatable healthy external morphology and prevent modality or diagnosis leakage."
+  },
+  "datasets": [
+    {
+      "id": "toothfairy3",
+      "officialUrl": "https://ditto.ing.unimore.it/toothfairy3/",
+      "modality": "CBCT-NIfTI",
+      "coverage": ["532-volumes", "77-classes", "32-tooth-specific-pulp-spaces"],
+      "intendedUse": ["internal-anatomy-segmentation", "pulp-and-root-canal-template-research"],
+      "prohibitedUse": ["external-photo-to-mesh-finetune", "caries-shape-ground-truth"],
+      "access": "account-required",
+      "licenseGate": "verify-and-record-current-terms-before-download"
+    },
+    {
+      "id": "pulpy3d",
+      "officialUrl": "https://papers.miccai.org/miccai-2024/paper/1419_paper.pdf",
+      "modality": "mandibular-CBCT",
+      "coverage": ["443-scans", "expert-pulp-chamber-and-root-canal-labels"],
+      "intendedUse": ["internal-anatomy-validation", "endo-template-research"],
+      "prohibitedUse": ["external-surface-generator", "disease-label-assumption"],
+      "access": "verify-dataset-release-location",
+      "licenseGate": "verify-and-record-current-terms-before-download"
+    },
+    {
+      "id": "aku-intraoral-caries-2025",
+      "officialUrl": "https://doi.org/10.1038/s41597-025-05647-9",
+      "dataUrl": "https://zenodo.org/records/14827784",
+      "modality": "2D-clinical-photographs",
+      "coverage": ["6313-images", "dentist-reviewed-caries-boxes"],
+      "intendedUse": ["appearance-reference", "2D-lesion-localisation-benchmark"],
+      "prohibitedUse": ["3D-depth-supervision", "patient-specific-3D-reconstruction-truth"],
+      "access": "public-download",
+      "licenseGate": "verify-Zenodo-record-license-before-ingestion"
+    }
+  ],
+  "caseRouting": [
+    {
+      "case": "cusp-fracture",
+      "geometry": "deterministic-curve-or-plane-subtraction-and-cap",
+      "datasetDependency": "none",
+      "requiredValidation": ["mask-intersects-mesh", "volume-loss", "watertight-export", "material-preservation"]
+    },
+    {
+      "case": "class-i-cavity",
+      "geometry": "parameterized-occlusal-boolean-subtraction",
+      "datasetDependency": "none",
+      "requiredValidation": ["anatomically-valid-site", "depth-mm", "marginal-ridge-preservation", "watertight-export"]
+    },
+    {
+      "case": "cavitated-caries",
+      "geometry": "deterministic-irregular-subtraction-plus-material-layer",
+      "datasetDependency": "2D-caries-data-optional-for-appearance-only",
+      "requiredValidation": ["educator-confirmed-site", "bounded-depth", "explicit-synthetic-label"]
+    },
+    {
+      "case": "non-cavitated-caries",
+      "geometry": "none-material-overlay-only",
+      "datasetDependency": "2D-caries-data-useful-for-appearance",
+      "requiredValidation": ["educator-confirmed-mask", "no-false-depth-claim"]
+    },
+    {
+      "case": "endodontic-access",
+      "geometry": "deterministic-access-cutter-constrained-by-internal-template",
+      "datasetDependency": "toothfairy3-or-pulpy3d-required-before-clinical-claim",
+      "requiredValidation": ["fdi-matched-pulp-template", "minimum-wall-thickness", "educator-approval"]
+    },
+    {
+      "case": "crown-reduction",
+      "geometry": "bounded-surface-offset-and-remesh",
+      "datasetDependency": "none-for-illustrative-use",
+      "requiredValidation": ["reduction-mm", "minimum-thickness", "watertight-export"]
+    }
+  ]
+}

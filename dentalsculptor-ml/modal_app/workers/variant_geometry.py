@@ -66,6 +66,12 @@ def validate_variant_recipe(recipe_json: str) -> dict[str, Any]:
         "occlusal", "buccal", "lingual", "mesial", "distal", "incisal"
     }:
         raise ValueError("Invalid target surface.")
+    lesion_count = int(recipe.get("lesionCount") or 1)
+    coverage = float(recipe.get("coveragePercent") or 15)
+    if lesion_count < 1 or lesion_count > 3:
+        raise ValueError("Lesion count must be between 1 and 3.")
+    if coverage < 2 or coverage > 60:
+        raise ValueError("Surface coverage must be between 2 and 60 percent.")
     return recipe
 
 
@@ -173,6 +179,9 @@ def _build_cutters(mesh, recipe: dict[str, Any], selected: np.ndarray):
     tangent_span = max(float(np.ptp((points - centre) @ tangent)), diagonal * 0.035)
     bitangent_span = max(float(np.ptp((points - centre) @ bitangent)), diagonal * 0.035)
     radius = diagonal * 0.085 * severity
+    coverage_scale = np.sqrt(float(recipe.get("coveragePercent") or 15) / 15.0)
+    radius *= float(np.clip(coverage_scale, 0.45, 2.0))
+    lesion_count = int(recipe.get("lesionCount") or 1)
     inward = centre - normal * depth * 0.34
 
     if case_id == "fracture":
@@ -189,11 +198,16 @@ def _build_cutters(mesh, recipe: dict[str, Any], selected: np.ndarray):
         return [cutter], "fracture-ellipsoid"
 
     if case_id == "class-i":
-        cutter = _oriented_ellipsoid(
-            trimesh, inward, tangent, bitangent, normal,
-            (max(radius, tangent_span * 0.52), max(radius * 0.42, bitangent_span * 0.35), depth),
-        )
-        return [cutter], "class-i-rounded-fissure"
+        offsets = np.linspace(-0.5, 0.5, lesion_count) if lesion_count > 1 else [0.0]
+        cutters = [_oriented_ellipsoid(
+            trimesh, inward + tangent * radius * float(offset) * 1.7, tangent, bitangent, normal,
+            (
+                max(radius / max(lesion_count ** 0.35, 1), tangent_span * 0.42 * coverage_scale),
+                max(radius * 0.42, bitangent_span * 0.32 * coverage_scale),
+                depth,
+            ),
+        ) for offset in offsets]
+        return cutters, f"class-i-rounded-fissure-{lesion_count}-site"
 
     if case_id == "class-ii":
         cutter = _oriented_box(
@@ -211,7 +225,8 @@ def _build_cutters(mesh, recipe: dict[str, Any], selected: np.ndarray):
         return [cutter], "endo-tapered-access"
 
     if case_id == "caries":
-        offsets = (-0.34, 0.0, 0.31)
+        offsets = np.linspace(-0.36, 0.36, lesion_count) if lesion_count > 1 else [0.0]
+        single_scale = 1.45 if lesion_count == 1 else 1.0
         cutters = [
             _oriented_ellipsoid(
                 trimesh,
@@ -219,11 +234,15 @@ def _build_cutters(mesh, recipe: dict[str, Any], selected: np.ndarray):
                 tangent,
                 bitangent,
                 normal,
-                (radius * (0.55 + 0.08 * index), radius * (0.38 + 0.05 * index), depth * (0.72 + 0.1 * index)),
+                (
+                    radius * (0.55 + 0.08 * index) * single_scale,
+                    radius * (0.38 + 0.05 * index) * single_scale,
+                    depth * (0.72 + 0.1 * index) * single_scale,
+                ),
             )
             for index, offset in enumerate(offsets)
         ]
-        return cutters, "caries-irregular-excavation"
+        return cutters, f"caries-irregular-excavation-{lesion_count}-site"
 
     if case_id == "crown":
         cutter = _oriented_box(

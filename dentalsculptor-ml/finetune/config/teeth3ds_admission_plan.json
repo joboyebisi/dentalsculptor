@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "datasetId": "teeth3ds-v1",
+  "status": "research-approved-download-in-progress",
+  "officialSources": {
+    "osf": "https://osf.io/xctdy/",
+    "github": "https://github.com/abenhamadou/3DTeethSeg22_challenge",
+    "paper": "https://arxiv.org/abs/2210.06094",
+    "challengePaper": "https://arxiv.org/abs/2305.18277",
+    "contact": "achraf.benhamadou@crns.rnrt.tn"
+  },
+  "license": {
+    "spdx": "CC-BY-NC-ND-4.0",
+    "nonCommercial": "Permitted for research that does not seek commercial advantage.",
+    "noDerivatives": "Internal per-tooth crown extraction for non-commercial research is permitted with attribution; do not publicly redistribute extracted subsets or adapted weights.",
+    "recommendedAction": "Proceed under CC BY-NC with full Teeth3DS citation, private research infrastructure, and no public release of extracted crowns or candidate checkpoints."
+  },
+  "rawFormat": {
+    "scanFormat": "OBJ full-arch IOS mesh",
+    "annotationFormat": "JSON per scan with vertex-aligned FDI labels and instance ids",
+    "landmarkFormat": "JSON with kpt suffix for Teeth3DS+ / 3DTeethLand subset",
+    "osfParts": ["data_part_1", "data_part_2", "data_part_3", "data_part_4", "data_part_5", "data_part_6"],
+    "mergeRule": "Download all six OSF parts and merge to one folder tree before ingestion."
+  },
+  "officialSplit": {
+    "useSplit": "Teeth3DS_split",
+    "doNotUseForTraining": "3DTeethSeg_challenge_split unless reproducing challenge baseline",
+    "splitFiles": {
+      "train": ["dataset/Teeth3DS_split/training_upper.txt", "dataset/Teeth3DS_split/training_lower.txt"],
+      "test": ["dataset/Teeth3DS_split/testing_upper.txt", "dataset/Teeth3DS_split/testing_lower.txt"]
+    },
+    "scanKeyFormat": "{patient_uuid}_{upper|lower}",
+    "officialCounts": {
+      "patients": {"train": 600, "test": 300, "total": 900},
+      "scans": {"train": 1200, "test": 600, "total": 1800},
+      "teeth": {"train": 16004, "test": 7995, "total": 23999}
+    },
+    "validationStrategy": "Official release has train/test only. Derive validation by patient-level holdout from official train (recommended 20% of train patients, stratified by jaw). Never tune on official test."
+  },
+  "toothCoverage": {
+    "fdiLabels": "Permanent dentition labels 11-18, 21-28, 31-38, 41-48 in annotations",
+    "families": ["incisor", "canine", "premolar", "molar"],
+    "representationGoal": "Minimum geometry-admitted crowns per family in train split before entering build_anatomy_training_mix; Teeth3DS does not establish clinical health status",
+    "notes": "Per-label counts are balanced in official train/test (~66/33 split at tooth level). Molars and incisors are well represented; use build_anatomy_training_mix minimums to enforce family floors."
+  },
+  "pipelineMirroringFdi16": [
+    {
+      "stage": "ingest",
+      "action": "Verify OSF download completeness, record source.json with URLs, part ids, merge digest, license, citations.",
+      "output": "teeth3ds-research-v1/source.json"
+    },
+    {
+      "stage": "split-bind",
+      "action": "Assign each scan key to official train, derived-validation, or official test. Persist selection_manifest.json with sourceMemberPath and officialSplit.",
+      "output": "teeth3ds-research-v1/selection_manifest.json"
+    },
+    {
+      "stage": "crown-extract",
+      "action": "For each scan, group vertices by instance id, map FDI label from JSON, export one open-surface crown mesh per instance (skip label 0 gingiva).",
+      "output": "teeth3ds-research-v1/raw_crowns/{index:06d}_fdi{nn}.ply"
+    },
+    {
+      "stage": "qc",
+      "action": "Reuse FDI-16 QC gates plus segmentation-specific checks: gingiva bleed, brace fragments, missing crown truncation, duplicate crowns.",
+      "output": "admitted_manifest.json, rejected_manifest.json, uncertain_manifest.json, qc_summary.json"
+    },
+    {
+      "stage": "manifest",
+      "action": "Build anatomy_manifest.json with groupId=patient uuid, official split, fdiNumber, toothFamily, trainingRole=anatomy-base, condition=unspecified, researchTrainingApproved=true for QMUL non-commercial research.",
+      "output": "teeth3ds-pilot-v1/anatomy_manifest.json"
+    },
+    {
+      "stage": "trellis-preprocess",
+      "action": "Same TRELLIS.2 stages as FDI-16: normalize mm, 24-view renders, ovoxel, shape latents, renders_cond, asset_stats.json.",
+      "output": "Modal volume dataset folder ready for train_anatomy::plan"
+    },
+    {
+      "stage": "mix",
+      "action": "Combine with FDI-16 via build_anatomy_training_mix.py only after Teeth3DS researchTrainingApproved is true and family minimums pass.",
+      "output": "balanced-dental-anatomy-mix.json"
+    }
+  ],
+  "trellis2Fit": {
+    "inputUnit": "Single open IOS crown mesh in mm, one tooth per asset",
+    "conditioning": "Use fdiNumber, arch, side, toothFamily from manifest; optional landmark-assisted canonical frame from kpt JSON where available",
+    "texturePolicy": "Shape flow only; do not train texture flow from untextured IOS surfaces",
+    "resolutionPilot": 512,
+    "minimumHealthyTrainMeshes": 500
+  },
+  "isolationFromProduction": {
+    "trainingApp": "dentalsculptor-anatomy-training",
+    "checkpointVolume": "dentalsculptor-anatomy-checkpoints-v1",
+    "candidateDeploy": "scripts/deploy-candidate.ps1 with separate MODAL_APP_NAME",
+    "evaluation": "scripts/blind_model_comparison.py + evaluate_finetune_candidate.py",
+    "promotion": "Manual only via model_registry.json; production TRELLIS unchanged"
+  },
+  "pilotProposal": {
+    "phase": "A — permission and extraction spike",
+    "steps": [
+      "Download OSF parts 1-6 and merge locally or on Modal",
+      "Extract ~200 crowns stratified: ~50 per tooth family from official train scans only",
+      "Run QC and manifest; do not combine with FDI-16 until author reply",
+      "Benchmark segmentation extraction quality against Teeth3DS evaluation metrics on a tiny held-out set"
+    ],
+    "phaseB": "Full train cohort after permission — target family-balanced train pool from official train crowns post-QC, keep official test sealed"
+  },
+  "citations": [
+    "Ben-Hamadou et al., Teeth3DS: a benchmark for teeth segmentation and labeling from intra-oral 3D scans, arXiv:2210.06094, 2022.",
+    "Ben-Hamadou et al., 3DTeethSeg'22: 3D Teeth Scan Segmentation and Labeling Challenge, arXiv:2305.18277, 2023."
+  ],
+  "authorEmailDraft": {
+    "subject": "Non-commercial research use of Teeth3DS for TRELLIS.2 dental shape-prior fine-tuning",
+    "bodyPoints": [
+      "Project: DentalSculptor — non-commercial dental education research pilot",
+      "Goal: Improve photo-to-3D tooth morphology across all permanent FDI classes using TRELLIS.2 shape-flow fine-tuning",
+      "Planned use: Extract per-tooth crowns from official Teeth3DS_split train set only; keep official test sealed; preserve patient-level splits",
+      "ND clarification requested: Is internal extraction of crown meshes and private non-commercial fine-tuning (candidate weights not publicly released) permitted under CC BY-NC-ND 4.0?",
+      "Attribution: Will cite Teeth3DS papers and OSF DOI in all publications and internal manifests"
+    ]
+  }
+}

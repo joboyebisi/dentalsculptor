@@ -281,8 +281,8 @@ export function CaseWizardDialog({ open, onClose, onContinue, applying = false }
                   Choose a teaching case
                 </h1>
                 <p className="mb-6 max-w-2xl text-body-sm text-on-surface-variant">
-                  Start with cases that preserve the generated anatomy. The six pilot cases are
-                  ordered from annotation-only through increasingly broad geometry changes.
+                  Start with cases that preserve the generated anatomy. Cases requiring internal
+                  tissues remain visibly unavailable until those structures are validated.
                 </p>
                 <div className="grid gap-4 sm:grid-cols-2">
                   {EDUCATOR_CASE_PICKS.map((pick) => (
@@ -290,10 +290,15 @@ export function CaseWizardDialog({ open, onClose, onContinue, applying = false }
                       key={pick.id}
                       type="button"
                       onClick={() => pickEducatorCategory(pick.id)}
-                      className="rounded-xl border border-outline-variant bg-surface-container-lowest p-5 text-left transition-all hover:border-primary-container/40 hover:shadow-md"
+                      disabled={pick.availableNow === false}
+                      className={cn(
+                        "rounded-xl border border-outline-variant bg-surface-container-lowest p-5 text-left transition-all",
+                        pick.availableNow === false ? "cursor-not-allowed opacity-60" : "hover:border-primary-container/40 hover:shadow-md"
+                      )}
                     >
-                      <h3 className="font-semibold text-on-surface">{pick.label}</h3>
+                      <div className="flex items-start justify-between gap-2"><h3 className="font-semibold text-on-surface">{pick.label}</h3>{pick.availableNow === false && <Badge variant="outline" className="text-[10px]">Internal anatomy required</Badge>}</div>
                       <p className="mt-1 text-body-sm text-on-surface-variant">{pick.subtitle}</p>
+                      {pick.availabilityNote && <p className="mt-2 text-[11px] font-medium text-on-surface-variant">{pick.availabilityNote}</p>}
                       <p className="mt-3 text-[11px] text-on-surface-variant">
                         Years {pick.studentYearLevels.join(", ")} ·{" "}
                         {pick.exportTargets.map((t) => t.replace(/-/g, " ")).join(" · ")}

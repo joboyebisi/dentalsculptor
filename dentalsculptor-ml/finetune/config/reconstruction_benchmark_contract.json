@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "benchmarkId": "dentalsculptor-external-anatomy-v1",
+  "purpose": "Compare production, fine-tuned, and future custom reconstruction models on the same held-out inputs.",
+  "cohorts": {
+    "referenceMesh": {
+      "minimumCases": 32,
+      "minimumPerFamily": 8,
+      "requirements": ["held-out-subjects", "canonical-orientation", "source-provenance", "no-training-leakage"]
+    },
+    "clinicalImage": {
+      "minimumCases": 20,
+      "requirements": ["licensed-or-consented", "all-four-tooth-families", "multiple-views-and-backgrounds"]
+    }
+  },
+  "automatedMetrics": [
+    "validMeshRate",
+    "symmetricChamferPercentDiagonal",
+    "hausdorff95PercentDiagonal",
+    "surfaceFscoreAt1Percent",
+    "surfaceFscoreAt2Percent",
+    "sortedExtentRelativeError",
+    "canonicalAxialCrownRootProxyMetrics",
+    "robustApicalAndCoronalPoleProxyError",
+    "annotatedDentalLandmarkMetricsWhenContractSatisfied",
+    "fixedSeedRepeatabilityChamferPercentDiagonal",
+    "generationLatencySeconds"
+  ],
+  "regionalMetricPolicy": {
+    "engineeringProxy": "canonical-crown-up-fixed-axial-bands-v1",
+    "proxyClinicalClaimPermitted": false,
+    "clinicalLandmarkContract": "dental_landmark_annotation_contract.json",
+    "trueLandmarksRequired": ["cej-curve", "cusps", "root-tips", "furcations-when-multirooted"]
+  },
+  "educatorRubric": {
+    "scale": "1-5",
+    "dimensions": [
+      "tooth-family-and-FDI-identity",
+      "cusp-count-position-and-height",
+      "ridge-and-groove-continuity",
+      "crown-root-proportion",
+      "surface-plausibility",
+      "overall-teaching-usability"
+    ],
+    "minimumReviewers": 2,
+    "blinded": true
+  },
+  "promotionGates": {
+    "minimumReferenceCases": 32,
+    "minimumClinicalCases": 20,
+    "validMeshRateNotWorseThanProduction": true,
+    "medianChamferImprovementPercent": 10,
+    "medianHausdorff95NotWorse": true,
+    "surfaceFscoreAt2PercentNotWorse": true,
+    "fixedSeedRepeatabilityAtMostPercentDiagonal": 0.25,
+    "educatorCandidatePreferenceMinimum": 0.6,
+    "noToothFamilyMedianRegression": true
+  },
+  "deploymentPolicy": "Candidate endpoint only; promote manually after all gates pass and rollback artifact is recorded."
+}

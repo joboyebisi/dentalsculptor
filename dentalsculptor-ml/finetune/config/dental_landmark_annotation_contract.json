@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "contractId": "dentalsculptor-dental-landmarks-v1",
+  "coordinateSystem": "centred-mm-crown-up-v1",
+  "scope": "whole-tooth external morphology",
+  "referenceAnnotation": {
+    "requiredFields": [
+      "assetId",
+      "canonicalMeshSha256",
+      "fdiNumber",
+      "reviewerIdPseudonym",
+      "reviewTimestamp",
+      "cejCurve",
+      "cuspPoints",
+      "rootTipPoints",
+      "rootCount",
+      "apexCompleteness"
+    ],
+    "cejCurveMinimumPoints": 16,
+    "pointFormat": "[x,y,z] in canonical millimetres",
+    "furcationPointsRequiredWhenRootCountAtLeast": 2,
+    "allowedApexCompleteness": ["complete", "truncated", "uncertain"],
+    "minimumIndependentReviewers": 2,
+    "disagreementRequiresAdjudication": true
+  },
+  "predictionEvaluation": {
+    "landmarkSourceMustBeRecorded": true,
+    "allowedLandmarkSources": ["blinded-human", "frozen-detector"],
+    "detectorMustBeFrozenBeforeTestUnblinding": true,
+    "rigidAlignmentMustBeSharedWithSurfaceBenchmark": true
+  },
+  "metrics": [
+    "cejCurveMeanDistanceMm",
+    "cejCurveHausdorff95Mm",
+    "cuspAssignmentErrorMm",
+    "cuspCountAccuracy",
+    "rootTipAssignmentErrorMm",
+    "rootCountAccuracy",
+    "furcationPointErrorMm",
+    "apexCompletenessAccuracy",
+    "crownRootLengthRatioAbsoluteError"
+  ],
+  "missingDataPolicy": "fail-closed-and-report-missing",
+  "clinicalClaimPermittedWithoutSatisfiedContract": false
+}

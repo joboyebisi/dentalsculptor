@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "active": "base-trellis2-4b",
+  "lastKnownGood": "base-trellis2-4b",
+  "models": {
+    "base-trellis2-4b": {
+      "repoId": "microsoft/TRELLIS.2-4B",
+      "revision": "af44b45f2e35a493886929c6d786e563ec68364d",
+      "status": "production",
+      "datasetManifest": null,
+      "evaluationReport": null
+    }
+  }
+}

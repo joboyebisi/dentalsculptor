@@ -18,6 +18,7 @@ import {
   type ExportScope,
   type MeshExportFormat,
 } from "@/lib/export-mesh";
+import type { JawPlacement } from "@/lib/jaw-placement";
 
 async function fetchRemoteBuffer(url: string): Promise<Buffer> {
   const res = await fetch(url, {
@@ -48,6 +49,7 @@ export async function buildProjectExportBundle(input: {
   sourceImageUrl?: string | null;
   selectedCase?: CaseTemplate | null;
   caseRecipe?: CaseRecipe | null;
+  jawPlacement?: JawPlacement | null;
 }): Promise<{ buffer: Buffer; filename: string; contentType: string }> {
   const preset = getExportPreset(input.target);
   const files: ExportBundleFile[] = [];
@@ -57,6 +59,7 @@ export async function buildProjectExportBundle(input: {
     const primary = await exportMeshForPreset(input.modelUrl, input.modelFormat, preset, {
       outputFormat: input.outputFormat,
       scope: input.scope,
+      jawPlacement: input.jawPlacement,
     });
     if (!("buffer" in primary)) throw new Error("Primary mesh export failed.");
     files.push({
@@ -69,6 +72,7 @@ export async function buildProjectExportBundle(input: {
     const stl = await exportMeshForPreset(input.modelUrl, input.modelFormat, preset, {
       outputFormat: "stl",
       scope: input.scope,
+      jawPlacement: input.jawPlacement,
     });
     if ("buffer" in stl) {
       files.push({

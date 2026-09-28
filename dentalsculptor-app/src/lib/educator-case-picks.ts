@@ -26,6 +26,8 @@ export interface EducatorCasePick {
   studentYearLevels: StudentYearLevel[];
   exportTargets: ExportTarget[];
   teachingUses: string[];
+  availableNow?: boolean;
+  availabilityNote?: string;
 }
 
 export const EDUCATOR_CASE_PICKS: EducatorCasePick[] = [
@@ -62,12 +64,14 @@ export const EDUCATOR_CASE_PICKS: EducatorCasePick[] = [
   {
     id: "endo",
     label: "Endodontic access opening",
-    subtitle: "Open the pulp chamber roof at a clear anatomical target.",
+    subtitle: "Requires verified pulp-chamber and canal anatomy.",
     primaryTemplateId: "endo-access-intro",
     alternateTemplateIds: [],
     studentYearLevels: [2, 3, 4],
     exportTargets: ["simodont", "teaching-bundle", "meta-quest"],
     teachingUses: ["Pre-clinical endo labs", "Simulator access training", "Case walkthroughs"],
+    availableNow: false,
+    availabilityNote: "Coming after internal enamel, dentin, pulp and canal segmentation is validated.",
   },
   {
     id: "caries",

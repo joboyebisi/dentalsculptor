@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "runName": "dental-crown-only-v1-deprecated",
+  "datasetName": "dental-anatomy-v1",
+  "resolution": 512,
+  "status": "superseded-do-not-run",
+  "supersededBy": "mixed_anatomy_curriculum_v1.json",
+  "scopeCorrection": "FDI16 and Teeth3DS are IOS-derived crown surfaces; this plan cannot support an all-tooth or root-improvement claim.",
+  "datasetsIncluded": ["fdi16-pilot-v1", "teeth3ds-pilot-v1"],
+  "datasetsDeferred": ["tadpm-orthodontic"],
+  "tadpmAbComparison": "After TADPM access, train dental-alltooth-v2 with TADPM and compare via blind_model_comparison.py before candidate deploy.",
+  "trainingPolicy": "deprecated; no optimizer run permitted from this plan",
+  "trainingCodeCommit": "75fbf0183001ed9876c8dbb35de6b68552ee08bd",
+  "baseModelRevision": "af44b45f2e35a493886929c6d786e563ec68364d",
+  "baseShapeCheckpoint": "ckpts/slat_flow_img2shape_dit_1_3B_512_bf16",
+  "optimizerScope": "train split only; validation and test hashes excluded by metadata overlay",
+  "maxSteps": 20000,
+  "learningRate": 0.00001,
+  "checkpointEverySteps": 1000,
+  "modalCommands": [
+    "modal run -m modal_app.train_anatomy::qc_and_prepare_teeth3ds",
+    "modal run -m modal_app.train_anatomy::assemble_dental_anatomy_v1",
+    "modal run -m modal_app.train_anatomy::validate_anatomy_dataset --dataset-name dental-anatomy-v1 --minimum-per-family 100",
+    "modal run --detach -m modal_app.train_anatomy::preprocess_anatomy --dataset-name dental-anatomy-v1 --resolution 512 --num-cond-views 24",
+    "modal run -m modal_app.train_anatomy::plan --dataset-name dental-anatomy-v1 --run-name dental-alltooth-v1",
+    "modal run --detach -m modal_app.train_anatomy::train --dataset-name dental-anatomy-v1 --run-name dental-alltooth-v1 --resolution 512"
+  ]
+}

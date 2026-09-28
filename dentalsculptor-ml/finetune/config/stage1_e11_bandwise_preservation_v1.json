@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "experimentId": "stage1-e11-bandwise-preservation-v1",
+  "status": "g2-rejected-terminal",
+  "activeModalRun": null,
+  "g1Result": {
+    "modalRun": "ap-8nrulojuuPM2y29FFB4RDN",
+    "valid": true,
+    "optimizerSteps": 1,
+    "teacherContributionRatio": 0.05000000181286623,
+    "teacherBandMseMinimum": 0.0002269674587296322,
+    "teacherBandMseMaximum": 0.0002334937162231654,
+    "teacherFrozen": true,
+    "checkpointReloaded": true,
+    "rawDecodeExactRepeat": true,
+    "checkpointSha256": "a24029af8583bf007eededfbed6c10d842e4cc63248578ee1f4f831046254d2b",
+    "g2Authorized": true
+  },
+  "g2Result": {
+    "modalRun": "ap-AOkmdFn5RXNPtFJydPjWvO",
+    "evidenceSha256": "4c955a789b4778c46b87c11e7e581ade71aa035ee31b23a832bbdf4377cc2706",
+    "valid": true,
+    "optimizerSteps": 2,
+    "teacherContributionRatio": 0.05000000323004844,
+    "teacherFrozen": true,
+    "checkpointReloaded": true,
+    "rawRepeatabilityPassed": true,
+    "familyChamferRelativeImprovement": {
+      "incisor": 0.0012398147741026276,
+      "canine": -0.004640790798561915,
+      "premolar": 0.009595575992726285,
+      "molar": 0.02511160714285722
+    },
+    "engineeringNonRegressionPassed": false,
+    "checkpointSha256": "bf48f350b30372a96c630d79f63e618c695255cbf25ced219f6ab8e352c2446e",
+    "g3Authorized": false
+  },
+  "parentExperiment": "stage1-e10-axial-balanced-shape-v1",
+  "baseModel": "microsoft/TRELLIS.2-4B",
+  "target": "shape_slat_flow_model_512",
+  "dataset": "toothfairy-stage1-v1",
+  "hypothesis": "Applying frozen-base preservation equally within each principal-axis region will prevent sparse root and terminal regions from being dominated by dense crown/body tokens while retaining E10's balanced dental supervision.",
+  "objective": {
+    "supervised": "equal mean flow loss across four per-sample principal-axis bands",
+    "preservation": "equal mean frozen-teacher feature loss across the same four bands",
+    "orientationInvariant": true,
+    "bandCount": 4,
+    "teacherTargetContribution": 0.05,
+    "teacherScaleDetached": true,
+    "excluded": [
+      "decoded occupancy loss because E9 failed gradient-safety and semantic-validity gates",
+      "direct mesh topology loss because TRELLIS raw mesh extraction is non-differentiable"
+    ]
+  },
+  "authorizationSequence": [
+    {
+      "gate": "G0-source-contract",
+      "maximumOptimizerSteps": 0,
+      "status": "passed",
+      "requirements": [
+        "fail-closed pinned-source patch",
+        "equal per-sample per-band teacher aggregation",
+        "receipt exposes teacher band minimum and maximum",
+        "focused local tests"
+      ]
+    },
+    {
+      "gate": "G1-one-tooth-integration",
+      "maximumOptimizerSteps": 1,
+      "status": "passed",
+      "requirements": [
+        "initial student-teacher identity",
+        "finite post-update bandwise teacher loss",
+        "four populated supervised and preservation bands",
+        "teacher frozen",
+        "strict checkpoint reload",
+        "exact repeated frozen-condition raw decode"
+      ]
+    },
+    {
+      "gate": "G2-four-family-screen",
+      "maximumOptimizerSteps": 2,
+      "status": "failed-terminal",
+      "requirements": [
+        "one patient-disjoint heldout tooth per family",
+        "identical frozen sparse conditions",
+        "exact raw repeatability",
+        "no crown root or welded-topology regression in any family"
+      ]
+    }
+  ],
+  "g1Authorized": true,
+  "g2Authorized": false,
+  "g3Authorized": false,
+  "productionMutationPermitted": false,
+  "clinicalClaimPermitted": false
+}

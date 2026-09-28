@@ -24,7 +24,7 @@ export async function GET(
       assessments: { orderBy: { order: "asc" } },
       communityProject: true,
       versions: {
-        where: { label: { in: ["case-recipe", "master-model"] } },
+        where: { label: { in: ["case-recipe", "master-model", "jaw-placement"] } },
         orderBy: { version: "desc" },
         take: 10,
       },

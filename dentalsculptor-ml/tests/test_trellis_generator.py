@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 
 from modal_app.trellis_config import MAX_INPUT_PIXELS
 from modal_app.workers.trellis_generator import (
@@ -42,6 +43,31 @@ class CompatibilityResponseTests(unittest.TestCase):
         self.assertEqual(response["format"], "glb")
         self.assertEqual(response["modelBase64"], "Z2xi")
         self.assertEqual(response["quality"], "preview")
+
+
+class CandidateCheckpointTests(unittest.TestCase):
+    def test_shape_checkpoint_loader_is_explicit_and_strict(self) -> None:
+        source = (
+            Path(__file__).parents[1]
+            / "modal_app"
+            / "workers"
+            / "trellis_generator.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn('model_key = "shape_slat_flow_model_512"', source)
+        self.assertIn("load_state_dict(state, strict=True)", source)
+        self.assertIn('"checkpointSha256": digest.hexdigest()', source)
+
+    def test_sparse_checkpoint_loader_targets_only_official_sparse_slot(self) -> None:
+        source = (
+            Path(__file__).parents[1]
+            / "modal_app"
+            / "workers"
+            / "trellis_generator.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("def load_sparse_structure_checkpoint", source)
+        self.assertIn('model_key = "sparse_structure_flow_model"', source)
+        self.assertIn('self.last_metrics["sparseStructureCheckpoint"]', source)
+        self.assertIn("with torch.inference_mode():", source)
 
 
 if __name__ == "__main__":

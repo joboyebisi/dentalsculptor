@@ -18,6 +18,7 @@ import {
 } from "@/lib/camera-utils";
 import { RemoteModelMesh } from "@/components/three/remote-model-mesh";
 import type { RemoteModelFormat } from "@/lib/model-format";
+import { jawSocketPose, type JawPlacement } from "@/lib/jaw-placement";
 
 export interface RectMark {
   id: string;
@@ -37,9 +38,20 @@ export interface RectMark {
 
 export type ViewerInteractionMode = "orbit" | "pan";
 
+export interface DentalLandmarkSnap {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  point3d: [number, number, number];
+  confidence: number;
+  sampleCount: number;
+}
+
 export interface CamViewerHandle {
   resetHome: () => void;
   raycastAt: (clientX: number, clientY: number) => THREE.Vector3 | null;
+  snapDentalLandmark: (site: string) => DentalLandmarkSnap | null;
   captureView: () => Promise<ViewerCapture | null>;
   captureRegionThumbnail: (mark: Pick<RectMark, "x" | "y" | "width" | "height">) => Promise<string | null>;
   zoomIn: () => void;
@@ -74,6 +86,7 @@ interface CamModelViewerProps {
   interactionMode?: ViewerInteractionMode;
   /** Fired when the user finishes orbiting/panning/zooming the camera. */
   onViewChange?: () => void;
+  jawPlacement?: JawPlacement | null;
 }
 
 function computeRemoteModelVisuals(
@@ -357,6 +370,50 @@ function CameraRig({
   return null;
 }
 
+const JAW_VIEW_SCALE = 0.05;
+
+function placementGroupProps(placement?: JawPlacement | null) {
+  if (!placement) return {};
+  const socket = jawSocketPose(placement.arch, placement.fdiTooth);
+  const p = placement.positionMm;
+  const r = placement.rotationDeg;
+  return {
+    position: [
+      (socket.positionMm[0] + p[0]) * JAW_VIEW_SCALE,
+      (socket.positionMm[1] + p[1]) * JAW_VIEW_SCALE,
+      (socket.positionMm[2] + p[2]) * JAW_VIEW_SCALE,
+    ] as [number, number, number],
+    rotation: [
+      THREE.MathUtils.degToRad(r[0] + (placement.arch === "upper" ? 180 : 0)),
+      THREE.MathUtils.degToRad(r[1] + socket.yawDeg),
+      THREE.MathUtils.degToRad(r[2]),
+    ] as [number, number, number],
+    scale: placement.scale * 0.72,
+  };
+}
+
+function JawTemplate({ placement }: { placement: JawPlacement }) {
+  const curve = useMemo(() => {
+    const points: THREE.Vector3[] = [];
+    for (let i = 0; i <= 48; i += 1) {
+      const angle = Math.PI * (0.1 + (i / 48) * 0.8);
+      points.push(new THREE.Vector3(
+        Math.cos(angle) * 31 * JAW_VIEW_SCALE,
+        0,
+        (Math.sin(angle) * 24 - 13) * JAW_VIEW_SCALE
+      ));
+    }
+    return new THREE.CatmullRomCurve3(points);
+  }, []);
+  const geometry = useMemo(() => new THREE.TubeGeometry(curve, 96, 0.32, 12, false), [curve]);
+  const y = (placement.arch === "lower" ? 0 : -0.7);
+  return <group position={[0, y, 0]} rotation={placement.arch === "upper" ? [Math.PI, 0, 0] : undefined}>
+    <mesh geometry={geometry} receiveShadow castShadow>
+      <meshStandardMaterial color="#c9b7aa" roughness={0.82} metalness={0} transparent opacity={0.9} />
+    </mesh>
+  </group>;
+}
+
 function SceneContent({
   meshData,
   modelUrl,
@@ -378,6 +435,7 @@ function SceneContent({
   onModelError,
   interactionMode = "orbit",
   onViewChange,
+  jawPlacement,
 }: {
   meshData?: GeneratedMesh | null;
   modelUrl?: string | null;
@@ -399,6 +457,7 @@ function SceneContent({
   onModelError?: (message: string) => void;
   interactionMode?: ViewerInteractionMode;
   onViewChange?: () => void;
+  jawPlacement?: JawPlacement | null;
 }) {
   const mouseButtons =
     interactionMode === "pan"
@@ -424,6 +483,8 @@ function SceneContent({
         position={[0, -0.01, 0]}
       />
 
+      {jawPlacement && <JawTemplate placement={jawPlacement} />}
+      <group {...placementGroupProps(jawPlacement)}>
       {modelUrl ? (
           <RemoteModelGroup
             url={modelUrl}
@@ -451,6 +512,7 @@ function SceneContent({
           modelSelected={modelSelected}
         />
       )}
+      </group>
 
       {rectMarks?.map((m) => (
         <RectMark3D key={m.id} mark={m} />
@@ -482,9 +544,11 @@ function SceneContent({
 function RaycastBridge({
   meshGroupRef,
   raycastRef,
+  landmarkSnapRef,
 }: {
   meshGroupRef: React.RefObject<THREE.Group | null>;
   raycastRef: React.MutableRefObject<(x: number, y: number) => THREE.Vector3 | null>;
+  landmarkSnapRef: React.MutableRefObject<(site: string) => DentalLandmarkSnap | null>;
 }) {
   const { camera, gl } = useThree();
   raycastRef.current = (clientX: number, clientY: number) => {
@@ -498,6 +562,39 @@ function RaycastBridge({
     raycaster.setFromCamera(ndc, camera);
     const hits = raycaster.intersectObject(meshGroupRef.current, true);
     return hits[0]?.point ?? null;
+  };
+  landmarkSnapRef.current = (site: string) => {
+    if (!meshGroupRef.current) return null;
+    const priors: Record<string, [number, number]> = {
+      "central-fossa": [0.5, 0.52], "mesial-pit": [0.35, 0.51], "distal-pit": [0.65, 0.51],
+      "buccal-pit": [0.5, 0.66], "lingual-pit": [0.5, 0.36], mesiobuccal: [0.31, 0.68],
+      distobuccal: [0.69, 0.68], mesiolingual: [0.31, 0.32], distolingual: [0.69, 0.32], palatal: [0.5, 0.3],
+    };
+    const prior = priors[site] ?? [0.5, 0.5];
+    const raycaster = new THREE.Raycaster();
+    const candidates: { x: number; y: number; point: THREE.Vector3; depth: number; priorDistance: number }[] = [];
+    for (let row = -5; row <= 5; row += 1) for (let column = -5; column <= 5; column += 1) {
+      const x = prior[0] + column * 0.018;
+      const y = prior[1] + row * 0.018;
+      raycaster.setFromCamera(new THREE.Vector2(x * 2 - 1, -(y * 2 - 1)), camera);
+      const hit = raycaster.intersectObject(meshGroupRef.current, true)[0];
+      if (hit) candidates.push({ x, y, point: hit.point, depth: hit.distance, priorDistance: Math.hypot(column, row) / 7.1 });
+    }
+    if (candidates.length < 6) return null;
+    const depths = candidates.map((candidate) => candidate.depth);
+    const minDepth = Math.min(...depths);
+    const range = Math.max(Math.max(...depths) - minDepth, 1e-6);
+    const isCusp = !site.includes("pit") && site !== "central-fossa";
+    const ranked = candidates.map((candidate) => {
+      const depthFeature = isCusp ? 1 - (candidate.depth - minDepth) / range : (candidate.depth - minDepth) / range;
+      return { ...candidate, score: depthFeature * 0.78 + (1 - candidate.priorDistance) * 0.22 };
+    }).sort((a, b) => b.score - a.score);
+    const best = ranked[0]!;
+    const confidence = Math.max(0.35, Math.min(0.98, best.score * Math.min(1, candidates.length / 60)));
+    return {
+      x: Math.max(0, best.x - 0.07), y: Math.max(0, best.y - 0.07), width: 0.14, height: 0.14,
+      point3d: [best.point.x, best.point.y, best.point.z], confidence, sampleCount: candidates.length,
+    };
   };
   return null;
 }
@@ -633,12 +730,14 @@ export const CamModelViewer = forwardRef<CamViewerHandle, CamModelViewerProps>(f
     onModelStatusChange,
     interactionMode = "orbit",
     onViewChange,
+    jawPlacement,
   },
   ref
 ) {
   const meshGroupRef = useRef<THREE.Group | null>(null);
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
   const raycastRef = useRef<(x: number, y: number) => THREE.Vector3 | null>(() => null);
+  const landmarkSnapRef = useRef<(site: string) => DentalLandmarkSnap | null>(() => null);
   const captureRef = useRef<() => Promise<ViewerCapture | null>>(async () => null);
   const captureRegionRef = useRef<
     (mark: Pick<RectMark, "x" | "y" | "width" | "height">) => Promise<string | null>
@@ -729,6 +828,7 @@ export const CamModelViewer = forwardRef<CamViewerHandle, CamModelViewerProps>(f
       controlsRef.current.update();
     },
     raycastAt: (clientX, clientY) => raycastRef.current(clientX, clientY),
+    snapDentalLandmark: (site) => landmarkSnapRef.current(site),
     captureView: () => captureRef.current(),
     captureRegionThumbnail: (mark) => captureRegionRef.current(mark),
     zoomIn: () => zoomInRef.current(),
@@ -879,8 +979,9 @@ export const CamModelViewer = forwardRef<CamViewerHandle, CamModelViewerProps>(f
             onModelError={handleModelError}
             interactionMode={interactionMode}
             onViewChange={onViewChange}
+            jawPlacement={jawPlacement}
           />
-          <RaycastBridge meshGroupRef={meshGroupRef} raycastRef={raycastRef} />
+          <RaycastBridge meshGroupRef={meshGroupRef} raycastRef={raycastRef} landmarkSnapRef={landmarkSnapRef} />
           <CaptureBridge
             controlsRef={controlsRef}
             meshGroupRef={meshGroupRef}
